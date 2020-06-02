@@ -15,4 +15,6 @@ pip install -r requirements
 
 bash download_models.sh
 
+# how to generate controversial stimuli
 
+Use the script *make_contstim* to generate 
