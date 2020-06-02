@@ -39,4 +39,4 @@ lstm
 
 rnn
 
-coming soon: ngram
+coming soon: bigram & trigram
