@@ -15,7 +15,7 @@ CUDA Version: 10.2
 
 -> pip install -r requirements.txt
 
--> bash download_models.sh
+-> bash download_models.sh (This will download the rnn and lstm models from google drive. The transformer models will automatically download when the generation script is run.)
 
 # how to generate controversial stimuli
 
