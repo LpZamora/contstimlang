@@ -21,13 +21,20 @@ CUDA Version: 10.2
 
 Use the file **make_contstim** to generate controversial sentence pairs. There are two versions of this file – a python notebook and a python script. Both should work. There are three arguments that need to be hardcoded at the top of the scripts: model1, model2, and squashing_threshold.
 
-# models
+# models (will add ngram later)
 
 gpt2
+
 bert
+
 bert_whole_word
+
 roberta
+
 electra
+
 xlm
+
 lstm
+
 rnn
