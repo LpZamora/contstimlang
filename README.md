@@ -4,6 +4,7 @@ code for generating controversial stimuli
 # environment setup
 
 Python 3.7.6
+
 CUDA Version: 10.2 
 
 # how to install
