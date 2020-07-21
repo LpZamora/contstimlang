@@ -15,7 +15,7 @@ CUDA Version: 10.2
 
 -> pip install -r requirements.txt
 
--> bash download_models.sh (This will download the rnn and lstm models from google drive. The transformer models will automatically download when the generation script is run.)
+-> bash download_models.sh (This will download the following models from google drive: BIGRAM, TRIGRAM, RNN, LSTM, BILSTM. The transformer models will automatically download when the generation script is run.)
 
 # how to generate controversial stimuli
 
@@ -35,8 +35,12 @@ electra
 
 xlm
 
+bilstm
+
 lstm
 
 rnn
 
-coming soon: bigram & trigram
+trigram
+
+bigram
