@@ -23,24 +23,24 @@ Use the file **make_contstim** to generate controversial sentence pairs. There a
 
 # models 
 
-gpt2
+GPT2
 
-bert
+BERT
 
-bert_whole_word
+BERT_WHOLE_WORD
 
-roberta
+ROBERTA
 
-electra
+ELECTRA
 
-xlm
+XLM
 
-bilstm
+BILSTM
 
-lstm
+LSTM
 
-rnn
+RNN
 
-trigram
+TRIGRAM
 
-bigram
+BIGRAM
