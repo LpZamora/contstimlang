@@ -1,7 +1,7 @@
 import torch.nn as nn
 
 # RNN based language model
-class RNNLM_lstm(nn.Module):
+class RNNLM(nn.Module):
     def __init__(self, vocab_size, embed_size, hidden_size, num_layers):
         super(RNNLM, self).__init__()
         self.embed = nn.Embedding(vocab_size, embed_size)
