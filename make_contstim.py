@@ -1,47 +1,40 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[1]:
-
-
-#list of model names
-#gpt2
-#bert
-#bert_whole_word
-#roberta
-#electra
-#xlm
-#lstm
-#rnn
-
-squash_threshold=100 
-model1='electra'
-model2='lstm'
-
-
-# In[2]:
-
-
 import pickle
 import numpy as np
 import random
 import math
 
 from lstm_class import RNNLM
+from bilstm_class import RNNLM_bilstm
 from rnn_class import RNNModel
-
-exec('from ' +model1+'_functions import *')
-exec('from ' +model2+'_functions import *')
-
-exec('get_model1_sent_prob=' +model1+ '_sent_prob')
-exec('get_model1_word_probs=' +model1+ '_word_probs')
-exec('get_model2_sent_prob=' +model2+ '_sent_prob')
-exec('get_model2_word_probs=' +model2+ '_word_probs')
+from model_functions import model_factory
 
 
-# In[3]:
+#####################################################################
 
+model1_name='bert'
+model2_name='xlm'
 
+#bigram and trigram models run on CPU, so gpu_id will be ignored
+model1_gpu_id=0
+model2_gpu_id=0
+
+squash_threshold1=50 
+squash_threshold2=50 
+
+#set sentence length
+sent_len=8 
+
+#####################################################################
+
+model1=model_factory(model1_name,model1_gpu_id)
+model2=model_factory(model2_name,model2_gpu_id)
+
+get_model1_sent_prob=model1.sent_prob
+get_model2_sent_prob=model2.sent_prob
+get_model1_word_probs=model1.word_probs
+get_model2_word_probs=model2.word_probs
+
+#####################################################################
 
 with open('vocab_low.pkl', 'rb') as file:
     vocab_low=pickle.load(file) 
@@ -54,11 +47,10 @@ with open('vocab_cap.pkl', 'rb') as file:
     
 with open('vocab_cap_freqs.pkl', 'rb') as file:
     vocab_cap_freqs=pickle.load(file) 
-
-
-# In[4]:
-
-
+    
+#####################################################################   
+    
+    
 def squash(prob,squash_threshold):
     prob=10*np.log(1+math.e**((prob+squash_threshold)/10))-squash_threshold
     return prob
@@ -68,10 +60,10 @@ def cont_score(model1_sent1_prob,model1_sent2_prob,model2_sent1_prob,model2_sent
     
     gamma = 100 # subject noise
 
-    model1_sent1_prob=squash(np.log(model1_sent1_prob),squash_threshold)
-    model1_sent2_prob=squash(np.log(model1_sent2_prob),squash_threshold)
-    model2_sent1_prob=squash(np.log(model2_sent1_prob),squash_threshold)
-    model2_sent2_prob=squash(np.log(model2_sent2_prob),squash_threshold)
+    model1_sent1_prob=squash(np.log(model1_sent1_prob),squash_threshold1)
+    model1_sent2_prob=squash(np.log(model1_sent2_prob),squash_threshold1)
+    model2_sent1_prob=squash(np.log(model2_sent1_prob),squash_threshold2)
+    model2_sent2_prob=squash(np.log(model2_sent2_prob),squash_threshold2)
     
     s1a_b = model1_sent1_prob - model1_sent2_prob
     s2a_b = model2_sent1_prob - model2_sent2_prob
@@ -88,17 +80,16 @@ def cont_score(model1_sent1_prob,model1_sent2_prob,model2_sent1_prob,model2_sent
 
     # Mutual information of model and sentence pick
     # Each term is p(model,sent)*log(p(model,sent)/(p(model)*p(sent)))
-    conta = p1a * np.log2(p1a/((p1a+p2a)/2)) +              p2a * np.log2(p2a/((p1a+p2a)/2)) 
+    conta = p1a * np.log2(p1a/((p1a+p2a)/2)) + \
+             p2a * np.log2(p2a/((p1a+p2a)/2)) 
     
-    contb = p1b * np.log2(p1b/((p1b+p2b)/2)) +              p2b * np.log2(p2b/((p1b+p2b)/2))
+    contb = p1b * np.log2(p1b/((p1b+p2b)/2)) + \
+             p2b * np.log2(p2b/((p1b+p2b)/2))
     
     return conta,contb
 
+#####################################################################
 
-# In[ ]:
-
-
-sent_len=8
 
 wordi=np.arange(sent_len)
 wordis=[]  
@@ -107,19 +98,7 @@ for i in range(1000):
     wordis=wordis+list(wordi)
      
 words1=list(np.random.choice(vocab_cap, 1, p=vocab_cap_freqs)) + list(np.random.choice(vocab_low, sent_len-1, p=vocab_low_freqs, replace=False))
-#words2=list(np.random.choice(vocab_cap, 1, p=vocab_cap_freqs)) + list(np.random.choice(vocab_low, sent_len-1, p=vocab_low_freqs, replace=False))
 words2=words1.copy()
-
-# wordis=np.load('wordis.npy')
-
-# words1='Can be but the I leave justice hold'.split()
-# words2='Forget an it talking a take my guys'.split()
-
-# words1='Love you missing after make knew grow your'.split()
-# words2='Love you missing after make knew grow your'.split()
-
-# words1='Eric need nothing exchange honey truth past us'.split()
-# words2='Eric need nothing exchange honey truth past us'.split()
 
 
 words1o=words1.copy()
@@ -199,9 +178,6 @@ for samp in range(10000):
 
     word1_inds=list(set(model1_word1_inds)&set(model2_word1_inds))
     word2_inds=list(set(model1_word2_inds)&set(model2_word2_inds))
-    
-#     sys.e
-    
 
     model1_word1_probs=[model1_word1_probs[wi] for wi,i in enumerate(word1_inds) if i in model1_word1_inds]
     model1_word2_probs=[model1_word2_probs[wi] for wi,i in enumerate(word2_inds) if i in model1_word2_inds]
@@ -328,14 +304,7 @@ for samp in range(10000):
     print(sent2p)
     print('\n')
 
-
+#####################################################################
 
 
     
-
-
-# In[ ]:
-
-
-
-
