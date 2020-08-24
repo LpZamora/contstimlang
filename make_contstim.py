@@ -1,3 +1,9 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[ ]:
+
+
 import pickle
 import numpy as np
 import random
@@ -8,23 +14,32 @@ from bilstm_class import RNNLM_bilstm
 from rnn_class import RNNModel
 from model_functions import model_factory
 
+models=['bigram','trigram','rnn','lstm','bilstm','bert','bert_whole_word','roberta','xlm','electra','gpt2']
 
-#####################################################################
+rngs=np.load('prob_ranges.npy')
 
-model1_name='bert'
-model2_name='xlm'
+#model names
+model1_name='trigram'
+model2_name='rnn'
+
+rng1=rngs[models.index(model1_name)]
+rng2=rngs[models.index(model2_name)]
 
 #bigram and trigram models run on CPU, so gpu_id will be ignored
 model1_gpu_id=0
 model2_gpu_id=0
 
-squash_threshold1=50 
-squash_threshold2=50 
+#squashing thresholds for two models
+squash_threshold1=rng1[0]*-1 -10
+squash_threshold2=rng2[0]*-1 -10
 
-#set sentence length
-sent_len=8 
+#sentence length
+sent_len=8
 
-#####################################################################
+
+# In[ ]:
+
+
 
 model1=model_factory(model1_name,model1_gpu_id)
 model2=model_factory(model2_name,model2_gpu_id)
@@ -34,7 +49,10 @@ get_model2_sent_prob=model2.sent_prob
 get_model1_word_probs=model1.word_probs
 get_model2_word_probs=model2.word_probs
 
-#####################################################################
+
+# In[3]:
+
+
 
 with open('vocab_low.pkl', 'rb') as file:
     vocab_low=pickle.load(file) 
@@ -47,10 +65,11 @@ with open('vocab_cap.pkl', 'rb') as file:
     
 with open('vocab_cap_freqs.pkl', 'rb') as file:
     vocab_cap_freqs=pickle.load(file) 
-    
-#####################################################################   
-    
-    
+
+
+# In[4]:
+
+
 def squash(prob,squash_threshold):
     prob=10*np.log(1+math.e**((prob+squash_threshold)/10))-squash_threshold
     return prob
@@ -80,15 +99,14 @@ def cont_score(model1_sent1_prob,model1_sent2_prob,model2_sent1_prob,model2_sent
 
     # Mutual information of model and sentence pick
     # Each term is p(model,sent)*log(p(model,sent)/(p(model)*p(sent)))
-    conta = p1a * np.log2(p1a/((p1a+p2a)/2)) + \
-             p2a * np.log2(p2a/((p1a+p2a)/2)) 
+    conta = p1a * np.log2(p1a/((p1a+p2a)/2)) +              p2a * np.log2(p2a/((p1a+p2a)/2)) 
     
-    contb = p1b * np.log2(p1b/((p1b+p2b)/2)) + \
-             p2b * np.log2(p2b/((p1b+p2b)/2))
+    contb = p1b * np.log2(p1b/((p1b+p2b)/2)) +              p2b * np.log2(p2b/((p1b+p2b)/2))
     
     return conta,contb
 
-#####################################################################
+
+# In[7]:
 
 
 wordi=np.arange(sent_len)
@@ -304,7 +322,68 @@ for samp in range(10000):
     print(sent2p)
     print('\n')
 
-#####################################################################
+
 
 
     
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+

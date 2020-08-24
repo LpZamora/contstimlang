@@ -1152,7 +1152,7 @@ def lstm_sent_prob(self,sent):
 
     soft=torch.softmax(outputs,-1).cpu().data.numpy()
 
-    prob=float(np.prod([float(soft[wi,word2id[w]]) for wi,w in enumerate(words)]))
+    prob=float(np.prod([float(soft[wi,word2id[w]]) for wi,w in enumerate(words[1:])]))
 
     return prob
 
