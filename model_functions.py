@@ -909,7 +909,7 @@ def gpt2_word_probs(self,words,wordi):
     
     inputs=[i+[tokenizer.pad_token_id]*(maxlen-len(i)) for i in inputs]
     
-    batchsize=200
+    batchsize=100
 
     for i in range(int(np.ceil(len(inputs)/batchsize))):
 
