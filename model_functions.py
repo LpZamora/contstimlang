@@ -970,6 +970,11 @@ def bilstm_word_probs(self,words,wordi):
     vocab_size=self.vocab_size
     num_layers=self.num_layers
     
+    if wordi>0:
+        vocab=vocab_low
+    else:
+        vocab=vocab_cap
+    
     states = (torch.zeros(2, 1, hidden_size).to('cuda:'+str(gpu_id)),
                   torch.zeros(2, 1, hidden_size).to('cuda:'+str(gpu_id)))
 
@@ -982,6 +987,8 @@ def bilstm_word_probs(self,words,wordi):
     out, states = model(ids, states, 0, [wordi])
 
     soft=torch.softmax(out[0],-1).cpu().data.numpy()
+    
+    soft=soft[[word2id[v] for v in vocab]]
     
     return soft
 
