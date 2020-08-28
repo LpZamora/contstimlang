@@ -305,7 +305,7 @@ def get_token_info(self):
 
         ######################################################################    
 
-        batchsize=1000
+        batchsize=500
 
         unique_tokparts_low=[list(x) for x in set(tuple(x) for x in tps_low)]
 
@@ -584,7 +584,7 @@ def bidirectional_transformer_sent_prob(self,sent):
     
     inputs=torch.tensor(tokens_all).to('cuda:'+str(gpu_id))#.unsqueeze(0)
 
-    batchsize=1000
+    batchsize=500
     
     with torch.no_grad():
 
