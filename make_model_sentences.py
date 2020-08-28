@@ -88,7 +88,7 @@ for step_ind in range(10):
         vocab_low_freqs1=np.ones([len(vocab_low_freqs)])/len(vocab_low_freqs)
         vocab_cap_freqs1=np.ones([len(vocab_cap_freqs)])/len(vocab_cap_freqs)
 
-        words1=list(np.random.choice(vocab_cap, 1, p=vocab_cap_freqs)) + list(np.random.choice(vocab_low, sent_len-1, p=vocab_low_freqs, replace=False))
+        words1=list(np.random.choice(vocab_cap, 1, p=vocab_cap_freqs1)) + list(np.random.choice(vocab_low, sent_len-1, p=vocab_low_freqs1, replace=False))
 
         words1o=words1.copy()
 
