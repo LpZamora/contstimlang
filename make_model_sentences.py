@@ -110,6 +110,7 @@ for step_ind in range(10):
         for samp in range(10000):                     
             
             if step_ind<9 and np.log(model1_sent1_prob) > step_low and np.log(model1_sent1_prob) < step_high:
+                print('objective reached')
 
                 file.write(sent1+'.')
                 file.write('\n')
@@ -119,6 +120,7 @@ for step_ind in range(10):
                 break
                 
             elif step_ind==9 and cycle==8 and np.log(model1_sent1_prob) > step_low and np.log(model1_sent1_prob) < step_high:
+                print('objective reached')
 
                 file.write(sent1+'.')
                 file.write('\n')
@@ -128,9 +130,11 @@ for step_ind in range(10):
                 break   
                                
             elif np.log(model1_sent1_prob) > step_high:
+                print('overshot')
                 break
                                 
             elif np.log(model1_sent1_prob) < step_low and cycle==sent_len:
+                print('premature convergence')
                 break
                                 
             
