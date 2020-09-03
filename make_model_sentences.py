@@ -21,7 +21,7 @@ rngs=np.load('prob_ranges.npy')
 steps_all=np.zeros([11,10])
 for i,rng in enumerate(rngs):
     low=rng[0]-45
-    high=rng[1]-10
+    high=rng[1]-5
     steps=np.linspace(low,high,10)
     steps_all[i,:]=steps
 
