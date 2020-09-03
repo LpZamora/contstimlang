@@ -8,6 +8,8 @@ import random
 import pickle
 from knlm import KneserNey
 
+logsoftmax=torch.nn.LogSoftmax(dim=-1)
+
 ###############################################################
 
 with open('vocab_low.pkl', 'rb') as file:
@@ -450,7 +452,7 @@ def bidirectional_transformer_sent_prob(self,sent):
         out = model(input_ids=in1)[0]
         out=out[:,-2,:]   
         out[:,suffs]=math.inf*-1   
-        soft=torch.softmax(out,-1).cpu().data.numpy()
+        soft=logsoftmax(out).cpu().data.numpy()
     per_cent=soft[0,tokenizer.encode('.')[1:-1]]
 
                   
@@ -600,7 +602,7 @@ def bidirectional_transformer_sent_prob(self,sent):
                 elif x in suff_inds[1:]:
                     out[:,x-1,starts]=math.inf*-1
                     
-            soft=torch.softmax(out,-1)
+            soft=logsoftmax(out)
             
             soft=soft[:,:,word_tokens]
 
@@ -619,7 +621,7 @@ def bidirectional_transformer_sent_prob(self,sent):
                     elif x in suff_inds[1:]:
                         out1[:,x-1,starts]=math.inf*-1
 
-                soft1=torch.softmax(out1,-1)
+                soft1=logsoftmax(out1)
                 
                 soft1=soft1[:,:,word_tokens]
                 
@@ -637,7 +639,7 @@ def bidirectional_transformer_sent_prob(self,sent):
 
         orders=list(itertools.permutations(word_inds,i))
 
-        orders=random.sample(orders,100)
+        orders=random.sample(orders,500)
 
         for orderi,order in enumerate(orders):
 
@@ -661,7 +663,7 @@ def bidirectional_transformer_sent_prob(self,sent):
                             word_probs = torch.cat((word_probs, prob.unsqueeze(0)), 0)
 
 
-                    word_probs_prod=torch.prod(word_probs)
+                    word_probs_prod=torch.sum(word_probs)
 
                     if oi_all==0:
                         word_probs_all=word_probs_prod.unsqueeze(0)
@@ -676,7 +678,7 @@ def bidirectional_transformer_sent_prob(self,sent):
                 else:
                     chain_prob = torch.cat((chain_prob, word_prob.unsqueeze(0)), 0)
 
-            chain_prob_prod=torch.sum(torch.log(chain_prob))
+            chain_prob_prod=torch.sum(chain_prob)
 
             if chain_prob_prod==0:
                 sys.exit()
@@ -687,7 +689,7 @@ def bidirectional_transformer_sent_prob(self,sent):
                 chain_probs = torch.cat((chain_probs, chain_prob_prod.unsqueeze(0)), 0)
 
         
-        score=float(np.exp(float(np.mean(chain_probs.cpu().data.numpy())))*float(per_cent))
+        score=np.mean(chain_probs.cpu().data.numpy()) + per_cent
         
         return score
     
@@ -763,7 +765,7 @@ def bidirectional_transformer_word_probs(self,words,wordi):
 #             out1[:,0,suffs]=math.inf*-1               
 #             out1[:,1:,starts]=math.inf*-1
 
-            soft=torch.softmax(out1,-1)
+            soft=logsoftmax(out1)
             
             for vti in vocab_to_tokparts_inds_map_batch:
                 
@@ -777,11 +779,11 @@ def bidirectional_transformer_word_probs(self,words,wordi):
         probs=[]
         for y in range(len(vocab_probs_sheet[x])):
 
-            prob=np.prod(vocab_probs_sheet[x][y])
+            prob=np.sum(vocab_probs_sheet[x][y])
 
             probs.append(prob)
 
-        vocab_probs.append(float(np.exp(float(np.mean(np.log(probs))))))
+        vocab_probs.append(np.mean(probs))
 
     vocab_probs=np.array(vocab_probs)
     
@@ -817,17 +819,17 @@ def gpt2_sent_prob(self,sent):
         
         if lab in starts:
             
-            soft=torch.softmax(unsoft1[starts],-1)            
+            soft=logsoftmax(unsoft1[starts])            
             prob=float(soft[starts.index(lab)].cpu().data.numpy())
                       
         elif lab in suffs:
             
-            soft=torch.softmax(unsoft1[suffs],-1)          
+            soft=logsoftmax(unsoft1[suffs])          
             prob=float(soft[suffs.index(lab)].cpu().data.numpy())
             
         probs.append(prob)
         
-    prob=np.prod(probs)
+    prob=np.sum(probs)
     
     return prob
 
@@ -909,7 +911,7 @@ def gpt2_word_probs(self,words,wordi):
     
     inputs=[i+[tokenizer.pad_token_id]*(maxlen-len(i)) for i in inputs]
     
-    batchsize=100
+    batchsize=200
 
     for i in range(int(np.ceil(len(inputs)/batchsize))):
 
@@ -934,7 +936,7 @@ def gpt2_word_probs(self,words,wordi):
 #             for x in range(len(out_start_inds[0])):
 #                 out1[out_start_inds[0][x],out_start_inds[1][x]-1,suffs_cuda]=math.inf*-1
 
-            soft=torch.softmax(out1,-1)
+            soft=logsoftmax(out1)
             
        
             for v in range(len(inputs1)):
@@ -943,7 +945,7 @@ def gpt2_word_probs(self,words,wordi):
 
                 probs=torch.tensor([soft[v,n,inputs1[v][n+1]] for n in range(len(tok1)-1,numwords)])
 
-                prob=torch.prod(probs)#.cpu().data.numpy())
+                prob=torch.sum(probs)#.cpu().data.numpy())
 
                 if i==0 and v==0:
                     vocab_probs=prob.unsqueeze(0)
@@ -986,7 +988,7 @@ def bilstm_word_probs(self,words,wordi):
 
     out, states = model(ids, states, 0, [wordi])
 
-    soft=torch.softmax(out[0],-1).cpu().data.numpy()
+    soft=logsoftmax(out[0]).cpu().data.numpy()
     
     soft=soft[[word2id[v] for v in vocab]]
     
@@ -1037,7 +1039,7 @@ def bilstm_sent_prob(self,sent):
     
     out, states = model(chains, states, 0, np.arange(chains.shape[0]*chains.shape[1]))
 
-    soft=torch.softmax(out,-1)
+    soft=logsoftmax(out)
 
     soft=soft[:,word_ids]
 
@@ -1046,7 +1048,7 @@ def bilstm_sent_prob(self,sent):
     
     tok_perms=list(itertools.permutations(np.arange(len(words))))
 
-    tok_perms100=random.sample(tok_perms,100)
+    tok_perms100=random.sample(tok_perms,300)
 
     probs_all=[]
 
@@ -1062,11 +1064,11 @@ def bilstm_sent_prob(self,sent):
 
             chain=chains[key_ind]
 
-            prob=float(torch.prod(soft[key_ind,tp,tp]))
+            prob=float(torch.sum(soft[key_ind,tp,tp]))
 
             probs.append(prob)
 
-        probs_all.append(np.prod(probs))
+        probs_all.append(np.sum(probs))
         
     prob=np.mean(probs_all)
     
@@ -1100,10 +1102,10 @@ def lstm_word_probs(self,words,wordi):
 
     inputs = torch.tensor([word2id[w] for w in words]).to('cuda:'+str(gpu_id)).unsqueeze(0)
     outputs, states = model(inputs, states, 0)
-    soft=torch.softmax(outputs,-1).cpu().data.numpy()
+    soft=logsoftmax(outputs).cpu().data.numpy()
 
     ss = np.argsort(soft[wordi-1])[::-1]
-    top_words=[id2word[s] for s in ss[:3000]]
+    top_words=[id2word[s] for s in ss[:5000]]
     top_words=list(set(top_words)&set(vocab))
     inds=[vocab.index(t) for t in top_words]
 
@@ -1116,15 +1118,16 @@ def lstm_word_probs(self,words,wordi):
                           torch.zeros(num_layers, 1, hidden_size).to('cuda:'+str(gpu_id)))
 
         words[wordi]=w
+        
+        prob=lstm_sent_prob(self,' '.join(words))
 
-        inputs = torch.tensor([word2id[w] for w in words]).to('cuda:'+str(gpu_id)).unsqueeze(0)
+#         inputs = torch.tensor([word2id[w] for w in words]).to('cuda:'+str(gpu_id)).unsqueeze(0)
 
-        outputs, states = model(inputs, states, 0)
+#         outputs, states = model(inputs, states, 0)
 
+#         soft=torch.softmax(outputs,-1).cpu().data.numpy()
 
-        soft=torch.softmax(outputs,-1).cpu().data.numpy()
-
-        prob=float(np.prod([float(soft[wordi-1+x,word2id[w1]]) for x,w1 in enumerate(words[wordi:])]))
+#         prob=float(np.prod([float(soft[wordi-1+x,word2id[w1]]) for x,w1 in enumerate(words[wordi:])]))
 
         probs.append(prob)
 
@@ -1157,9 +1160,9 @@ def lstm_sent_prob(self,sent):
 
     outputs, states = model(inputs, states, 0)
 
-    soft=torch.softmax(outputs,-1).cpu().data.numpy()
+    soft=logsoftmax(outputs).cpu().data.numpy()
 
-    prob=float(np.prod([float(soft[wi,word2id[w]]) for wi,w in enumerate(words[1:])]))
+    prob=np.sum([float(soft[wi,word2id[w]]) for wi,w in enumerate(words[1:])])
 
     return prob
 
@@ -1189,9 +1192,9 @@ def rnn_sent_prob(self,sent):
 
     outputs, states = model(inputs, h0)
 
-    soft=torch.softmax(outputs,-1).cpu().data.numpy()[0]
+    soft=logsoftmax(outputs).cpu().data.numpy()[0]
 
-    prob=float(np.prod([float(soft[wi,word2id[w]]) for wi,w in enumerate(words[1:])]))
+    prob=np.sum([float(soft[wi,word2id[w]]) for wi,w in enumerate(words[1:])])
 
     return prob
 
@@ -1222,7 +1225,7 @@ def rnn_word_probs(self,words,wordi):
 
     inputs = torch.tensor([word2id[w] for w in words]).to('cuda:'+str(gpu_id)).unsqueeze(0)
     outputs, states = model(inputs, h0)
-    soft=torch.softmax(outputs,-1).cpu().data.numpy()[0]
+    soft=logsoftmax(outputs).cpu().data.numpy()[0]
 
     ss = np.argsort(soft[wordi-1])[::-1]
     top_words=[id2word[s] for s in ss[:3000]]
@@ -1238,15 +1241,17 @@ def rnn_word_probs(self,words,wordi):
                           torch.zeros(num_layers, 1, hidden_size).to('cuda:'+str(gpu_id)))
 
         words[wordi]=w
+        
+        prob=rnn_sent_prob(self,' '.join(words))
 
-        inputs = torch.tensor([word2id[w] for w in words]).to('cuda:'+str(gpu_id)).unsqueeze(0)
+#         inputs = torch.tensor([word2id[w] for w in words]).to('cuda:'+str(gpu_id)).unsqueeze(0)
 
-        outputs, states = model(inputs, h0)
+#         outputs, states = model(inputs, h0)
 
 
-        soft=torch.softmax(outputs,-1).cpu().data.numpy()[0]
+#         soft=torch.softmax(outputs,-1).cpu().data.numpy()[0]
 
-        prob=float(np.prod([float(soft[wordi-1+x,word2id[w1]]) for x,w1 in enumerate(words[wordi:])]))
+#         prob=float(np.prod([float(soft[wordi-1+x,word2id[w1]]) for x,w1 in enumerate(words[wordi:])]))
 
         probs.append(prob)
 
@@ -1262,7 +1267,7 @@ def trigram_sent_prob(self,sent):
     
     words=['<BOS1>','<BOS2>']+words+['.','<EOS1>']
     
-    prob=np.exp(model.evaluateSent(words))
+    prob=model.evaluateSent(words)
    
     return prob
 
@@ -1282,7 +1287,7 @@ def trigram_word_probs(self,words,wordi):
         
         words[wordi+2]=w
         
-        prob=np.exp(model.evaluateSent(words))
+        prob=model.evaluateSent(words)
         
         probs.append(prob)
         
@@ -1298,7 +1303,7 @@ def bigram_sent_prob(self,sent):
     
     words=['<BOS2>']+words+['.']
     
-    prob=np.exp(model.evaluateSent(words))
+    prob=model.evaluateSent(words)
    
     return prob
 
@@ -1318,7 +1323,7 @@ def bigram_word_probs(self,words,wordi):
         
         words[wordi+1]=w
         
-        prob=np.exp(model.evaluateSent(words))
+        prob=model.evaluateSent(words)
         
         probs.append(prob)
         

@@ -18,11 +18,11 @@ models=['bigram','trigram','rnn','lstm','bilstm','bert','bert_whole_word','rober
 
 #load probability ranges and get steps
 rngs=np.load('prob_ranges.npy')
-steps_all=np.zeros([11,11])
+steps_all=np.zeros([11,10])
 for i,rng in enumerate(rngs):
     low=rng[0]-45
-    high=rng[1]
-    steps=np.linspace(low,high,11)
+    high=rng[1]-10
+    steps=np.linspace(low,high,10)
     steps_all[i,:]=steps
 
 #turn on/off printing (1=on)
@@ -71,8 +71,7 @@ with open('vocab_cap_freqs.pkl', 'rb') as file:
 
 for step_ind in range(10):
     
-    step_low=steps[step_ind]
-    step_high=steps[step_ind+1]
+    step=steps[step_ind]
     
     file=open(model1_name+'_level_'+str(step_ind+1)+'.txt','w')
     
@@ -89,7 +88,7 @@ for step_ind in range(10):
         vocab_cap_freqs1=np.ones([len(vocab_cap_freqs)])/len(vocab_cap_freqs)
 
         words1=list(np.random.choice(vocab_cap, 1, p=vocab_cap_freqs1)) + list(np.random.choice(vocab_low, sent_len-1, p=vocab_low_freqs1, replace=False))
-
+                        
         words1o=words1.copy()
 
         sent1=' '.join(words1)
@@ -99,7 +98,8 @@ for step_ind in range(10):
         model1_sent1_prob=get_model1_sent_prob(sent1)
 
         if print_on==1:
-            print(model1_sent1_prob)
+            print('Target: '+str(step))
+            print('Current: '+str(model1_sent1_prob))
             print(sent1)
             print('\n')
 
@@ -107,37 +107,29 @@ for step_ind in range(10):
 
         cycle=0
         
-        for samp in range(10000):                     
-            
-            if step_ind<9 and np.log(model1_sent1_prob) > step_low and np.log(model1_sent1_prob) < step_high:
-                print('objective reached')
+   
+        for samp in range(10000):       
+        
+        
+        
+            if np.abs(model1_sent1_prob-step) < 1:
 
                 file.write(sent1+'.')
                 file.write('\n')
-                
-                num_sents+=1
-                
-                break
-                
-            elif step_ind==9 and cycle==8 and np.log(model1_sent1_prob) > step_low and np.log(model1_sent1_prob) < step_high:
-                print('objective reached')
 
-                file.write(sent1+'.')
-                file.write('\n')
-                
                 num_sents+=1
-                
+
                 break   
-                               
-            elif np.log(model1_sent1_prob) > step_high:
-                print('overshot')
+                
+            elif cycle==sent_len:
                 break
-                                
-            elif np.log(model1_sent1_prob) < step_low and cycle==sent_len:
-                print('premature convergence')
+
+            elif model1_sent1_prob - step > 1:
                 break
-                                
-            
+
+                
+                
+                
             if samp%sent_len==0:
                 cycle=0
 
@@ -153,26 +145,27 @@ for step_ind in range(10):
                 vocab=vocab_low
 
             model1_word1_probs = get_model1_word_probs(words1,wordi)
-            
-            
+
 
             if len(model1_word1_probs)==2:
                 model1_word1_inds=model1_word1_probs[1]
                 model1_word1_probs=model1_word1_probs[0]
             else:
                 model1_word1_inds=np.arange(len(vocab))
-                
-            
 
             words1=words1o.copy()
 
             word1_list=[vocab[w] for w in model1_word1_inds]
 
-            model1_word1_probs=model1_word1_probs/np.sum(model1_word1_probs)
+#             model1_word1_probs=model1_word1_probs/np.sum(model1_word1_probs)
         
-            word1_tops=[word1_list[vp] for vp in np.argsort(model1_word1_probs)[::-1][:10]] + [cur_word1]
+            word1_tops=[word1_list[vp] for vp in np.argsort(model1_word1_probs)[::-1][:50]] + [cur_word1]
+            
+     
+ 
 
             model1_sent1_probs=[]
+            model1_sent1_prob_diffs=[]
 
             sent1_conts12=[]
             sent2_conts21=[]
@@ -184,14 +177,21 @@ for step_ind in range(10):
                 words1t[wordi]=word1
 
                 sent1t=' '.join(words1t)
-
+                
                 model1_sent1t_prob=get_model1_sent_prob(sent1t)
 
                 model1_sent1_probs.append(model1_sent1t_prob)
-
-            aa=np.argmax(model1_sent1_probs)
-
-            new_word1=word1_tops[aa]
+                
+                if model1_sent1t_prob - step <= 1:
+                    break
+                
+                #model1_sent1_prob_diffs.append(np.abs(model1_sent1t_prob-step))
+                
+              
+            #aa=np.argmin(model1_sent1_prob_diffs)          
+            #new_word1=word1_tops[aa]
+            
+            new_word1=word1
 
             new_word1o=new_word1
 
@@ -210,12 +210,13 @@ for step_ind in range(10):
 
             sent1_last=sent1
 
-            model1_sent1_prob=get_model1_sent_prob(sent1)
+            model1_sent1_prob=model1_sent1t_prob
 
             probs_all_list.append(model1_sent1_prob)
 
             if print_on==1:
-                print(model1_sent1_prob)
+                print('Target: '+str(step))
+                print('Current: '+str(model1_sent1_prob))
                 print(sent1p)
                 print('\n')
 
@@ -223,12 +224,16 @@ for step_ind in range(10):
             
                 
             
-            
 
-            
-            
-            
-            
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
 
 
 
