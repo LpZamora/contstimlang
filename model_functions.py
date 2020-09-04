@@ -742,7 +742,7 @@ def bidirectional_transformer_word_probs(self,words,wordi):
     att_mask=np.ceil(np.array(inputs)/100000)
 
     inputs=torch.tensor(inputs).to('cuda:'+str(gpu_id))
-    att_mask=torch.tensor(att_mask).to('cuda:'+str(gpu_id))
+    att_mask=torch.tensor(att_mask,dtype=torch.float32).to('cuda:'+str(gpu_id))
 
     batchsize=1000
 
@@ -920,7 +920,7 @@ def gpt2_word_probs(self,words,wordi):
         att_mask1=att_mask[batchsize*i:batchsize*(i+1)]
 
         inputs2=torch.tensor(inputs1).to('cuda:'+str(gpu_id))
-        att_mask1=torch.tensor(att_mask1).to('cuda:'+str(gpu_id))
+        att_mask1=torch.tensor(att_mask1,dtype=torch.float32).to('cuda:'+str(gpu_id))
        
         
         with torch.no_grad():
