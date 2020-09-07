@@ -15,7 +15,8 @@ from bilstm_class import RNNLM_bilstm
 from rnn_class import RNNModel
 from model_functions import model_factory
 
-models=['bigram','trigram','rnn','lstm','bilstm','bert','bert_whole_word','roberta','xlm','electra','gpt2']
+#models=['bigram','trigram','rnn','lstm','bilstm','bert','bert_whole_word','roberta','xlm','electra','gpt2']
+models=['gpt2']
 
 # printing verbosity level
 verbose=3
@@ -38,7 +39,7 @@ def get_n_lines(fname):
 def exclusive_write_line(fname,line,max_lines):
     if not os.path.exists(os.path.dirname(fname)):
         pathlib.Path(os.path.dirname(fname)).mkdir(parents=True, exist_ok=True)
-    with portalocker.Lock(fnamr, mode='a+') as fh:
+    with portalocker.Lock(fname, mode='a+') as fh:
         n_lines_in_files=sum(1 for line in fh)
         if n_lines_in_files>=max_lines:
             print('max lines ('+str(max_lines) + ') in ' + fname + ' reached, not writing.')
