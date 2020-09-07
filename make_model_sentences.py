@@ -1,10 +1,14 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+import os
 import pickle
-import numpy as np
 import random
 import math
+import pathlib
+
+import numpy as np
+import portalocker
 
 from lstm_class import RNNLM
 from bilstm_class import RNNLM_bilstm
@@ -16,25 +20,31 @@ models=['bigram','trigram','rnn','lstm','bilstm','bert','bert_whole_word','rober
 # printing verbosity level
 verbose=3
 
-#model names
-model1_name='gpt2'
+max_sentences=60
 
 #bigram and trigram models run on CPU, so gpu_id will be ignored
 model1_gpu_id=0
 
-#get probability range for model 1
-rng=np.load('prob_ranges_10_90.npz')[model1_name]
-low=rng[0]-65
-high=rng[1]
-steps=np.linspace(low,high,10)
-
 #sentence length
 sent_len=8
 
-model1=model_factory(model1_name,model1_gpu_id)
+def get_n_lines(fname):
+    if not os.path.exists(fname):
+        return 0
+    else:
+        with open(fname,'r') as fh:
+            return sum(1 for line in fh)
 
-get_model1_sent_prob=model1.sent_prob
-get_model1_word_probs=model1.word_probs
+def exclusive_write_line(fname,line,max_lines):
+    if not os.path.exists(os.path.dirname(fname)):
+        pathlib.Path(os.path.dirname(fname)).mkdir(parents=True, exist_ok=True)
+    with portalocker.Lock(fnamr, mode='a+') as fh:
+        n_lines_in_files=sum(1 for line in fh)
+        if n_lines_in_files>=max_lines:
+            print('max lines ('+str(max_lines) + ') in ' + fname + ' reached, not writing.')
+        fh.write(line+'\n')
+        fh.flush()
+        os.fsync(fh.fileno())
 
 with open('vocab_low.pkl', 'rb') as file:
     vocab_low=pickle.load(file)
@@ -48,14 +58,30 @@ with open('vocab_cap.pkl', 'rb') as file:
 with open('vocab_cap_freqs.pkl', 'rb') as file:
     vocab_cap_freqs=pickle.load(file)
 
-for step_ind in range(10):
+for model1_name in models:
 
-    step=steps[step_ind]
+    model1=model_factory(model1_name,model1_gpu_id)
 
-    with open(model1_name+'_level_'+str(step_ind+1)+'.txt','w') as file: # close the file when script quits/breaks
+    get_model1_sent_prob=model1.sent_prob
+    get_model1_word_probs=model1.word_probs
 
-        num_sents=0
-        while num_sents<60:
+    #get probability range for model 1
+    rng=np.load('prob_ranges_10_90.npz')[model1_name]
+    low=rng[0]-65
+    high=rng[1]
+    steps=np.linspace(low,high,10)
+
+    for step_ind in range(10):
+
+        fname=os.path.join('synthesized_sentences',
+            'single_model_sentences_'+str(sent_len)+'_word'
+            ,model1_name+'_level_'+str(step_ind+1)+'.txt')
+
+        step=steps[step_ind]
+
+        while get_n_lines(fname)<max_sentences:
+
+            num_sents=get_n_lines(fname)
 
             wordi=np.arange(sent_len)
             wordis=[]
@@ -87,12 +113,11 @@ for step_ind in range(10):
 
             for samp in range(10000):
 
+                if get_n_lines(fname)>=max_sentences:
+                    break
+
                 if np.abs(model1_sent1_prob-step) < 1:
-
-                    file.write(sent1+'.')
-                    file.write('\n')
-
-                    num_sents+=1
+                    exclusive_write_line(fname,sent1+'.',max_lines=max_sentences)
                     print('target log-prob achieved, sentence added to file.')
                     break
 
