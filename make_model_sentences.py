@@ -231,7 +231,6 @@ for model1_name in models:
                     if loss_with_replacement<best_loss_so_far:
                         best_loss_so_far=loss_with_replacement
                         n_words_evaluated_without_loss_improvement=0
-                        print('.')
                     else:
                         n_words_evaluated_without_loss_improvement+=1
 
