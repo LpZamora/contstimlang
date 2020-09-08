@@ -51,7 +51,7 @@ class SetInterpolationSearch:
         if initial_observed_xs is not None:
             assert initial_observed_ys is not None, "observed ys must be provided if observed xs are provided"
             assert len(initial_observed_ys)==len(initial_observed_xs), "len(.) of initial observed xs and ys must match"
-            self.xs=np.atleast_1d(initial_observed_xs)
+            self.xs=np.atleast_1d(np.asarray(initial_observed_xs,dtype=int))
             self.ys=expand_to_matrix(initial_observed_ys)
             assert self.ys.shape[1]==self._K, "g.shape[1] must match shape(initial_observed_ys)[1]"
             self._xs_was_observed[self.xs]=True
@@ -81,7 +81,7 @@ class SetInterpolationSearch:
         if xs is None or ys is None:
             return
 
-        xs=np.atleast_1d(xs)
+        xs=np.atleast_1d(np.asarray(xs,dtype=int))
         ys=expand_to_matrix(ys)
 
         if len(xs)==0 or len(ys)==0:
@@ -137,14 +137,13 @@ class SetInterpolationSearch:
             plt.xlabel('g_'+str(k+1)+'(x)')
 
             plt.subplot(2,self._K,k*2+2)
-            plt.plot(self.g[self.xs,k],loss_fun(self.ys),'r--')
-            plt.scatter(self.g[self.xs,k],loss_fun(self.ys),c=np.arange(len(self.xs)),cmap='viridis')
+            plt.plot(self.g[self.xs,k],self.loss_fun(self.ys),'r--')
+            plt.scatter(self.g[self.xs,k],self.loss_fun(self.ys),c=np.arange(len(self.xs)),cmap='viridis')
             plt.xlabel('g_'+str(k+1)+'(x)')
             plt.ylabel('loss_fun(f(x))')
 
         plt.tight_layout()
         plt.show()
-
 
 if __name__ == "__main__":
 
