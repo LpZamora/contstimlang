@@ -14,6 +14,7 @@ from lstm_class import RNNLM
 from bilstm_class import RNNLM_bilstm
 from rnn_class import RNNModel
 from model_functions import model_factory
+from interpolation_search import SetInterpolationSearch
 
 #models=['bigram','trigram','rnn','lstm','bilstm','bert','bert_whole_word','roberta','xlm','electra','gpt2']
 models=['gpt2']
@@ -126,9 +127,9 @@ for model1_name in models:
                     print('premature convergence, restarting')
                     break
 
-                elif model1_sent1_prob - step > 1:
-                    print('overshoot log-prob, restarting')
-                    break
+                # elif model1_sent1_prob - step > 1:
+                #     print('overshoot log-prob, restarting')
+                #     break
 
                 if samp%sent_len==0:
                     cycle=0
@@ -153,47 +154,91 @@ for model1_name in models:
                     model1_word1_inds=np.arange(len(vocab))
 
                 words1=words1o.copy()
-
                 word1_list=[vocab[w] for w in model1_word1_inds]
 
-    #             model1_word1_probs=model1_word1_probs/np.sum(model1_word1_probs)
+                are_we_going_up=model1_sent1_prob<step
 
-                max_n_words_to_consider=50
-                word1_tops=[word1_list[vp] for vp in np.argsort(model1_word1_probs)[::-1][:max_n_words_to_consider] if word1_list[vp]!= cur_word1 ] # + [cur_word1] # why do we need to incldue cur_word1 here?
+                # setup word-level optimization *******
+                if cur_word1 in word1_list:
+                    # current word is included in model word-log-prob. Use it to inform the model
+                    cur_word_idx=word1_list.index(cur_word1)
+                    if are_we_going_up: # if the target log-probability is lower than the current log-probability,
+                        highest_logprob_word_idx=np.argmax(model1_word1_probs) # check first the highest log-probability word
+                        if highest_logprob_word_idx!=cur_word_idx:
+                            initial_xs_guesses=[highest_logprob_word_idx]
+                        else: # unless it's the same as the current word, then look for the second best
+                            second_highest_logprob_word_idx=np.argpartition(-model1_word1_probs,1)[1]
+                            initial_xs_guesses=[second_highest_logprob_word_idx]
+                    else: # going down
+                        lowest_logprob_word_idx=np.argmin(model1_word1_probs) # check first the lowest log-probability word
+                        if lowest_logprob_word_idx!=cur_word_idx:
+                            initial_xs_guesses=[lowest_logprob_word_idx]
+                        else: # unless it's the same as the current word, then look for the second lowest
+                            second_lowest_logprob_word_idx=np.argpartition(model1_word1_probs,1)[1]
+                            initial_xs_guesses=[second_lowest_logprob_word_idx]
 
-                model1_sent1_probs=[]
-                model1_sent1_prob_diffs=[]
+                    initial_observed_xs=[cur_word_idx]
+                    initial_observed_ys=[model1_sent1_prob]
 
-                sent1_conts12=[]
-                sent2_conts21=[]
+                else: # current word is not included in model word-log-prob. use bounds for an initial estimate
+                    highest_logprob_word_idx=np.argmax(model1_word1_probs)
+                    lowest_logprob_word_idx=np.argmin(model1_word1_probs) # check first the lowest log-probability word
 
+                    if are_we_going_up:
+                        initial_xs_guesses=[highest_logprob_word_idx,lowest_logprob_word_idx]
+                    else:
+                        initial_xs_guesses=[lowest_logprob_word_idx,highest_logprob_word_idx]
+
+                    initial_observed_xs=[]
+                    initial_observed_ys=[]
+
+                loss_fun=lambda log_p: abs(log_p-step)
+
+                opt=SetInterpolationSearch(loss_fun=loss_fun,
+                    g=model1_word1_probs, # we approximate sentence log-probabilities by the word log-probabilities
+                    initial_observed_xs=initial_observed_xs,initial_observed_ys=initial_observed_ys,
+                    initial_xs_guesses=initial_xs_guesses,
+                    h_method='LinearRegression')
+
+                cur_loss=loss_fun(model1_sent1_prob)
+                n_words_evaluated_without_loss_improvement=0
+                max_n_words_to_consider_without_loss_improvement=50
                 found_useful_replacement=False
-                for word1 in word1_tops:
+                best_loss_so_far=np.inf
 
+                while (not found_useful_replacement) and (n_words_evaluated_without_loss_improvement<max_n_words_to_consider_without_loss_improvement):
+                    next_word_idx=opt.yield_next_x()
+                    word1=word1_list[next_word_idx]
+
+                    # evaluate the sentence log-probability with the next word
                     words1t=words1o.copy()
-
                     words1t[wordi]=word1
-
                     sent1t=' '.join(words1t)
-
                     model1_sent1t_prob=get_model1_sent_prob(sent1t)
 
-                    model1_sent1_probs.append(model1_sent1t_prob)
+                    # update the optimizer
+                    opt.update_query_result(xs=[next_word_idx],ys=[model1_sent1t_prob])
 
-                    if (model1_sent1t_prob>model1_sent1_prob) and (model1_sent1t_prob - step <= 1):
-                        found_useful_replacement=True
-                        break
+                    loss_with_replacement=loss_fun(model1_sent1t_prob)
+
+                    if loss_with_replacement<best_loss_so_far:
+                        best_loss_so_far=loss_with_replacement
+                        n_words_evaluated_without_loss_improvement=0
+                        print('.')
                     else:
-                        if verbose>=3:
-                            if model1_sent1t_prob<=model1_sent1_prob:
-                                print(cur_word1 + '->' + word1 + ' does not improve log-prob (' + str(model1_sent1t_prob) + '<=' + str(model1_sent1_prob) + ')')
-                            else:
-                                print(cur_word1 + '->' + word1 + ' overshots log-prob (' + str(model1_sent1t_prob) + '>=' + str(step) + '+1)')
+                        n_words_evaluated_without_loss_improvement+=1
 
-                    #model1_sent1_prob_diffs.append(np.abs(model1_sent1t_prob-step))
+                    if loss_with_replacement<cur_loss:
+                        found_useful_replacement=True
 
-                #aa=np.argmin(model1_sent1_prob_diffs)
-                #new_word1=word1_tops[aa]
+                    if verbose>=3:
+                        print("{:<40} | log-prob: {:06.1f}→{:06.1f} | loss: {:06.1f}→ {:06.1f} | {:02d} words without loss improvement.".format(
+                            cur_word1+'→ '+word1,model1_sent1_prob,model1_sent1t_prob,cur_loss,loss_with_replacement,n_words_evaluated_without_loss_improvement))
+
+                # matplotlib plot of sentence probabilities as function of word probabilities
+                # if n_words_evaluated_without_loss_improvement>5:
+                #     opt.debugging_figure()
+
                 if found_useful_replacement:
                     new_word1=word1
                     new_word1o=new_word1
@@ -216,7 +261,6 @@ for model1_name in models:
                         print(sent1p)
                 else:
                     if verbose>=2:
-                        print('no useful replacement in top '+str(len(word1_tops))+' words for ' + cur_word1)
+                        print('no useful replacement for ' + cur_word1)
                     cycle+=1
-
-                probs_all_list.append(model1_sent1_prob)
+    del model1
