@@ -22,7 +22,7 @@ models=['bigram','trigram','rnn','lstm','bilstm','bert','bert_whole_word','rober
 # printing verbosity level
 verbose=3
 
-max_sentences=60
+max_sentences=2#60
 
 #bigram and trigram models run on CPU, so gpu_id will be ignored
 model1_gpu_id=0
@@ -62,7 +62,7 @@ with open('vocab_cap_freqs.pkl', 'rb') as file:
 
 model_loaded=False
 for model1_name in models:
-    for step_ind in range(10):
+    for step_ind in range(9):#range(10):
 
         fname=os.path.join('synthesized_sentences',
             'single_model_sentences_'+str(sent_len)+'_word'
@@ -111,7 +111,7 @@ for model1_name in models:
 
             if verbose>=2:
                 print('\n')
-                print('initialized sentence '+str(num_sents))
+                print('initialized sentence '+str(num_sents) +', model: '+model1_name+', step: '+str(step_ind))
                 print('Target: '+str(step))
                 print('Current: '+str(model1_sent1_prob))
                 print(sent1)
@@ -215,6 +215,10 @@ for model1_name in models:
 
                 while (not found_useful_replacement) and (n_words_evaluated_without_loss_improvement<max_n_words_to_consider_without_loss_improvement):
                     next_word_idx=opt.yield_next_x()
+                    if next_word_idx is None:
+                        if verbose>=3:
+                            print('word replacements exhausted.')
+                        break
                     word1=word1_list[next_word_idx]
 
                     # evaluate the sentence log-probability with the next word
@@ -238,7 +242,7 @@ for model1_name in models:
                         found_useful_replacement=True
 
                     if verbose>=3:
-                        print("{:<40} | log-prob: {:06.1f}→{:06.1f} | loss: {:06.1f}→ {:06.1f} | {:02d} words without loss improvement.".format(
+                        print("{:<40} | log-prob: {:06.1f}→ {:06.1f} | loss: {:06.1f}→ {:06.1f} | {:02d} words without loss improvement.".format(
                             cur_word1+'→ '+word1,model1_sent1_prob,model1_sent1t_prob,cur_loss,loss_with_replacement,n_words_evaluated_without_loss_improvement))
 
                 # matplotlib plot of sentence probabilities as function of word probabilities
