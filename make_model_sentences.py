@@ -16,8 +16,8 @@ from rnn_class import RNNModel
 from model_functions import model_factory
 from interpolation_search import SetInterpolationSearch
 
-#models=['bigram','trigram','rnn','lstm','bilstm','bert','bert_whole_word','roberta','xlm','electra','gpt2']
-models=['gpt2']
+models=['bigram','trigram','rnn','lstm','bilstm','bert','bert_whole_word','roberta','xlm','electra','gpt2']
+#models=['gpt2']
 
 # printing verbosity level
 verbose=3
@@ -60,24 +60,31 @@ with open('vocab_cap.pkl', 'rb') as file:
 with open('vocab_cap_freqs.pkl', 'rb') as file:
     vocab_cap_freqs=pickle.load(file)
 
+model_loaded=False
 for model1_name in models:
-
-    model1=model_factory(model1_name,model1_gpu_id)
-
-    get_model1_sent_prob=model1.sent_prob
-    get_model1_word_probs=model1.word_probs
-
-    #get probability range for model 1
-    rng=np.load('prob_ranges_10_90.npz')[model1_name]
-    low=rng[0]-65
-    high=rng[1]
-    steps=np.linspace(low,high,10)
-
     for step_ind in range(10):
 
         fname=os.path.join('synthesized_sentences',
             'single_model_sentences_'+str(sent_len)+'_word'
             ,model1_name+'_level_'+str(step_ind+1)+'.txt')
+
+        if get_n_lines(fname)>=max_sentences:
+            continue
+
+        if not model_loaded:
+            print("loading "+model1_name + " into gpu " + str(model1_gpu_id))
+            model1=model_factory(model1_name,model1_gpu_id)
+
+            get_model1_sent_prob=model1.sent_prob
+            get_model1_word_probs=model1.word_probs
+
+            #get probability range for model 1
+            rng=np.load('prob_ranges_10_90.npz')[model1_name]
+            low=rng[0]-65
+            high=rng[1]
+            steps=np.linspace(low,high,10)
+
+            model_loaded=True
 
         step=steps[step_ind]
 
@@ -263,4 +270,9 @@ for model1_name in models:
                     if verbose>=2:
                         print('no useful replacement for ' + cur_word1)
                     cycle+=1
-    del model1
+    if model_loaded:
+        del model1
+        del get_model1_sent_prob
+        del get_model1_word_probs
+        del steps
+        model_loaded=False
