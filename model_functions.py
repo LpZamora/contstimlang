@@ -132,6 +132,9 @@ class model_factory:
         elif self.name == 'bigram':
             prob=bigram_sent_prob(self,sent)
 
+        if type(prob) is np.ndarray:
+            prob=prob.item() # return a scalar!
+
         return prob
 
     def word_probs(self,words,wordi):
