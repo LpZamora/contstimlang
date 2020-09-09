@@ -704,6 +704,9 @@ def bidirectional_transformer_word_probs(self,words,wordi):
 
     tokenizer=self.tokenizer
     model=self.model
+    
+    starts=self.starts
+    suffs=self.suffs
 
     if wordi>0:
         vocab=self.vocab_low
@@ -747,7 +750,7 @@ def bidirectional_transformer_word_probs(self,words,wordi):
     inputs=torch.tensor(inputs).to('cuda:'+str(gpu_id))
     att_mask=torch.tensor(att_mask,dtype=torch.float32).to('cuda:'+str(gpu_id))
 
-    batchsize=1000
+    batchsize=500
 
     for i in range(int(np.ceil(len(inputs)/batchsize))):
 
@@ -765,8 +768,8 @@ def bidirectional_transformer_word_probs(self,words,wordi):
 
             out1=out1[:,wordi+1:wordi+7,:]
 
-#             out1[:,0,suffs]=math.inf*-1
-#             out1[:,1:,starts]=math.inf*-1
+            out1[:,0,suffs]=math.inf*-1
+            out1[:,1:,starts]=math.inf*-1
 
             soft=logsoftmax(out1)
 
@@ -929,15 +932,16 @@ def gpt2_word_probs(self,words,wordi):
         with torch.no_grad():
 
             out1=model(input_ids=inputs2,attention_mask=att_mask1)[0]
+            
+            out_suff_inds=torch.where(torch.tensor(np.in1d(inputs1,suffs).reshape(inputs1.shape[0],-1)).to('cuda:'+str(gpu_id))==True)
+            
+            out_start_inds=torch.where(torch.tensor(np.in1d(inputs1,starts).reshape(inputs1.shape[0],-1)).to('cuda:'+str(gpu_id))==True)
 
-            #out_suff_inds=torch.where(torch.tensor(np.in1d(inputs1,suffs).reshape(inputs1.shape[0],-1)).to('cuda:'+str(gpu_id))==True)
-            #out_start_inds=torch.where(torch.tensor(np.in1d(inputs1,starts).reshape(inputs1.shape[0],-1)).to('cuda:'+str(gpu_id))==True)
+            for x in range(len(out_suff_inds[0])):
+                out1[out_suff_inds[0][x],out_suff_inds[1][x]-1,starts]=math.inf*-1
 
-#             for x in range(len(out_suff_inds[0])):
-#                 out1[out_suff_inds[0][x],out_suff_inds[1][x]-1,starts_cuda]=math.inf*-1
-
-#             for x in range(len(out_start_inds[0])):
-#                 out1[out_start_inds[0][x],out_start_inds[1][x]-1,suffs_cuda]=math.inf*-1
+            for x in range(len(out_start_inds[0])):
+                out1[out_start_inds[0][x],out_start_inds[1][x]-1,suffs]=math.inf*-1
 
             soft=logsoftmax(out1)
 
@@ -946,7 +950,9 @@ def gpt2_word_probs(self,words,wordi):
 
                 numwords=len(np.where(inputs1[v]<tokenizer.pad_token_id)[0])-1
 
-                probs=torch.tensor([soft[v,n,inputs1[v][n+1]] for n in range(len(tok1)-1,numwords)])
+                #probs=torch.tensor([soft[v,n,inputs1[v][n+1]] for n in range(len(tok1)-1,numwords)])
+                
+                probs=torch.tensor([soft[v,n,inputs1[v][n+1]] for n in range(0,numwords)])
 
                 prob=torch.sum(probs)#.cpu().data.numpy())
 
@@ -1051,7 +1057,7 @@ def bilstm_sent_prob(self,sent):
 
     tok_perms=list(itertools.permutations(np.arange(len(words))))
 
-    tok_perms100=random.sample(tok_perms,300)
+    tok_perms100=random.sample(tok_perms,500)
 
     probs_all=[]
 
@@ -1108,7 +1114,7 @@ def lstm_word_probs(self,words,wordi):
     soft=logsoftmax(outputs).cpu().data.numpy()
 
     ss = np.argsort(soft[wordi-1])[::-1]
-    top_words=[id2word[s] for s in ss[:5000]]
+    top_words=[id2word[s] for s in ss]
     top_words=list(set(top_words)&set(vocab))
     inds=[vocab.index(t) for t in top_words]
 
@@ -1122,7 +1128,7 @@ def lstm_word_probs(self,words,wordi):
 
         words[wordi]=w
 
-        prob=lstm_sent_prob(self,' '.join(words))
+        prob=lstm_sent_prob(self,' '.join(words[1:-1]))
 
 #         inputs = torch.tensor([word2id[w] for w in words]).to('cuda:'+str(gpu_id)).unsqueeze(0)
 
@@ -1231,7 +1237,7 @@ def rnn_word_probs(self,words,wordi):
     soft=logsoftmax(outputs).cpu().data.numpy()[0]
 
     ss = np.argsort(soft[wordi-1])[::-1]
-    top_words=[id2word[s] for s in ss[:3000]]
+    top_words=[id2word[s] for s in ss]
     top_words=list(set(top_words)&set(vocab))
     inds=[vocab.index(t) for t in top_words]
 
@@ -1245,7 +1251,7 @@ def rnn_word_probs(self,words,wordi):
 
         words[wordi]=w
 
-        prob=rnn_sent_prob(self,' '.join(words))
+        prob=rnn_sent_prob(self,' '.join(words[1:-1]))
 
 #         inputs = torch.tensor([word2id[w] for w in words]).to('cuda:'+str(gpu_id)).unsqueeze(0)
 
