@@ -46,18 +46,14 @@ class SetInterpolationSearch:
         self.g=expand_to_matrix(g)
         self._N=self.g.shape[0]
         self._K=self.g.shape[1]
-        self._xs_was_observed=np.zeros((self._N,),dtype=bool)
+
+        self.ys=np.empty(shape=(self._N,self._K))
+        self.ys[:]=np.nan
 
         if initial_observed_xs is not None:
             assert initial_observed_ys is not None, "observed ys must be provided if observed xs are provided"
             assert len(initial_observed_ys)==len(initial_observed_xs), "len(.) of initial observed xs and ys must match"
-            self.xs=np.atleast_1d(np.asarray(initial_observed_xs,dtype=int))
-            self.ys=expand_to_matrix(initial_observed_ys)
-            assert self.ys.shape[1]==self._K, "g.shape[1] must match shape(initial_observed_ys)[1]"
-            self._xs_was_observed[self.xs]=True
-        else:
-            self.xs=np.empty(dtype=int,shape=(0,))
-            self.ys=np.empty(shape=(0,self._K))
+            self.update_query_result(xs=initial_observed_xs,ys=initial_observed_ys)
 
         if initial_xs_guesses is not None:
             self.initial_xs_guesses=list(initial_xs_guesses)
@@ -68,52 +64,89 @@ class SetInterpolationSearch:
         self._h_class={'LinearRegression':sklearn.linear_model.LinearRegression,
             }[h_method]
 
-    def update_query_result(self,xs,ys):
+    def update_query_result(self,xs,ys,k=None):
         """
         Record observed results.
 
         Parameters
         ----------
         xs : integer array_like (M,), indices of observed data points
-        ys : array_like (M,K), observed f(x) values
+        ys : array_like (M,K), observed f(x) values, or,
+             if k is not None, ys is expected to be an (M,)
+             vector which is used to update ys[:,k].
         """
 
         if xs is None or ys is None:
             return
 
         xs=np.atleast_1d(np.asarray(xs,dtype=int))
-        ys=expand_to_matrix(ys)
 
-        if len(xs)==0 or len(ys)==0:
-            return
+        if k is not None: # update particular variable
+            ys=np.atleast_1d(np.asarray(ys))
+            assert ys.ndim==1
+            not_nan_mask=np.logical_not(np.isnan(ys))
+            self.ys[xs,k]=np.where(not_nan_mask,ys,self.ys[xs,k])
+        else:
+            ys=expand_to_matrix(ys)
+            assert ys.shape[1]==self._K
+            not_nan_mask=np.logical_not(np.isnan(ys))
+            self.ys[xs]=np.where(not_nan_mask,ys,self.ys[xs])
 
-        self.xs=np.concatenate([self.xs,xs],0)
-        self.ys=np.concatenate([self.ys,ys],0)
-        self._xs_was_observed[xs]=True
-    def _calc_y_aprx(self,xs_to_predict):
+    def _calc_y_aprx(self,xs_to_predict,return_ground_truth_when_available=True):
+        xs_to_predict=np.asarray(xs_to_predict,dtype=int)
         y_aprx=np.empty(shape=(len(xs_to_predict),self._K))
         for k in range(self._K):
             h=self._h_class()
-            h.fit(X=expand_to_matrix(self.g[self.xs,k]),y=self.ys[:,k])
+            not_nan_mask=np.logical_not(np.isnan(self.ys[:,k]))
+            h.fit(X=expand_to_matrix(self.g[not_nan_mask,k]),y=self.ys[not_nan_mask,k])
             y_aprx[:,k]=h.predict(X=expand_to_matrix(self.g[xs_to_predict,k]))
+            if return_ground_truth_when_available:
+                y_aprx[:,k]=np.where(not_nan_mask[xs_to_predict],self.ys[xs_to_predict,k],y_aprx[:,k])
         return y_aprx
 
-    def yield_next_x(self):
+    def get_observed_loss_minimum(self):
+        """
+        yield the best observed x that minimizes loss_fun, and the corresponding loss
+        """
+        # this line can be optimized for speed by incremental updating
+        fully_observed_obs=np.flatnonzero(np.all(np.logical_not(np.isnan(self.ys)),axis=1))
+
+        if len(fully_observed_obs)==0:
+            return None
+
+        observed_loss=self.loss_fun(self.ys[fully_observed_obs])
+
+        minimum_index_in_observed_xs=np.nanargmin(observed_loss)
+        minimum_index=fully_observed_obs[minimum_index_in_observed_xs].item()
+        minimum_loss=observed_loss[minimum_index_in_observed_xs].item()
+        return minimum_index,minimum_loss
+
+    def get_unobserved_loss_minimum(self):
         """
         yield the best yet unobserved x that minimizes loss_fun
+
+        returns the index of the loss minimizer, the *predicted* loss at the point,
+        and the variable indices (e.g. [0,1] ) of the missing variables at that point
         """
 
         # use initial guesses first, if available
+
         if len(self.initial_xs_guesses)>0:
-            return self.initial_xs_guesses.pop(0)
+            minimum_index=self.initial_xs_guesses.pop(0)
+            minimum_loss=None
+        else:
+            # this line can be optimized for speed by incremental updating
+            unobserved_obs=np.flatnonzero(np.any(np.isnan(self.ys),axis=1))
 
-        unobserved_x_indecis=np.nonzero(np.logical_not(self._xs_was_observed))[0]
-
-        if len(unobserved_x_indecis)==0:
-            return None
-        y_aprx=self._calc_y_aprx(unobserved_x_indecis)
-        predicted_loss=self.loss_fun(y_aprx)
-        return unobserved_x_indecis[np.argmin(predicted_loss)]
+            if len(unobserved_obs)==0:
+                return None, None, []
+            y_aprx=self._calc_y_aprx(unobserved_obs)
+            predicted_loss=self.loss_fun(y_aprx)
+            minimum_index_in_unobserved_xs=np.argmin(predicted_loss)
+            minimum_index=unobserved_obs[minimum_index_in_unobserved_xs].item()
+            minimum_loss=predicted_loss[minimum_index_in_unobserved_xs].item()
+        which_variables_are_missing=np.flatnonzero(np.isnan(self.ys[minimum_index]))
+        return minimum_index,minimum_loss,which_variables_are_missing
 
     def debugging_figure(self):
         fig=plt.figure()
@@ -132,13 +165,15 @@ class SetInterpolationSearch:
             plt.plot(self.g[IX,k],y_aprx[IX,k],'k--')
 
             # plot observed xs and f(xs)
-            plt.scatter(self.g[self.xs,k],self.ys[:,k],c=np.arange(len(self.xs)),cmap='viridis')
+            observed_obs_mask=np.logical_not(np.isnan(self.ys[:,k]))
+            plt.scatter(self.g[observed_obs_mask,k],self.ys[observed_obs_mask,k])
             plt.ylabel('f_'+str(k+1)+'(x)')
             plt.xlabel('g_'+str(k+1)+'(x)')
 
+            fully_obs_mask=np.all(np.logical_not(np.isnan(self.ys)),axis=1)
             plt.subplot(2,self._K,k*2+2)
-            plt.plot(self.g[self.xs,k],self.loss_fun(self.ys),'r--')
-            plt.scatter(self.g[self.xs,k],self.loss_fun(self.ys),c=np.arange(len(self.xs)),cmap='viridis')
+            plt.plot(self.g[fully_obs_mask,k],self.loss_fun(y_aprx[fully_obs_mask]),'r--')
+            plt.scatter(self.g[fully_obs_mask,k],self.loss_fun(self.ys[fully_obs_mask]))
             plt.xlabel('g_'+str(k+1)+'(x)')
             plt.ylabel('loss_fun(f(x))')
 
@@ -152,8 +187,8 @@ if __name__ == "__main__":
     g_1=x
     g_2=100-x
     g=np.stack([g_1,g_2],axis=-1)
-    f_1=0.9*g_1+np.random.normal(size=g_1.shape)
-    f_2=2*g_2+np.random.normal(size=g_2.shape)-1
+    f_1=0.9*g_1+np.random.normal(size=g_1.shape)*10
+    f_2=2*g_2+np.random.normal(size=g_2.shape)*10-1
     f=np.stack([f_1,f_2],axis=-1)
     loss_fun=lambda f: abs(f[:,0]-f[:,1])
 
@@ -168,15 +203,19 @@ if __name__ == "__main__":
     print('real minimum is at ',np.argmin(loss_fun(f[x])).item())
 
     for i in range(100):
-        next_x=opt.yield_next_x()
+        next_x,predicted_loss,missing_variables=opt.get_unobserved_loss_minimum()
         if next_x is None:
             print('predictions depleted')
             break
         next_y=f[next_x,:].reshape(1,-1)
         next_loss=loss_fun(next_y)
-        opt.update_query_result(xs=next_x,ys=next_y)
+
+        # to test the code, let's update just one variable
+        variable_to_update=np.random.choice(missing_variables)
+        opt.update_query_result(xs=next_x,ys=next_y[:,variable_to_update],k=variable_to_update)
         print('next_x:',next_x,'next_y:',next_y,'next_loss:',next_loss)
-        if next_x==np.argmin(loss_fun(f[x])).item():
+        minimum_index,best_loss=opt.get_observed_loss_minimum()
+        if minimum_index==np.argmin(loss_fun(f[x])).item():
             print('root found')
             opt.update_query_result(xs=next_x,ys=next_y)
             break

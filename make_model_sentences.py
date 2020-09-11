@@ -17,12 +17,11 @@ from model_functions import model_factory
 from interpolation_search import SetInterpolationSearch
 
 models=['bigram','trigram','rnn','lstm','bilstm','bert','bert_whole_word','roberta','xlm','electra','gpt2']
-#models=['gpt2']
 
 # printing verbosity level
 verbose=3
 
-max_sentences=2#60
+max_sentences=3#60
 
 #bigram and trigram models run on CPU, so gpu_id will be ignored
 model1_gpu_id=0
@@ -62,10 +61,10 @@ with open('vocab_cap_freqs.pkl', 'rb') as file:
 
 model_loaded=False
 for model1_name in models:
-    for step_ind in range(9):#range(10):
+    for step_ind in range(10):
 
         fname=os.path.join('synthesized_sentences',
-            'single_model_sentences_'+str(sent_len)+'_word'
+            '20200910_'+'single_model_sentences_'+str(sent_len)+'_word'
             ,model1_name+'_level_'+str(step_ind+1)+'.txt')
 
         if get_n_lines(fname)>=max_sentences:
@@ -79,8 +78,8 @@ for model1_name in models:
             get_model1_word_probs=model1.word_probs
 
             #get probability range for model 1
-            rng=np.load('prob_ranges_10_90.npz')[model1_name]
-            low=rng[0]-65
+            rng=np.load('prob_ranges_all_models.npz')[model1_name]
+            low=rng[0]
             high=rng[1]
             steps=np.linspace(low,high,10)
 
@@ -165,39 +164,45 @@ for model1_name in models:
 
                 are_we_going_up=model1_sent1_prob<step
 
-                # setup word-level optimization *******
-                if cur_word1 in word1_list:
-                    # current word is included in model word-log-prob. Use it to inform the model
-                    cur_word_idx=word1_list.index(cur_word1)
-                    if are_we_going_up: # if the target log-probability is lower than the current log-probability,
-                        highest_logprob_word_idx=np.argmax(model1_word1_probs) # check first the highest log-probability word
-                        if highest_logprob_word_idx!=cur_word_idx:
-                            initial_xs_guesses=[highest_logprob_word_idx]
-                        else: # unless it's the same as the current word, then look for the second best
-                            second_highest_logprob_word_idx=np.argpartition(-model1_word1_probs,1)[1]
-                            initial_xs_guesses=[second_highest_logprob_word_idx]
-                    else: # going down
+                if model1_name in ['gpt-2','rnn','lstm']:
+                    # these models currently return a long list of actual sentence probability for their top-words
+                    initial_observed_xs=np.arange(len(model1_word1_probs))
+                    initial_observed_ys=model1_word1_probs
+                    initial_xs_guesses=[]
+                else: # for other model, word-prob is an approximation of sentence probability
+                    # setup word-level optimization *******
+                    if cur_word1 in word1_list:
+                        # current word is included in model word-log-prob. Use it to inform the model
+                        cur_word_idx=word1_list.index(cur_word1)
+                        if are_we_going_up: # if the target log-probability is lower than the current log-probability,
+                            highest_logprob_word_idx=np.argmax(model1_word1_probs) # check first the highest log-probability word
+                            if highest_logprob_word_idx!=cur_word_idx:
+                                initial_xs_guesses=[highest_logprob_word_idx]
+                            else: # unless it's the same as the current word, then look for the second best
+                                second_highest_logprob_word_idx=np.argpartition(-model1_word1_probs,1)[1]
+                                initial_xs_guesses=[second_highest_logprob_word_idx]
+                        else: # going down
+                            lowest_logprob_word_idx=np.argmin(model1_word1_probs) # check first the lowest log-probability word
+                            if lowest_logprob_word_idx!=cur_word_idx:
+                                initial_xs_guesses=[lowest_logprob_word_idx]
+                            else: # unless it's the same as the current word, then look for the second lowest
+                                second_lowest_logprob_word_idx=np.argpartition(model1_word1_probs,1)[1]
+                                initial_xs_guesses=[second_lowest_logprob_word_idx]
+
+                        initial_observed_xs=[cur_word_idx]
+                        initial_observed_ys=[model1_sent1_prob]
+
+                    else: # current word is not included in model word-log-prob. use bounds for an initial estimate
+                        highest_logprob_word_idx=np.argmax(model1_word1_probs)
                         lowest_logprob_word_idx=np.argmin(model1_word1_probs) # check first the lowest log-probability word
-                        if lowest_logprob_word_idx!=cur_word_idx:
-                            initial_xs_guesses=[lowest_logprob_word_idx]
-                        else: # unless it's the same as the current word, then look for the second lowest
-                            second_lowest_logprob_word_idx=np.argpartition(model1_word1_probs,1)[1]
-                            initial_xs_guesses=[second_lowest_logprob_word_idx]
 
-                    initial_observed_xs=[cur_word_idx]
-                    initial_observed_ys=[model1_sent1_prob]
+                        if are_we_going_up:
+                            initial_xs_guesses=[highest_logprob_word_idx,lowest_logprob_word_idx]
+                        else:
+                            initial_xs_guesses=[lowest_logprob_word_idx,highest_logprob_word_idx]
 
-                else: # current word is not included in model word-log-prob. use bounds for an initial estimate
-                    highest_logprob_word_idx=np.argmax(model1_word1_probs)
-                    lowest_logprob_word_idx=np.argmin(model1_word1_probs) # check first the lowest log-probability word
-
-                    if are_we_going_up:
-                        initial_xs_guesses=[highest_logprob_word_idx,lowest_logprob_word_idx]
-                    else:
-                        initial_xs_guesses=[lowest_logprob_word_idx,highest_logprob_word_idx]
-
-                    initial_observed_xs=[]
-                    initial_observed_ys=[]
+                        initial_observed_xs=[]
+                        initial_observed_ys=[]
 
                 loss_fun=lambda log_p: abs(log_p-step)
 
@@ -212,45 +217,64 @@ for model1_name in models:
                 max_n_words_to_consider_without_loss_improvement=50
                 found_useful_replacement=False
                 best_loss_so_far=np.inf
-
+                best_word1_model1_sent1t_prob=None
+                best_word1=None
+                word_iteration=0
                 while (not found_useful_replacement) and (n_words_evaluated_without_loss_improvement<max_n_words_to_consider_without_loss_improvement):
-                    next_word_idx=opt.yield_next_x()
-                    if next_word_idx is None:
+                    word_iteration+=1
+
+                    if word_iteration>1 and not found_useful_replacement:
+                        evaluation_word_idx,_,_=opt.get_unobserved_loss_minimum()
+                        if evaluation_word_idx is None:
+                            if verbose>=3:
+                                print('word replacements exhausted.')
+                            break
+                        word1=word1_list[evaluation_word_idx]
+
+                        # evaluate the sentence log-probability with the next word
+                        words1t=words1o.copy()
+                        words1t[wordi]=word1
+                        sent1t=' '.join(words1t)
+                        model1_sent1t_prob=get_model1_sent_prob(sent1t)
+
+                        # update the optimizer
+                        opt.update_query_result(xs=[evaluation_word_idx],ys=[model1_sent1t_prob])
+
                         if verbose>=3:
-                            print('word replacements exhausted.')
-                        break
-                    word1=word1_list[next_word_idx]
+                            print("evaluated: {:<30} | log-prob: {:06.1f}→ {:06.1f} | ".format(
+                                cur_word1+'→ '+word1,model1_sent1_prob,model1_sent1t_prob,),end='')
 
-                    # evaluate the sentence log-probability with the next word
-                    words1t=words1o.copy()
-                    words1t[wordi]=word1
-                    sent1t=' '.join(words1t)
-                    model1_sent1t_prob=get_model1_sent_prob(sent1t)
+                    # check the updated, observed global minimum
+                    minimum_loss_word_idx,minimum_loss=opt.get_observed_loss_minimum()
 
-                    # update the optimizer
-                    opt.update_query_result(xs=[next_word_idx],ys=[model1_sent1t_prob])
+                    if minimum_loss is not None:
 
-                    loss_with_replacement=loss_fun(model1_sent1t_prob)
+                        if minimum_loss<best_loss_so_far: # track relative improvement (used for stopping criterion)
+                            best_word1=word1_list[minimum_loss_word_idx]
+                            best_word1_model1_sent1t_prob=opt.ys[minimum_loss_word_idx].item()
+                            best_loss_so_far=minimum_loss
+                            n_words_evaluated_without_loss_improvement=0
 
-                    if loss_with_replacement<best_loss_so_far:
-                        best_loss_so_far=loss_with_replacement
-                        n_words_evaluated_without_loss_improvement=0
-                    else:
-                        n_words_evaluated_without_loss_improvement+=1
+                            if minimum_loss<cur_loss: # absolute improvement - stop word-level search
+                                found_useful_replacement=True
+                        else:
+                            n_words_evaluated_without_loss_improvement+=1
 
-                    if loss_with_replacement<cur_loss:
-                        found_useful_replacement=True
-
-                    if verbose>=3:
-                        print("{:<40} | log-prob: {:06.1f}→ {:06.1f} | loss: {:06.1f}→ {:06.1f} | {:02d} words without loss improvement.".format(
-                            cur_word1+'→ '+word1,model1_sent1_prob,model1_sent1t_prob,cur_loss,loss_with_replacement,n_words_evaluated_without_loss_improvement))
+                        if verbose>=3:
+                                print("best replacement: {:<30} | log-prob: {:06.1f}→ {:06.1f} | loss: {:06.1f}→ {:06.1f}".format(
+                                    cur_word1+'→ '+best_word1,model1_sent1_prob,best_word1_model1_sent1t_prob,cur_loss,best_loss_so_far,)
+                                    ,end='')
+                                if n_words_evaluated_without_loss_improvement>0:
+                                    print(" | {:02d} words without loss improvement.".format(n_words_evaluated_without_loss_improvement))
+                                else:
+                                    print("")
 
                 # matplotlib plot of sentence probabilities as function of word probabilities
                 # if n_words_evaluated_without_loss_improvement>5:
                 #     opt.debugging_figure()
 
                 if found_useful_replacement:
-                    new_word1=word1
+                    new_word1=best_word1
                     new_word1o=new_word1
 
                     words1[wordi]=new_word1.upper()
@@ -263,7 +287,14 @@ for model1_name in models:
 
                     sent1=' '.join(words1)
 
-                    model1_sent1_prob=model1_sent1t_prob
+                    # this evaluation is superfluous because best_word1_model1_sent1t_prob
+                    # already has the probability of the current sentence
+                    # this is included here as a sanity check
+                    model1_sent1_prob=get_model1_sent_prob(sent1)
+
+                    # this is faster:
+#                    model1_sent1_prob=best_word1_model1_sent1t_prob
+                    assert(np.isclose(model1_sent1_prob,best_word1_model1_sent1t_prob))
 
                     if verbose>=2:
                         print('Target: '+str(step))
