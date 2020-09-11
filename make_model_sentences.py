@@ -164,7 +164,7 @@ for model1_name in models:
 
                 are_we_going_up=model1_sent1_prob<step
 
-                if model1_name in ['gpt-2','rnn','lstm']:
+                if model1_name in ['gpt2','rnn','lstm']:
                     # these models currently return a long list of actual sentence probability for their top-words
                     initial_observed_xs=np.arange(len(model1_word1_probs))
                     initial_observed_ys=model1_word1_probs
