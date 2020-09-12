@@ -104,13 +104,15 @@ class SetInterpolationSearch:
                 y_aprx[:,k]=np.where(not_nan_mask[xs_to_predict],self.ys[xs_to_predict,k],y_aprx[:,k])
         return y_aprx
 
+    def fully_observed_obs(self):
+        # this line can be optimized for speed by incremental updating
+        return np.flatnonzero(np.all(np.logical_not(np.isnan(self.ys)),axis=1))
+
     def get_observed_loss_minimum(self):
         """
         yield the best observed x that minimizes loss_fun, and the corresponding loss
         """
-        # this line can be optimized for speed by incremental updating
-        fully_observed_obs=np.flatnonzero(np.all(np.logical_not(np.isnan(self.ys)),axis=1))
-
+        fully_observed_obs=self.fully_observed_obs()
         if len(fully_observed_obs)==0:
             return None
 

@@ -16,12 +16,14 @@ from rnn_class import RNNModel
 from model_functions import model_factory
 from interpolation_search import SetInterpolationSearch
 
-models=['bigram','trigram','rnn','lstm','bilstm','bert','bert_whole_word','roberta','xlm','electra','gpt2']
+#models=['bigram','trigram','rnn','lstm','bilstm','bert','bert_whole_word','roberta','xlm','electra','gpt2']
+
+models=['bigram','trigram','rnn','lstm','gpt2']
 
 # printing verbosity level
 verbose=3
 
-max_sentences=3#60
+max_sentences=60
 
 #bigram and trigram models run on CPU, so gpu_id will be ignored
 model1_gpu_id=0
@@ -265,7 +267,7 @@ for model1_name in models:
                                     cur_word1+'→ '+best_word1,model1_sent1_prob,best_word1_model1_sent1t_prob,cur_loss,best_loss_so_far,)
                                     ,end='')
                                 if n_words_evaluated_without_loss_improvement>0:
-                                    print(" | {:02d} words without loss improvement.".format(n_words_evaluated_without_loss_improvement))
+                                    print(" | {:02d} words w/o loss improvement.".format(n_words_evaluated_without_loss_improvement))
                                 else:
                                     print("")
 
@@ -294,7 +296,7 @@ for model1_name in models:
 
                     # this is faster:
 #                    model1_sent1_prob=best_word1_model1_sent1t_prob
-                    assert(np.isclose(model1_sent1_prob,best_word1_model1_sent1t_prob))
+                    assert(np.isclose(model1_sent1_prob,best_word1_model1_sent1t_prob,rtol=1e-3))
 
                     if verbose>=2:
                         print('Target: '+str(step))
@@ -302,7 +304,7 @@ for model1_name in models:
                         print(sent1p)
                 else:
                     if verbose>=2:
-                        print('no useful replacement for ' + cur_word1)
+                        print('no useful replacement for ' + cur_word1 +  ' (a total of {} possible sentence considered.)'.format(len(opt.fully_observed_obs())))
                     cycle+=1
     if model_loaded:
         del model1
