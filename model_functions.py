@@ -7,6 +7,7 @@ import itertools
 import random
 import pickle
 from knlm import KneserNey
+import time
 
 logsoftmax=torch.nn.LogSoftmax(dim=-1)
 
@@ -139,9 +140,12 @@ class model_factory:
 
     def word_probs(self,words,wordi):
 
-        if self.name in ['bert','bert_whole_word','roberta','xlm','electra']:
+        if self.name in ['bert','bert_whole_word','roberta','electra']:
             probs=bidirectional_transformer_word_probs(self, words, wordi)
 
+        elif self.name == 'xlm':
+             probs=xlm_word_probs(self, words, wordi)
+            
         elif self.name == 'gpt2':
             probs=gpt2_word_probs(self, words, wordi)
 
@@ -261,12 +265,12 @@ def get_token_info(self):
         for ti,tokens in enumerate(toklist_low):
 
             tokparts_all=[]
-            tokens=[tokenizer.mask_token_id]*len(tokens)
+            tokens1=[tokenizer.mask_token_id]*len(tokens)
             tok_perms=list(itertools.permutations(np.arange(len(tokens)),len(tokens)))
 
             for perms in tok_perms:
 
-                tokparts=[tokens]
+                tokparts=[tokens1]
                 tokpart=[tokenizer.mask_token_id]*len(tokens)
                 tps_low.append(tokpart.copy())
 
@@ -280,19 +284,19 @@ def get_token_info(self):
 
             tokparts_all_low.append(tokparts_all)
 
-
+        
 
         tokparts_all_cap=[]
         tps_cap=[]
         for ti,tokens in enumerate(toklist_cap):
 
             tokparts_all=[]
-            tokens=[tokenizer.mask_token_id]*len(tokens)
+            tokens1=[tokenizer.mask_token_id]*len(tokens)
             tok_perms=list(itertools.permutations(np.arange(len(tokens)),len(tokens)))
 
             for perms in tok_perms:
 
-                tokparts=[tokens]
+                tokparts=[tokens1]
                 tokpart=[tokenizer.mask_token_id]*len(tokens)
                 tps_cap.append(tokpart.copy())
 
@@ -422,7 +426,6 @@ def get_token_info(self):
             vocab_probs_sheet_cap.append(voc_cap_all)
 
             vocab_to_tokparts_inds_cap.append(vocab_to_inds_cap)
-
 
             self.vocab_low=vocab_low
             self.unique_tokparts_low=unique_tokparts_low
@@ -705,6 +708,7 @@ def bidirectional_transformer_word_probs(self,words,wordi):
     tokenizer=self.tokenizer
     model=self.model
     
+    name=self.name
     starts=self.starts
     suffs=self.suffs
 
@@ -740,12 +744,11 @@ def bidirectional_transformer_word_probs(self,words,wordi):
         in1=tok1 + un + tok2
         inputs.append(in1)
 
-
     maxlen=np.max([len(i) for i in inputs])
 
     inputs=[i+[0]*(maxlen-len(i)) for i in inputs]
-
-    att_mask=np.ceil(np.array(inputs)/100000)
+    
+    att_mask=[[1]*len(i)+[0]*(maxlen-len(i)) for i in inputs]
 
     inputs=torch.tensor(inputs).to('cuda:'+str(gpu_id))
     att_mask=torch.tensor(att_mask,dtype=torch.float32).to('cuda:'+str(gpu_id))
@@ -766,12 +769,132 @@ def bidirectional_transformer_word_probs(self,words,wordi):
 
             out1=model(inputs1,attention_mask=att_mask1)[0]
 
-            out1=out1[:,wordi+1:wordi+7,:]
+            out1=out1[:,mask_ind:mask_ind+6,:]
 
             out1[:,0,suffs]=math.inf*-1
             out1[:,1:,starts]=math.inf*-1
 
             soft=logsoftmax(out1)
+
+            for vti in vocab_to_tokparts_inds_map_batch:
+
+                vocab_probs_sheet[vti[0][0]][vti[0][1]][vti[0][2]]=float(soft[vti[1][0],vti[1][1],vti[1][2]])
+
+            del soft
+
+    vocab_probs=[]
+    for x in range(len(vocab_probs_sheet)):
+
+        probs=[]
+        for y in range(len(vocab_probs_sheet[x])):
+
+            prob=np.sum(vocab_probs_sheet[x][y])
+
+            probs.append(prob)
+
+        vocab_probs.append(np.mean(probs))
+
+    vocab_probs=np.array(vocab_probs)
+
+    return vocab_probs
+
+
+def xlm_word_probs(self,words,wordi):
+
+    gpu_id=self.gpu_id
+
+    tokenizer=self.tokenizer
+    model=self.model
+    
+    name=self.name
+    starts=self.starts
+    suffs=self.suffs
+
+    if wordi>0:
+        vocab=self.vocab_low
+        unique_tokparts=self.unique_tokparts_low
+        vocab_probs_sheet=self.vocab_probs_sheet_low
+        vocab_to_tokparts_inds_map=self.vocab_to_tokparts_inds_map_low
+    else:
+        vocab=self.vocab_cap
+        unique_tokparts=self.unique_tokparts_cap
+        vocab_probs_sheet=self.vocab_probs_sheet_cap
+        vocab_to_tokparts_inds_map=self.vocab_to_tokparts_inds_map_cap
+
+
+    words1=words.copy()
+    words2=words.copy()
+
+    words[wordi]=tokenizer.mask_token
+    
+    sent_len=len(words)
+
+    sent=' '.join(words)
+
+    tokens=tokenizer.encode(sent+'.')
+
+    mask_ind=tokens.index(tokenizer.mask_token_id)
+
+    tok1=tokens[:mask_ind]
+    tok2=tokens[mask_ind+1:]
+
+    inputs=[]
+    for un in unique_tokparts:
+
+        in1=tok1 + un + tok2
+        inputs.append(in1)
+
+    maxlen=np.max([len(i) for i in inputs])
+    
+    att0s_all=[maxlen-len(i) for i in inputs]
+
+    inputs=[[0]*(maxlen-len(i))+i for i in inputs]
+    
+    att_mask=[[0]*(maxlen-len(i))+[1]*len(i) for i in inputs]
+
+
+    inputs=torch.tensor(inputs).to('cuda:'+str(gpu_id))
+    att_mask=torch.tensor(att_mask,dtype=torch.float32).to('cuda:'+str(gpu_id))
+
+    batchsize=500
+
+    for i in range(int(np.ceil(len(inputs)/batchsize))):
+
+        vocab_to_tokparts_inds_map_batch=vocab_to_tokparts_inds_map[i]
+
+        inputs1=inputs[batchsize*i:batchsize*(i+1)]
+        
+        att0s=att0s_all[batchsize*i:batchsize*(i+1)]
+        
+        att_mask1=att_mask[batchsize*i:batchsize*(i+1)]
+
+        mask_inds=[torch.where(inp==tokenizer.mask_token_id)[0]-wordi-1 for inp in inputs1]
+
+        with torch.no_grad():
+
+            out1=model(inputs1,attention_mask=att_mask1)[0]
+            
+            out1[:,-1*(sent_len-wordi+2),starts]=math.inf*-1
+            out1[:,:-1*(sent_len-wordi+2)-1,suffs]=math.inf*-1
+
+            t1=time.time()
+            
+            out2=torch.zeros([batchsize,6,out1.shape[2]])
+            
+            for x in range(len(inputs1)):
+                
+                #print(out1[x,wordi+1+att0s[x]:wordi+7+att0s[x],:].shape[1])
+                
+                out2[x,:out1[x,mask_ind+att0s[x]:mask_ind+6+att0s[x],:].shape[0],:] = out1[x,mask_ind+att0s[x]:mask_ind+6+att0s[x],:]
+            
+            
+#             print(out2)
+#             sys.e
+            
+#             out1=torch.tensor([list(out1[x,wordi+1+att0s[x]:wordi+7+att0s[x],:].cpu().data.numpy()) for x in range(len(inputs1))])
+  
+
+            soft=logsoftmax(out2)
 
             for vti in vocab_to_tokparts_inds_map_batch:
 
@@ -1057,7 +1180,7 @@ def bilstm_sent_prob(self,sent):
 
     tok_perms=list(itertools.permutations(np.arange(len(words))))
 
-    tok_perms100=random.Random(1234).sample(tok_perms,500)
+    tok_perms100=random.Random(1234).sample(orders,500)
 
     probs_all=[]
 
