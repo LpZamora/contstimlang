@@ -1180,7 +1180,7 @@ def bilstm_sent_prob(self,sent):
 
     tok_perms=list(itertools.permutations(np.arange(len(words))))
 
-    tok_perms100=random.Random(1234).sample(orders,500)
+    tok_perms100=random.Random(1234).sample(tok_perms,500)
 
     probs_all=[]
 
