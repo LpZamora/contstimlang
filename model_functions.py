@@ -644,7 +644,7 @@ def bidirectional_transformer_sent_prob(self,sent):
 
 
         orders=list(itertools.permutations(word_inds,i))
-
+        
         orders=random.Random(1234).sample(orders,500)
 
         for orderi,order in enumerate(orders):
@@ -874,8 +874,8 @@ def xlm_word_probs(self,words,wordi):
 
             out1=model(inputs1,attention_mask=att_mask1)[0]
             
-            out1[:,-1*(sent_len-wordi+2),starts]=math.inf*-1
-            out1[:,:-1*(sent_len-wordi+2)-1,suffs]=math.inf*-1
+            out1[:,-1*(len(tokens)-mask_ind),starts]=math.inf*-1
+            out1[:,:-1*(len(tokens)-mask_ind)-1,suffs]=math.inf*-1
 
             t1=time.time()
             
