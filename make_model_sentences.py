@@ -70,6 +70,8 @@ for model1_name in models:
             ,model1_name+'_level_'+str(step_ind+1)+'.txt')
 
         if get_n_lines(fname)>=max_sentences:
+            if verbose>=3:
+                print("found "+str(get_n_lines(fname)) + " lines in " + fname)
             continue
 
         if not model_loaded:
@@ -122,8 +124,9 @@ for model1_name in models:
             cycle=0
 
             for samp in range(10000):
-
                 if get_n_lines(fname)>=max_sentences:
+                    if verbose>=3:
+                        print("found "+str(get_n_lines(fname)) + " lines in " + fname)
                     break
 
                 if np.abs(model1_sent1_prob-step) < 1:
@@ -304,7 +307,7 @@ for model1_name in models:
                         print(sent1p)
                 else:
                     if verbose>=2:
-                        print('no useful replacement for ' + cur_word1 +  ' (a total of {} possible sentence considered.)'.format(len(opt.fully_observed_obs())))
+                        print('no useful replacement for ' + cur_word1 +  ' (a total of {} possible sentences considered.)'.format(len(opt.fully_observed_obs())))
                     cycle+=1
     if model_loaded:
         del model1
