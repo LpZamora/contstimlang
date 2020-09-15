@@ -4,6 +4,7 @@
 #SBATCH --account=nklab
 #SBATCH --job-name=make_model_sent    # The job name.
 #SBATCH --gres=gpu:1
+#SBATCH --mem=16G
 #SBATCH --error="slurm-%A_%a.err"
 #SBATCH --time=4-0:0
 
