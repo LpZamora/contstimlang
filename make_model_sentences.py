@@ -16,9 +16,9 @@ from rnn_class import RNNModel
 from model_functions import model_factory
 from interpolation_search import SetInterpolationSearch
 
-#models=['bigram','trigram','rnn','lstm','bilstm','bert','bert_whole_word','roberta','xlm','electra','gpt2']
+models=['bigram','trigram','rnn','lstm','bilstm','bert','bert_whole_word','roberta','xlm','electra','gpt2']
 
-models=['bigram','trigram','rnn','lstm','bilstm','bert','bert_whole_word','roberta','electra','gpt2']
+#models=['bigram','trigram','rnn','lstm','bilstm','bert','bert_whole_word','roberta','electra','gpt2']
 
 # printing verbosity level
 verbose=3
