@@ -49,17 +49,7 @@ def exclusive_write_line(fname,line,max_lines):
         fh.flush()
         os.fsync(fh.fileno())
 
-with open('vocab_low.pkl', 'rb') as file:
-    vocab_low=pickle.load(file)
-
-with open('vocab_low_freqs.pkl', 'rb') as file:
-    vocab_low_freqs=pickle.load(file)
-
-with open('vocab_cap.pkl', 'rb') as file:
-    vocab_cap=pickle.load(file)
-
-with open('vocab_cap_freqs.pkl', 'rb') as file:
-    vocab_cap_freqs=pickle.load(file)
+from vocabulary import vocab_low, vocab_low_freqs, vocab_cap, vocab_cap_freqs
 
 model_loaded=False
 for model1_name in models:
