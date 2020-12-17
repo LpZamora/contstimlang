@@ -56,7 +56,6 @@ get_model2_word_probs=model2.word_probs
 from vocabulary import vocab_low, vocab_low_freqs, vocab_cap, vocab_cap_freqs
 
 
-
 # In[4]:
 
 

@@ -35,7 +35,7 @@ class SetInterpolationSearch:
         Parameters
         ----------
         loss_fun : Python function, a function from (N,K) y values to (N,) loss values
-        g: array_like, precomputed g(x) for each x, as a (N,K) numpy array.
+        g: array_like, precomputed g(x) for each x, as an (N,K) numpy array.
         initial_observed_xs: array_like, (M,) numpy array of x indecis for which we already observed f_k(x)
         initial_observed_ys: array_like (M,K) numpy array of observed f_k(x) values
         initial_xs_guesses: list, x indecis to evaluate before approximating f (first index is evaluated first)
