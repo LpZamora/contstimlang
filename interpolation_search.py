@@ -95,13 +95,30 @@ class SetInterpolationSearch:
     def _calc_y_aprx(self,xs_to_predict,return_ground_truth_when_available=True):
         xs_to_predict=np.asarray(xs_to_predict,dtype=int)
         y_aprx=np.empty(shape=(len(xs_to_predict),self._K))
+        y_aprx[:]=np.nan
         for k in range(self._K):
-            h=self._h_class()
-            not_nan_mask=np.logical_not(np.isnan(self.ys[:,k]))
-            h.fit(X=expand_to_matrix(self.g[not_nan_mask,k]),y=self.ys[not_nan_mask,k])
-            y_aprx[:,k]=h.predict(X=expand_to_matrix(self.g[xs_to_predict,k]))
             if return_ground_truth_when_available:
-                y_aprx[:,k]=np.where(not_nan_mask[xs_to_predict],self.ys[xs_to_predict,k],y_aprx[:,k])
+                # check which observations are already observed
+                is_observed_xs=np.logical_not(np.isnan(self.ys[xs_to_predict,k]))
+                y_aprx[is_observed_xs,k]=self.ys[xs_to_predict[is_observed_xs],k]
+                if is_observed_xs.all():
+                    continue
+            else:
+                is_observed_xs=np.zeros_like(xs_to_predict,dtype=bool)
+            
+            # some values are missing, or return_ground_truth_when_available is False. Run regression.
+            # for fitting the regression, select only values for which we have both the predictor and criterion.
+            not_nan_mask=np.logical_and(np.logical_not(np.isnan(self.ys[:,k])),
+                                        np.logical_not(np.isnan(self.g[:,k]))
+                                       )
+            assert not_nan_mask.sum()>=2, 'insufficient number of observed predictor-criterion pairs for fitting a regression.'
+            h=self._h_class()
+            h.fit(X=expand_to_matrix(self.g[not_nan_mask,k]),y=self.ys[not_nan_mask,k])
+            should_predict_xs=np.logical_and(
+                np.logical_not(is_observed_xs),
+                np.logical_not(np.isnan(self.g[xs_to_predict,k])) 
+            )            
+            y_aprx[should_predict_xs,k]=h.predict(X=expand_to_matrix(self.g[xs_to_predict[should_predict_xs],k]))
         return y_aprx
 
     def fully_observed_obs(self):
@@ -139,12 +156,13 @@ class SetInterpolationSearch:
         else:
             # this line can be optimized for speed by incremental updating
             unobserved_obs=np.flatnonzero(np.any(np.isnan(self.ys),axis=1))
-
+            
             if len(unobserved_obs)==0:
                 return None, None, []
             y_aprx=self._calc_y_aprx(unobserved_obs)
             predicted_loss=self.loss_fun(y_aprx)
-            minimum_index_in_unobserved_xs=np.argmin(predicted_loss)
+            
+            minimum_index_in_unobserved_xs=np.nanargmin(predicted_loss)
             minimum_index=unobserved_obs[minimum_index_in_unobserved_xs].item()
             minimum_loss=predicted_loss[minimum_index_in_unobserved_xs].item()
         which_variables_are_missing=np.flatnonzero(np.isnan(self.ys[minimum_index]))
@@ -186,39 +204,48 @@ if __name__ == "__main__":
 
     # toy example
     x=np.arange(100)
-    g_1=x
-    g_2=100-x
+    
+    g_1=np.asarray(x,dtype=float)
+    g_1[11]=np.nan # simulate missing variable
+    
+    g_2=100-np.asarray(x,dtype=float)
+    g_2[11]=np.nan # simulate missing variable
     g=np.stack([g_1,g_2],axis=-1)
-    f_1=0.9*g_1+np.random.normal(size=g_1.shape)*10
-    f_2=2*g_2+np.random.normal(size=g_2.shape)*10-1
+    f_1=0.9*g_1+np.random.normal(size=g_1.shape)*1e2
+    
+    f_2=2*g_2+np.random.normal(size=g_2.shape)*1e2
     f=np.stack([f_1,f_2],axis=-1)
-    loss_fun=lambda f: abs(f[:,0]-f[:,1])
+    
+    loss_fun=lambda f: abs(f[:,0]**2-f[:,1]**2)
 
-    initial_observed_xs=np.asarray([20])
+    initial_observed_xs=np.asarray([0,11,99])
     initial_observed_ys=f[initial_observed_xs]
 
     opt=SetInterpolationSearch(loss_fun=loss_fun,
         g=g,initial_observed_xs=initial_observed_xs,
         initial_observed_ys=initial_observed_ys,
-        initial_xs_guesses=[21])
+        initial_xs_guesses=[])
 
-    print('real minimum is at ',np.argmin(loss_fun(f[x])).item())
+    print('real minimum is at ',np.nanargmin(loss_fun(f[x])).item())
 
-    for i in range(100):
+    for i in range(1000):
+        minimum_index,best_loss=opt.get_observed_loss_minimum()
+        if minimum_index==np.nanargmin(loss_fun(f[x])).item():
+            print('root found')
+            opt.update_query_result(xs=next_x,ys=next_y)
+            break
+            
         next_x,predicted_loss,missing_variables=opt.get_unobserved_loss_minimum()
         if next_x is None:
             print('predictions depleted')
             break
         next_y=f[next_x,:].reshape(1,-1)
         next_loss=loss_fun(next_y)
+        print('next_x:',next_x,'next_y:',next_y,'next_loss:',next_loss,'missing_variables:',missing_variables)
 
         # to test the code, let's update just one variable
         variable_to_update=np.random.choice(missing_variables)
+        print('updating :',variable_to_update)        
         opt.update_query_result(xs=next_x,ys=next_y[:,variable_to_update],k=variable_to_update)
-        print('next_x:',next_x,'next_y:',next_y,'next_loss:',next_loss)
-        minimum_index,best_loss=opt.get_observed_loss_minimum()
-        if minimum_index==np.argmin(loss_fun(f[x])).item():
-            print('root found')
-            opt.update_query_result(xs=next_x,ys=next_y)
-            break
+        
     opt.debugging_figure()
