@@ -9,6 +9,7 @@ import pathlib
 
 import numpy as np
 import portalocker
+import scipy.stats
 
 from lstm_class import RNNLM
 from bilstm_class import RNNLM_bilstm
@@ -70,6 +71,64 @@ def get_word_prob_from_model(model,words,wordi):
         prob_type='approximate'
 
     return word_list, model_word_probs, prob_type
+
+def controversiality_score(decision_p,model_prior=None):
+    """ return the mutual information between model identities and predicted sentence choices for a single trial.
+    
+    args:
+    decision_log_p (numpy.array) (M_designs, N_sentences, K_models) tensor such that decision_log_p[m,i,k] equals to p(sentence_i | model_k, design m).
+    model_prior (numpy.array) K_models long 
+    
+    returns:
+    score (numpy.array) M_designs-long vector of scores.    
+    """
+    
+    M_designs,N_sentences,K_models=decision_p.shape
+    
+    if model_prior is None:
+        model_prior=np.ones(shape=(K_models))/K_models
+    model_prior=model_prior.reshape((1,1,K_models))
+            
+    # I(X,Y)=D_KL(P(X,Y) || P(X)*P(Y) )
+    
+    joint=decision_p*model_prior # joint[m,i,j]=p(sentence_i, model_j | experiment_m)
+    sentence_marginal=joint.sum(axis=2,keepdims=True)
+    
+    marginal_product=sentence_marginal*model_prior
+                                
+    MI=scipy.stats.entropy(pk=joint.reshape((M_designs,-1)),qk=product.reshape((M_designs,-1)),base=2,axis=1) # this estimates D_KL
+    return MI
+    
+    
+def get_loss_fun_with_respect_to_sentence_i(sentences_log_p,i_sentence,response_models=None):
+    """ return a loss fun with respect to updating the model probabilities of sentence i_sentence."""
+    
+    def loss_fun_i(sentence_i_log_p):
+        """ return loss as function of updating sentence probabilities of sentence_i in a sentences_log_p matrix (sentences x models)
+        args:
+            sentence_i_log_p (numpy.array) M_sentences x K_models
+        returns:
+            loss (numpy.array) M_sentences
+        """
+        
+        modified_sentences_log_p=np.repeat(np.expand_dims(sentences_log_p,0),M_sentences,
+        
+        M_designs=len(sentence_i_log_p)
+                                           
+        loss=np.empty((M_sentences))
+        for j_sentence in range(M_sentences):
+            cur_sentences_log_p=sentences_log_p.copy()
+            cur_sentences_log_p[i_sentence,:]=sentence_i_log_p[j_sentence,:]
+            
+            # sentences probabilities to decision probabilities
+            if response_models is not None:
+                pass
+            
+            loss[j_sentences]=loss_fun(cur_sentences_log_p)
+        return loss
+    
+    return loss_fun_i
+
 
 def optimize_sentence_set(n_sentences,models,response_models,optimization_objective,sent_len=8,
                          initial_sampling='uniform',external_stopping_check=lambda: False,
@@ -218,12 +277,25 @@ def optimize_sentence_set(n_sentences,models,response_models,optimization_object
                     modified_sent_prob=models[i_model].get_model1_sent_prob(modified_sent)
                     
                     all_models_word_df.at[word_to_evaluate,'exact_'+str(i_model)]=modified_sent_prob
-            
-            # Continue here:            
+                                                
             # construct SetInterpolationSearch using data from all models
-            # use no initial_xs_guesses            
+            # optional TODO - get these details into the object?
+            word_list=list(all_models_word_df.index)
+            g=all_models_word_df.filter(regex='^approximate_',axis=1).to_numpy() # get approximate values for all words            
+            initial_observed_ys=all_models_word_df.filter(regex='^exact_',axis=1).to_numpy() # get exact values for all words
+            initial_observed_xs=initial_observed_ys.notnull().to_numpy().any(axis=1).flatnonzero() # word indecis where an exact value is given for at least one model.
+            initial_observed_ys=initial_observed_ys[initial_observed_xs] # filter exact values
+            initial_xs_guesses=[]
+            
+            
+                
             # make sure SetInterpolationSearch is fine with having NaNs in either g or initial_observed_xs
             # define loss function with the other sentences fixed.
+            
+            # def controversiality_score(choice_probabilites [batch x models x sentences])
+            
+            # def controversiality_score(choice_probabilites [models x sentences],[batch x models] for sentence i)
+            
             
             # use this to select multiple columns:
             # https://cmdlinetips.com/2019/04/how-to-select-columns-using-prefix-suffix-of-column-names-in-pandas/
