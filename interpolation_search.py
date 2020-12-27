@@ -1,6 +1,7 @@
 import numpy as np
 import sklearn.linear_model
 import matplotlib.pyplot as plt
+import pandas as pd
 
 def expand_to_matrix(x):
     x=np.asarray(x)
@@ -135,21 +136,28 @@ class SetInterpolationSearch:
 
         observed_loss=self.loss_fun(self.ys[fully_observed_obs])
 
-        minimum_index_in_observed_xs=np.nanargmin(observed_loss)
-        minimum_index=fully_observed_obs[minimum_index_in_observed_xs].item()
-        minimum_loss=observed_loss[minimum_index_in_observed_xs].item()
-        return minimum_index,minimum_loss
+        minimum_loss=np.nanmin(observed_loss)
+        minima_indices_in_observed_xs=np.flatnonzero(observed_loss==minimum_loss)
+
+        if len(minima_indices_in_observed_xs)>1:
+            print ("found {} exact minima.".format(len(minima_indices_in_observed_xs)))                            
+            minimum_index_in_observed_xs=np.random.choice(minima_indices_in_observed_xs)
+        else:
+            minimum_index_in_observed_xs=minima_indices_in_observed_xs.item()
+            
+        minimum_index=fully_observed_obs[minimum_index_in_observed_xs]        
+        minimum_ys = self.ys[minimum_index,:]
+        return minimum_index,minimum_loss, minimum_ys
 
     def get_unobserved_loss_minimum(self):
         """
         yield the best yet unobserved x that minimizes loss_fun
 
         returns the index of the loss minimizer, the *predicted* loss at the point,
-        and the variable indices (e.g. [0,1] ) of the missing variables at that point
+        and the variable indices (e.g. [0,1]) of the missing variables at that point
         """
 
-        # use initial guesses first, if available
-
+        # use initial guesses first, if available        
         if len(self.initial_xs_guesses)>0:
             minimum_index=self.initial_xs_guesses.pop(0)
             minimum_loss=None
@@ -162,12 +170,32 @@ class SetInterpolationSearch:
             y_aprx=self._calc_y_aprx(unobserved_obs)
             predicted_loss=self.loss_fun(y_aprx)
             
-            minimum_index_in_unobserved_xs=np.nanargmin(predicted_loss)
-            minimum_index=unobserved_obs[minimum_index_in_unobserved_xs].item()
-            minimum_loss=predicted_loss[minimum_index_in_unobserved_xs].item()
+            minimum_loss=np.nanmin(predicted_loss)
+            minima_indices_in_unobserved_xs=np.flatnonzero(predicted_loss==minimum_loss)
+            
+            if len(minima_indices_in_unobserved_xs)>1:
+                print ("found {} minima.".format(len(minima_indices_in_unobserved_xs)))                            
+                minimum_index_in_unobserved_xs=np.random.choice(minima_indices_in_unobserved_xs)
+            else:
+                minimum_index_in_unobserved_xs=minima_indices_in_unobserved_xs                
+            minimum_index=unobserved_obs[minimum_index_in_unobserved_xs].item()            
         which_variables_are_missing=np.flatnonzero(np.isnan(self.ys[minimum_index]))
         return minimum_index,minimum_loss,which_variables_are_missing
 
+    def get_loss_for_x(self,x):
+        """
+        yield the exact loss for scalar index x. 
+        
+        args:
+        x (int) observation index
+        """        
+        ys=self.ys[slice(x, x+1)]
+        assert not np.isnan(ys).any(), 'exact ys must be already observed'
+        x_exact_loss=self.loss_fun(ys)
+        if isinstance(x_exact_loss,np.ndarray):
+            x_exact_loss=x_exact_loss.item()
+        return x_exact_loss,ys
+    
     def debugging_figure(self):
         fig=plt.figure()
 
@@ -200,6 +228,18 @@ class SetInterpolationSearch:
         plt.tight_layout()
         plt.show()
 
+class SetInterpolationSearchPandas(SetInterpolationSearch):
+    # use a pandas dataframe instead
+    def __init__(self,loss_fun,df,initial_xs_guesses=None,h_method='LinearRegression'):
+
+        g=df.filter(regex='^approximate_',axis=1).to_numpy()
+        initial_observed_ys=df.filter(regex='^exact_',axis=1).to_numpy()
+        mask=np.logical_not(np.isnan(initial_observed_ys)).any(axis=1)
+        initial_observed_ys=initial_observed_ys[mask]
+        initial_observes_xs=np.flatnonzero(mask)
+        
+        super().__init__(loss_fun,g,initial_observed_xs=initial_observes_xs,initial_observed_ys=initial_observed_ys,initial_xs_guesses=initial_xs_guesses,h_method=h_method)
+        
 if __name__ == "__main__":
 
     # toy example

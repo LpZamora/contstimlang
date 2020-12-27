@@ -240,7 +240,7 @@ for model1_name in models:
                                 cur_word1+'→ '+word1,model1_sent1_prob,model1_sent1t_prob,),end='')
 
                     # check the updated, observed global minimum
-                    minimum_loss_word_idx,minimum_loss=opt.get_observed_loss_minimum()
+                    minimum_loss_word_idx,minimum_loss,_=opt.get_observed_loss_minimum()
 
                     if minimum_loss is not None:
 

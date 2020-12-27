@@ -1,13 +1,16 @@
-from transformers import BertForMaskedLM, BertTokenizer, GPT2Tokenizer, GPT2LMHeadModel, RobertaForMaskedLM, RobertaTokenizer, \
-XLMTokenizer, XLMWithLMHeadModel, ElectraTokenizer, ElectraForMaskedLM
+import time
 import numpy as np
 import torch
 import math
 import itertools
 import random
 import pickle
+
+from transformers import BertForMaskedLM, BertTokenizer, GPT2Tokenizer, GPT2LMHeadModel, RobertaForMaskedLM, RobertaTokenizer, \
+XLMTokenizer, XLMWithLMHeadModel, ElectraTokenizer, ElectraForMaskedLM
+
+
 from knlm import KneserNey
-import time
 
 logsoftmax=torch.nn.LogSoftmax(dim=-1)
 
@@ -38,27 +41,33 @@ class model_factory:
         if name=='bert':
             self.tokenizer = BertTokenizer.from_pretrained('bert-large-cased')
             self.model = BertForMaskedLM.from_pretrained('bert-large-cased').to('cuda:'+str(gpu_id))
-
+            self.is_word_prob_exact = False
+            
         elif name=='bert_whole_word':
             self.tokenizer = BertTokenizer.from_pretrained('bert-large-cased')
             self.model = BertForMaskedLM.from_pretrained('bert-large-cased-whole-word-masking').to('cuda:'+str(gpu_id))
+            self.is_word_prob_exact = False
 
         elif name=='roberta':
             self.tokenizer = RobertaTokenizer.from_pretrained('roberta-large')
             self.model = RobertaForMaskedLM.from_pretrained('roberta-large').to('cuda:'+str(gpu_id))
-
+            self.is_word_prob_exact = False
+            
         elif name=='xlm':
             self.tokenizer = XLMTokenizer.from_pretrained('xlm-mlm-en-2048')
             self.model = XLMWithLMHeadModel.from_pretrained('xlm-mlm-en-2048').to('cuda:'+str(gpu_id))
-
+            self.is_word_prob_exact = False
+            
         elif name=='electra':
             self.tokenizer = ElectraTokenizer.from_pretrained('google/electra-large-generator')
             self.model = ElectraForMaskedLM.from_pretrained('google/electra-large-generator').to('cuda:'+str(gpu_id))
-
+            self.is_word_prob_exact = False
+            
         elif name=='gpt2':
             self.tokenizer = GPT2Tokenizer.from_pretrained('gpt2-xl')
             self.model = GPT2LMHeadModel.from_pretrained('gpt2-xl').to('cuda:'+str(gpu_id))
-
+            self.is_word_prob_exact = False
+            
         elif name=='bilstm':
             self.model=torch.load('contstim_bilstm.pt').to('cuda:'+str(gpu_id))
             self.word2id=word2id
@@ -67,7 +76,8 @@ class model_factory:
             self.hidden_size=256
             self.vocab_size=nn_vocab_size
             self.num_layers=1
-
+            self.is_word_prob_exact = False
+            
         elif name=='lstm':
             self.model=torch.load('contstim_lstm.pt').to('cuda:'+str(gpu_id))
             self.word2id=word2id
@@ -76,7 +86,8 @@ class model_factory:
             self.hidden_size=512
             self.vocab_size=nn_vocab_size
             self.num_layers=1
-
+            self.is_word_prob_exact = False
+            
         elif name=='rnn':
             self.model=torch.load('contstim_rnn.pt').to('cuda:'+str(gpu_id))
             self.word2id=word2id
@@ -85,20 +96,20 @@ class model_factory:
             self.hidden_size=512
             self.vocab_size=nn_vocab_size
             self.num_layers=1
-
+            self.is_word_prob_exact = True
 
         elif name=='trigram':
             self.model=KneserNey.load('trigram.model')
-
+            self.is_word_prob_exact = True
+            
         elif name=='bigram':
             self.model=KneserNey.load('bigram.model')
-
-
+            self.is_word_prob_exact = True
+        else:
+            raise ValueError
 
         self = get_starts_suffs(self)
         self = get_token_info(self)
-
-
 
     def sent_prob(self,sent):
 
