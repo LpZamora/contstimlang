@@ -1,3 +1,4 @@
+import sys, pickle, os, pathlib
 from collections import defaultdict
 
 import torch
@@ -76,7 +77,16 @@ class ModelToHumanDecision(torch.nn.Module):
             else:
                 numpy_parameters[par_name]=par.detach().cpu().numpy()
         return numpy_parameters
-
+    
+    def save(self,path):
+        # save pickle with model definitions
+        class_name=self.__class__.__name__        
+        parameters=self.get_parameters()
+        
+        pathlib.Path(os.path.dirname(path)).mkdir(parents=True, exist_ok=True)
+        with open(path, 'wb') as f:
+            pickle.dump([class_name, parameters], f)
+        
 class Naive(ModelToHumanDecision):
     """ sentence log-probabilities are not transformed at all """
     def _f(self,log_p1,log_p2):
@@ -169,3 +179,12 @@ def get_parameters_across_models(decision_model_ordered_dict):
     for decision_model in decision_model_ordered_dict.values():
         for par_key, par_val in decision_model.parameters().items():
             parameters[par_key].append(par_val.item())
+
+def load_decision_model(path,device=None):
+    with open(path, 'rb') as f:
+        class_name, parameters=pickle.load(f)
+    
+    # grab class object from current module by string https://stackoverflow.com/a/17960039
+    class_obj=getattr(sys.modules[__name__], class_name)
+    print('found saved parameters:',parameters)
+    return class_obj(parameters=parameters,device=device)

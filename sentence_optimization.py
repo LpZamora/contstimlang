@@ -12,6 +12,7 @@ import portalocker
 import scipy.stats
 from scipy.special import logsumexp
 import pandas as pd
+import torch
 
 from model_functions import model_factory
 from interpolation_search import SetInterpolationSearchPandas
@@ -93,18 +94,68 @@ def controversiality_score(decision_p,model_prior=None):
     MI=scipy.stats.entropy(pk=joint.reshape((D_designs,-1)),qk=marginal_product.reshape((D_designs,-1)),base=2,axis=1) # MI[d]=D_KL(joint[d],marginal_product[d])
     return MI
 
-def human_choice_probability(sentences_log_p,human_choice_response_models=None,model_names=None):
+
+# log_DKL calculation
+def log_DKL(log_p,log_q,axis=None):
+    """ calculate log(KL divergence(p||q)) where p and q are given in log scales. 
+    This function assumes that the probability distributions are normalized.
+    
+    D_KL(p||q)= sum(p*(log_p-log_q))
+    log_D_KL(p||q)=logsum(p*(log_p-log_q)=
+    logsum( (log_p-log_q) * exp(log_p) )=
+    logsum( b * exp(a) )
+    where b=log_p-log_q and a = log_p
+
+    """
+    b=log_p-log_q
+    a=log_p
+
+    mask=log_p==-np.inf
+    a[mask]=0
+    b[mask]=0    
+    
+    return logsumexp(a,axis=axis,b=b,keepdims=False)
+    
+
+def controversiality_score_log_scale(decision_log_p,model_prior=None):
+    """ return the mutual information between model identities and predicted sentence choices for a single trial.
+    
+    args:
+    decision_p (numpy.array) (D_designs, M_models, S_sentences) tensor such that decision_p[d,m,s] equals to log-p(sentence_s | model_m, design d).
+    model_prior (numpy.array) M_models long vector of model prior probabilities
+    
+    returns:
+    score (numpy.array) D_designs-long vector of scores.    
+    """
+    
+    D_designs, M_models, S_sentences=decision_log_p.shape
+    
+    if model_prior is None:
+        model_prior=np.ones(shape=(M_models))/M_models        
+    model_prior=model_prior.reshape((1,M_models,1))
+    log_model_prior=np.log(model_prior)
+            
+    # I(X,Y)=D_KL(P(X,Y) || P(X)*P(Y) )
+    
+    log_joint=decision_log_p+log_model_prior # joint[d,m,s]=p(sentence_s, model_m | design_d)
+    log_sentence_marginal=logsumexp(log_joint,axis=1,keepdims=True) # summate the joint over model to produce sentence_marginal[d,0,s]=p(sentence_s | design_d)
+    
+    log_marginal_product=log_sentence_marginal+log_model_prior # marginal_product[d,m,s]=p(sentence_s | design_d)*p(model_m)
+    log_MI=log_DKL(log_joint.reshape((D_designs,-1)),log_marginal_product.reshape((D_designs,-1)),axis=1) # MI[d]=D_KL(joint[d],marginal_product[d])
+    return log_MI
+
+
+def human_choice_probability(sentences_log_p,human_choice_response_models=None, log_scale=False, grad_enabled=False):
     """ calculate the probability of human choice of a sentence given model sentence-log-probabilities and human_choice_response_models
     
         args:
         sentences_log_p (numpy.array, D_designs x M_models x S_sentences) current log probabilities, such that sentences_log_p[m,s]=log_p(sentence_s|model_m)
-        human_choice_response_models (None/a ModelToHumanDecision instance/a list of ModelToHumanDecision instances).
-        model_names (list) if the previous argument is a ModelToHumanDecision instance, this is a list of model names corresponding to the models in ModelToHumanDecision
-        
+        human_choice_response_models (None/a list of ModelToHumanDecision instances)
+        grads_required (boolean)
+        log_scale (boolean) if True, returns log_p instead of p
         
         returns:
-            decision_p (numpy.array, D_designs x M_models x S_sentences) p(d,m,s)=the probability of human choice of sentence s given model m and design d
-        
+            decision_p (numpy.array, D_designs x M_models x S_sentences) p(d,m,s)=the probability of human choice of sentence s given model m and design d      
     """
     
     if sentences_log_p.ndim==2:
@@ -112,43 +163,55 @@ def human_choice_probability(sentences_log_p,human_choice_response_models=None,m
         
     D_designs, M_models, S_sentences = sentences_log_p.shape
     if human_choice_response_models is None: # direct readout of choice probabilities (i.e., no squashing, gamma = 1.0)
-        decision_log_p=sentences_log_p-logsumexp(sentences_log_p,axis=2,keepdims=True) # normalize sentence probability by total sentence probability (within model and design)
-    elif isinstance(human_choice_response_models,ModelToHumanDecision):
-        assert S_sentences==2, 'ModelToHumanDecision currently assumes only two sentences'
-        decision_log_p=np.empty_like(sentences_log_p)
-        for i_model in range(M_models):            
-            decision_log_p[:,i_model,:]=human_choice_response_models.decision_NLL(log_p1=sentences_log_p[:,i_model,0],
-                                                      log_p2=sentences_log_p[:,i_model,1],
-                                                      model=model_names[i_model])
+        decision_log_p=sentences_log_p-logsumexp(sentences_log_p,axis=2,keepdims=True) # normalize sentence probability by total sentence probability (within model and design)    
     elif isinstance(human_choice_response_models,list):
         # model-specific human response model object
         assert S_sentences==2, 'ModelToHumanDecision currently assumes only two sentences'                
         assert len(human_choice_response_models)==M_models
         
         decision_log_p=np.empty_like(sentences_log_p)
-        for i_model in range(M_models):            
-            decision_log_p[:,i_model,:]=human_choice_response_models.decision_NLL(log_p1=sentences_log_p[:,i_model,0],
-                                                      log_p2=sentences_log_p[:,i_model,1])
+        with torch.set_grad_enabled(grad_enabled):
+            for i_model in range(M_models):
+                decision_log_p[:,i_model,:]=-human_choice_response_models[i_model](sentences_log_p[:,i_model,:]).cpu().numpy() # the minus is required because the models return NLL
     else:
         raise ValueError
-    decision_p=np.exp(decision_log_p)        
-    return decision_p  
+    if log_scale:
+        return decision_log_p
+    else:        
+        decision_p=np.exp(decision_log_p)        
+        return decision_p  
 
-def human_choice_controversiality_loss(sentences_log_p,human_choice_response_models=None,model_names=None,model_prior=None):
+def human_choice_controversiality_loss(sentences_log_p,human_choice_response_models=None,model_prior=None):
     """ calculate model identification loss given sentence-log-probabilities and human_choice_response_models
     
         args:
         sentences_log_p (numpy.array, D_designs x M_models x S_sentences) current log probabilities, such that sentences_log_p[m,s]=log_p(sentence_s|model_m)
-        human_choice_response_models (None/a ModelToHumanDecision instance/a list of ModelToHumanDecision instances).
-        model_names (list) if the previous argument is a ModelToHumanDecision instance, this is a list of model names corresponding to the models in ModelToHumanDecision
+        human_choice_response_models (None/a list of ModelToHumanDecision instances)
         model_prior (numpy.array) M_models long vector of model prior probabilities
         
         returns:
         score (numpy.array) D_designs-long vector of scores.    
         
     """    
-    decision_p=human_choice_probability(sentences_log_p,human_choice_response_models=human_choice_response_models,model_names=model_names)
+    decision_p=human_choice_probability(sentences_log_p,human_choice_response_models=human_choice_response_models,log_scale=False)    
     MI=controversiality_score(decision_p,model_prior=model_prior)
+    loss=-MI
+    return loss
+
+def human_choice_controversiality_loss_log_scale(sentences_log_p,human_choice_response_models=None,model_prior=None):
+    """ calculate model identification loss given sentence-log-probabilities and human_choice_response_models
+    
+        args:
+        sentences_log_p (numpy.array, D_designs x M_models x S_sentences) current log probabilities, such that sentences_log_p[m,s]=log_p(sentence_s|model_m)
+        human_choice_response_models (None/a list of ModelToHumanDecision instances)
+        model_prior (numpy.array) M_models long vector of model prior probabilities
+        
+        returns:
+        score (numpy.array) D_designs-long vector of scores.    
+        
+    """    
+    decision_log_p=human_choice_probability(sentences_log_p,human_choice_response_models=human_choice_response_models,log_scale=True)
+    MI=controversiality_score_log_scale(decision_log_p,model_prior=model_prior)
     loss=-MI
     return loss
 
@@ -185,23 +248,43 @@ def get_loss_fun_with_respect_to_sentence_i(sentences_log_p,i_sentence,loss_func
         return loss
     
     return loss_func_i
-                          
-def optimize_sentence_set(n_sentences,models,loss_func,sent_len=8,                          
+
+def display_sentences_with_highlighted_word(sentences,i_sentence,wordi):
+    """ display sentences with the wordi-ith word in the i_sentence highlighted """
+    for j_sentence,sentence in enumerate(sentences):
+        if j_sentence==i_sentence:
+            words=sentence.split(' ')
+            words[wordi]='*'+words[wordi].upper()+'*'
+            modified_sentence=' '.join(words)
+            print(modified_sentence,end='')
+        else:
+            print(sentence,end='')
+        if j_sentence==0:
+            print('/',end='')
+        else:
+            print('')            
+
+def optimize_sentence_set(n_sentences,models,loss_func,sent_len=8,sentences=None,                     
                          initial_sampling='uniform',external_stopping_check=lambda: False,
                          internal_stopping_condition=lambda: False,
                          start_with_identical_sentences=True, max_steps=10000,
-                         max_replacements_to_attempt_per_word=50,
+                         monitoring_func=None,
+                         max_replacement_attempts_per_word=50,
+                         max_non_decreasing_loss_attempts_per_word=5,
                          verbose=3):
     """ Optimize a sentence set of n_sentences.
     n_sentences (int) how many sentences to optimize (e.g., 2 for a sentence pair).
     models (list) a list of model objects
     loss_func (function) given a [d,ms] log_p(sentence s|model m, d d)
     sentence_len (int) how many words
+    sentences (list) initial sentences (if None, sentences are randomly sampled).
     initial_sampling (str) 'uniform' or 'proportional'
     start_with_identical_sentences (boolean) 
     returns a results dict, or False (if aborted due to external_stopping_check)
     max_steps (int) maximum total number of word replacements    
-    max_replacements_to_attempt_per_word (int) quit trying to replace a word after max_replacements_to_attempt_per_word alternative sentences were evaluated    
+    monitoring_func (function) function for online user feedback. args: (sentences, sentences_log_p)
+    max_replacement_attempts_per_word (int) quit trying to replace a word after max_replacement_attempts_per_word alternative sentences were evaluated    
+    max_non_decreasing_loss_attempts_per_word (int) quit trying to replace a word after max_non_decreasing_loss_attempts_per_word sentences did not show decreasing loss
     verbose (int)
     """
     
@@ -216,24 +299,30 @@ def optimize_sentence_set(n_sentences,models,loss_func,sent_len=8,
         return wordis
     wordis=get_word_replacement_order(sent_len,max_steps)
     
-    # initialize random sentences
-    def initialize_sentence(sent_len,initial_sampling='uniform'):
-        if initial_sampling == 'uniform':
-            vocab_low_freqs1=np.ones([len(vocab_low_freqs)])/len(vocab_low_freqs)
-            vocab_cap_freqs1=np.ones([len(vocab_cap_freqs)])/len(vocab_cap_freqs)
-        elif initial_sampling == 'proportional':
-            vocab_low_freqs1=vocab_low_freqs
-            vocab_cap_freqs1=vocab_cap_freqs
+    if sentences is not None:
+        # sentences provided. do same sanity checks.
+        n_sentences=len(sentences)
+        sentence_len=np.unique([len(sentence.split(' ')) for sentence in sentences])
+        assert len(sentence_len)==1, 'all sentences should be of the same length'
+        sentence_len=sentence_len.item()        
+    else: # initialize random sentences        
+        def initialize_sentence(sent_len,initial_sampling='uniform'):
+            if initial_sampling == 'uniform':
+                vocab_low_freqs1=np.ones([len(vocab_low_freqs)])/len(vocab_low_freqs)
+                vocab_cap_freqs1=np.ones([len(vocab_cap_freqs)])/len(vocab_cap_freqs)
+            elif initial_sampling == 'proportional':
+                vocab_low_freqs1=vocab_low_freqs
+                vocab_cap_freqs1=vocab_cap_freqs
+            else:
+                raise ValueError('unsupported initial_sampling argument')
+            words=list(np.random.choice(vocab_cap, 1, p=vocab_cap_freqs1)) + list(np.random.choice(vocab_low, sent_len-1, p=vocab_low_freqs1, replace=False))
+            sent=' '.join(words)
+            return sent
+        if start_with_identical_sentences:
+            sentences=[initialize_sentence(sent_len,initial_sampling='uniform')]*n_sentences
         else:
-            raise ValueError('unsupported initial_sampling argument')
-        words=list(np.random.choice(vocab_cap, 1, p=vocab_cap_freqs1)) + list(np.random.choice(vocab_low, sent_len-1, p=vocab_low_freqs1, replace=False))
-        sent=' '.join(words)
-        return sent
-    if start_with_identical_sentences:
-        sentences=[initialize_sentence(sent_len,initial_sampling='uniform')]*n_sentences
-    else:
-        sentences=[initialize_sentence(sent_len,initial_sampling='uniform') for i_sent in range(n_sentences)]
-            
+            sentences=[initialize_sentence(sent_len,initial_sampling='uniform') for i_sent in range(n_sentences)]
+    
     # get initial sentence probabilities
     def get_sentence_log_probabilities(models,sentences):
         """ Return a (model x sentence) log_probability numpy matrix """
@@ -341,7 +430,9 @@ def optimize_sentence_set(n_sentences,models,loss_func,sent_len=8,
                     modified_sent_prob=models[i_model].sent_prob(modified_sent)
                     
                     all_models_word_df.at[word_to_evaluate,'exact_'+str(i_model)]=modified_sent_prob
-            
+                    if verbose>=4:
+                            print("sentence {}: evaluated {:<30} for model {}".format(i_sentence, cur_word+'→ '+word_to_evaluate,models[i_model].name))
+                            
             word_list=list(all_models_word_df.index)
           
             # define loss function for updating sentence_i, with the other sentences fixed.
@@ -360,13 +451,15 @@ def optimize_sentence_set(n_sentences,models,loss_func,sent_len=8,
             if not found_useful_replacement :
                 # none of the replacement words with observed exact sentence log-probabilities improve the current loss.
                 # we'll use the approximate sentence log-probabilities to predict a replacement word that will.
-                # we'll then observe the exact sentence log-probabilities for that word.                
-                for word_iteration in range(max_replacements_to_attempt_per_word):
+                # we'll then observe the exact sentence log-probabilities for that word.
+                best_approximate_loss=np.inf
+                
+                for word_iteration in range(max_replacement_attempts_per_word):
                     # find the best word according to approximate sentence probabilities
                     candidate_word_idx,candidate_approximate_loss,missing_models=opt.get_unobserved_loss_minimum()
                     if candidate_word_idx is None:
-                        if verbose>=3:
-                            print('word replacements exhausted.')
+                        if verbose>=4:
+                            print('sentence {}: word replacements exhausted.'.format(i_sentence))
                         break
                     candidate_replacement_word=word_list[candidate_word_idx]
 
@@ -377,7 +470,7 @@ def optimize_sentence_set(n_sentences,models,loss_func,sent_len=8,
                     for i_model in missing_models:
                         modified_sent_prob=models[i_model].sent_prob(modified_sent)
                         if verbose>=4:
-                            print("evaluated: {:<30} for model {}".format(cur_word+'→ '+candidate_replacement_word,models[i_model].model_name))                            
+                            print("sentence {}: evaluated {:<30} for model {}".format(i_sentence, cur_word+'→ '+candidate_replacement_word,models[i_model].name))
                         # update the optimizer
                         opt.update_query_result(xs=[candidate_word_idx],ys=[modified_sent_prob],k=i_model)
                     
@@ -390,12 +483,23 @@ def optimize_sentence_set(n_sentences,models,loss_func,sent_len=8,
                 
                     if candidate_exact_loss<current_loss:
                         found_useful_replacement=True
-                        break 
-
+                        break
+                    else:
+                        if candidate_exact_loss<best_approximate_loss:
+                            best_approximate_loss=candidate_exact_loss
+                            n_non_decreasing_loss_attempts_per_word=0
+                        else:
+                            n_non_decreasing_loss_attempts_per_word+=1
+                            if n_non_decreasing_loss_attempts_per_word>max_non_decreasing_loss_attempts_per_word:
+                                if verbose>=4:
+                                    print('sentence {}: {} word replacement failures.'.format(i_sentence,n_non_decreasing_loss_attempts_per_word))
+                                break
+                            
             if found_useful_replacement:
                 if verbose>=2:
                     print("sentence {}:   replaced {:<30} | loss: {:.3E}→ {:.3E}".format(
-                        i_sentence, cur_word+'→ '+candidate_replacement_word,current_loss,candidate_exact_loss))             
+                        i_sentence, cur_word+'→ '+candidate_replacement_word,current_loss,candidate_exact_loss))                
+                    
                 # update the sentence 
                 words[wordi]=candidate_replacement_word
                 sentence = ' '.join(words)
@@ -405,19 +509,24 @@ def optimize_sentence_set(n_sentences,models,loss_func,sent_len=8,
                 # update the sentence log probabilities                            
                 sentences_log_p[:,i_sentence]=new_sent_log_p                
                 found_replacement_for_at_least_one_sentence=True
+                
+                display_sentences_with_highlighted_word(sentences,i_sentence,wordi)
+                if monitoring_func is not None:
+                    monitoring_func(sentences,sentences_log_p)                                                
             else:
                 if verbose>=2:
-                    print('no useful replacement for ' + cur_word +  ' (a total of {} possible sentences considered.)'.format(len(opt.fully_observed_obs())))
+                    print('sentence {}: no useful replacement for '.format(i_sentence) + cur_word +  ' (a total of {} possible sentences considered.)'.format(len(opt.fully_observed_obs())))
         
         # done changing words in all sentences
         if found_replacement_for_at_least_one_sentence:
             n_consequetive_failed_replacements=0
             
-            # sanity check:        
-            sentences_log_p_=sentences_log_p=get_sentence_log_probabilities(models,sentences)
-            assert np.isclose(sentences_log_p,sentences_log_p_,rtol=1e-3).all(), 'sanity check failed.'
+#             # a SLOW sanity check of our sentence log probability tracking:
+#             sentences_log_p_=sentences_log_p=get_sentence_log_probabilities(models,sentences)
+#             assert np.isclose(sentences_log_p,sentences_log_p_,rtol=1e-3).all(), 'sanity check failed.'
         else:
             n_consequetive_failed_replacements+=1
+        
         
     # loop completed (or terminated), organize results.
     if termination_reason=='':

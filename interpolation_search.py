@@ -140,7 +140,8 @@ class SetInterpolationSearch:
         minima_indices_in_observed_xs=np.flatnonzero(observed_loss==minimum_loss)
 
         if len(minima_indices_in_observed_xs)>1:
-            print ("found {} exact minima.".format(len(minima_indices_in_observed_xs)))                            
+            print ("found {} exact minima.".format(len(minima_indices_in_observed_xs)))
+            breakpoint()
             minimum_index_in_observed_xs=np.random.choice(minima_indices_in_observed_xs)
         else:
             minimum_index_in_observed_xs=minima_indices_in_observed_xs.item()
