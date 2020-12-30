@@ -161,15 +161,34 @@ class SquashedSoftmax(ModelToHumanDecision):
     def default_parameters(self):
         parameters={}
         parameters['gamma']=10.0
-        parameters['eta']=0.0
+        parameters['squashes']=-10.0
         return parameters
     def _f(self,log_p1,log_p2):
         gamma=self.gamma
-        eta=self.eta
+        eta=self.squashes
         
         denominator=torch.logsumexp(torch.stack([log_p1/gamma,torch.ones_like(log_p1)*eta,log_p2/gamma,torch.ones_like(log_p2)*eta],dim=-1),dim=-1)
         log_p1 = torch.logsumexp(torch.stack([log_p1/gamma,torch.ones_like(log_p1)*eta],dim=-1),dim=-1)-denominator
         log_p2 = torch.logsumexp(torch.stack([log_p2/gamma,torch.ones_like(log_p2)*eta],dim=-1),dim=-1)-denominator
+        choice_NLL=-torch.stack([log_p1,log_p2],dim=-1)
+        return choice_NLL
+
+class VariableWidthSigmoid(ModelToHumanDecision):
+    def default_parameters(self):
+        parameters={}
+        parameters['gamma']=10.0
+        parameters['squashes']=0.0
+        parameters['width']=1.0
+        return parameters
+    def _f(self,log_p1,log_p2):
+        gamma=self.gamma
+        x0=-self.squashes
+        k=self.width        
+        log_p1_corrected=torch.sigmoid((log_p1-x0)/k)
+        log_p2_corrected=torch.sigmoid((log_p2-x0)/k)
+        s1a_b = log_p1_corrected - log_p2_corrected
+        log_p1=log_p(-s1a_b/gamma)
+        log_p2=log_1_minus_p(-s1a_b/gamma)
         choice_NLL=-torch.stack([log_p1,log_p2],dim=-1)
         return choice_NLL
     
