@@ -110,7 +110,7 @@ if __name__ == "__main__":
                                         '20201228',decision_model_class+'_' +optimizer + '_{}_word'.format(sent_len))
     
     results_csv_folder=os.path.join('synthesized_sentences',
-                                    '20201228_controverisal_sentence_pairs',
+                                    '20201230_controverisal_sentence_pairs',
                                     decision_model_class+'_' +optimizer + '_{}_word'.format(sent_len))
                                                   
     synthesize_controversial_sentence_pair(all_model_names,decision_models_folder,
