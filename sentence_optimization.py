@@ -16,7 +16,7 @@ import torch
 
 from model_functions import model_factory
 from interpolation_search import SetInterpolationSearchPandas
-from model_to_human_decision import ModelToHumanDecision
+from model_to_human_decision_torch import ModelToHumanDecision
 
 from vocabulary import vocab_low, vocab_low_freqs, vocab_cap, vocab_cap_freqs
     
