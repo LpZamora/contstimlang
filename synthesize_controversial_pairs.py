@@ -82,6 +82,8 @@ def synthesize_controversial_sentence_pair(all_model_names,decision_models_folde
                                      internal_stopping_condition=internal_stopping_condition,
                                      start_with_identical_sentences=True, max_steps=10000,
                                      verbose=verbose)
+            if results is False: # optimization was terminated
+                continue
             sentences=results['sentences']
             sentences_log_p=results['sentences_log_p']
             print(sentences)
@@ -98,10 +100,8 @@ def synthesize_controversial_sentence_pair(all_model_names,decision_models_folde
             exclusive_write_line(results_csv_fname,line,max_pairs)
                           
 if __name__ == "__main__":
-    
-    
-    #['bert','bert_whole_word','roberta','xlm','electra','bilstm']    
-    all_model_names=['bigram','trigram','rnn','lstm','gpt2']
+    #all_model_names=['bigram','trigram','rnn','lstm','gpt2','bert','bert_whole_word','roberta','xlm','electra','bilstm']
+    all_model_names=['bigram','trigram','rnn','lstm','gpt2','electra']
     sent_len=8
                           
     optimizer='LBFGS'
