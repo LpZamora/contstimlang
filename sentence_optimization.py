@@ -271,6 +271,8 @@ def optimize_sentence_set(n_sentences,models,loss_func,sent_len=8,sentences=None
                          monitoring_func=None,
                          max_replacement_attempts_per_word=50,
                          max_non_decreasing_loss_attempts_per_word=5,
+                         keep_words_unique=False,
+                         allowed_repeating_words=None, 
                          verbose=3):
     """ Optimize a sentence set of n_sentences.
     n_sentences (int) how many sentences to optimize (e.g., 2 for a sentence pair).
@@ -285,6 +287,8 @@ def optimize_sentence_set(n_sentences,models,loss_func,sent_len=8,sentences=None
     monitoring_func (function) function for online user feedback. args: (sentences, sentences_log_p)
     max_replacement_attempts_per_word (int) quit trying to replace a word after max_replacement_attempts_per_word alternative sentences were evaluated    
     max_non_decreasing_loss_attempts_per_word (int) quit trying to replace a word after max_non_decreasing_loss_attempts_per_word sentences did not show decreasing loss
+    keep_words_unique (bool) all words must be unique (within sentence)
+    allowed_repeating_words (list) if keep_words_unique is True, these words are excluded from the uniqueness constrain. The words should be lower-case.
     verbose (int)
     """
     
@@ -314,14 +318,18 @@ def optimize_sentence_set(n_sentences,models,loss_func,sent_len=8,sentences=None
                 vocab_low_freqs1=vocab_low_freqs
                 vocab_cap_freqs1=vocab_cap_freqs
             else:
-                raise ValueError('unsupported initial_sampling argument')
-            words=list(np.random.choice(vocab_cap, 1, p=vocab_cap_freqs1)) + list(np.random.choice(vocab_low, sent_len-1, p=vocab_low_freqs1, replace=False))
+                raise ValueError('unsupported initial_sampling argument')        
+                        
+            first_word=np.random.choice(vocab_cap, 1, p=vocab_cap_freqs1)            
+            words=list(first_word) + list(np.random.choice(vocab_low, sent_len-1, p=vocab_low_freqs1, replace=False))
+            
             sent=' '.join(words)
+            
             return sent
         if start_with_identical_sentences:
-            sentences=[initialize_sentence(sent_len,initial_sampling='uniform')]*n_sentences
+            sentences=[initialize_sentence(sent_len,initial_sampling=initial_sampling)]*n_sentences
         else:
-            sentences=[initialize_sentence(sent_len,initial_sampling='uniform') for i_sent in range(n_sentences)]
+            sentences=[initialize_sentence(sent_len,initial_sampling=initial_sampling) for i_sent in range(n_sentences)]
     
     # get initial sentence probabilities
     def get_sentence_log_probabilities(models,sentences):
@@ -410,6 +418,7 @@ def optimize_sentence_set(n_sentences,models,loss_func,sent_len=8,sentences=None
                 return all_models_word_df
             
             all_models_word_df=prepare_word_prob_df(models,words,wordi)
+                
             models_with_approximate_probs=[i for i, model in enumerate(models) if not model.is_word_prob_exact]
             
             # For models with approximate log probabilities, we need
@@ -432,7 +441,14 @@ def optimize_sentence_set(n_sentences,models,loss_func,sent_len=8,sentences=None
                     all_models_word_df.at[word_to_evaluate,'exact_'+str(i_model)]=modified_sent_prob
                     if verbose>=4:
                             print("sentence {}: evaluated {:<30} for model {}".format(i_sentence, cur_word+'→ '+word_to_evaluate,models[i_model].name))
-                            
+            
+            if keep_words_unique: # filter out replacements that would lead to repeating word
+                other_words_in_sentence=set([w.lower() for w in (words[:wordi] + words[wordi+1:])])
+                if allowed_repeating_words is not None:
+                    other_words_in_sentence=other_words_in_sentence-set(allowed_repeating_words)
+                candidate_word_is_already_in_sentence=all_models_word_df.index.str.lower().isin(other_words_in_sentence)
+                all_models_word_df=all_models_word_df[~candidate_word_is_already_in_sentence]
+                
             word_list=list(all_models_word_df.index)
           
             # define loss function for updating sentence_i, with the other sentences fixed.

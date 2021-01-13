@@ -1,4 +1,4 @@
-import os
+import os, pickle
 import itertools
 import csv
 
@@ -15,8 +15,15 @@ from model_to_human_decision_torch import load_decision_model, Naive
 from utils import exclusive_write_line, get_n_lines, hash_dict
 
 def synthesize_controversial_sentence_pair(all_model_names,decision_models_folder,
-                                           results_csv_folder=None,sent_len=8,max_pairs=10,verbose=3):
+                                           results_csv_folder=None,sent_len=8,max_pairs=10,allow_only_prepositions_to_repeat=False,verbose=3):
     n_sentences=2 # we optimize a pair of sentences
+    
+    if allow_only_prepositions_to_repeat:
+        allowed_repeating_words=set(pickle.load(open("preps.pkl","rb")))
+        keep_words_unique=True
+    else:
+        allowed_repeating_words=None
+        keep_words_unique=False
     
     for model_name_pair in itertools.combinations(all_model_names,2):
         [model1_name, model2_name] = model_name_pair
@@ -63,7 +70,7 @@ def synthesize_controversial_sentence_pair(all_model_names,decision_models_folde
             human_choice_response_models.append(load_decision_model(path,device='cpu'))
 
         model_prior=None # assume flat prior over models for MI calculation
-
+        
         while not is_file_complete():                          
 
             def loss_func(sentences_log_p):
@@ -81,6 +88,8 @@ def synthesize_controversial_sentence_pair(all_model_names,decision_models_folde
                                      monitoring_func=monitoring_func,
                                      internal_stopping_condition=internal_stopping_condition,
                                      start_with_identical_sentences=True, max_steps=10000,
+                                     keep_words_unique=keep_words_unique,     
+                                     allowed_repeating_words=allowed_repeating_words,                                          
                                      verbose=verbose)
             if results is False: # optimization was terminated
                 continue
@@ -101,7 +110,8 @@ def synthesize_controversial_sentence_pair(all_model_names,decision_models_folde
                           
 if __name__ == "__main__":
     #all_model_names=['bigram','trigram','rnn','lstm','gpt2','bert','bert_whole_word','roberta','xlm','electra','bilstm']
-    all_model_names=['bigram','trigram','rnn','lstm','gpt2','electra']
+    #all_model_names=['bigram','trigram','rnn','lstm','gpt2','electra']
+    all_model_names=['bigram','trigram','gpt2']
     sent_len=8
                           
     optimizer='LBFGS'
@@ -110,9 +120,11 @@ if __name__ == "__main__":
                                         '20201228',decision_model_class+'_' +optimizer + '_{}_word'.format(sent_len))
     
     results_csv_folder=os.path.join('synthesized_sentences',
-                                    '20201230_controverisal_sentence_pairs',
+                                    '20210113_controverisal_sentence_pairs_no_reps',
                                     decision_model_class+'_' +optimizer + '_{}_word'.format(sent_len))
-                                                  
+    
     synthesize_controversial_sentence_pair(all_model_names,decision_models_folder,
                                            results_csv_folder=results_csv_folder,
-                                           sent_len=sent_len,max_pairs=10,verbose=3)
+                                           sent_len=sent_len,
+                                           allow_only_prepositions_to_repeat=True,
+                                           max_pairs=10,verbose=3)
