@@ -1,5 +1,5 @@
 import os, pickle
-import itertools
+import itertools, random
 import csv
 
 import torch
@@ -15,7 +15,8 @@ from model_to_human_decision_torch import load_decision_model, Naive
 from utils import exclusive_write_line, get_n_lines, hash_dict
 
 def synthesize_controversial_sentence_pair(all_model_names,decision_models_folder,
-                                           results_csv_folder=None,sent_len=8,max_pairs=10,allow_only_prepositions_to_repeat=False,verbose=3):
+                                           results_csv_folder=None,sent_len=8,max_pairs=10,
+                                           allow_only_prepositions_to_repeat=False,natural_initialization=False,verbose=3):
     n_sentences=2 # we optimize a pair of sentences
     
     if allow_only_prepositions_to_repeat:
@@ -24,6 +25,10 @@ def synthesize_controversial_sentence_pair(all_model_names,decision_models_folde
     else:
         allowed_repeating_words=None
         keep_words_unique=False
+        
+    if natural_initialization:
+        with open('sents10k.txt') as f:
+            natural_sentences=[l.strip().rstrip('.') for l in f]
     
     for model_name_pair in itertools.combinations(all_model_names,2):
         [model1_name, model2_name] = model_name_pair
@@ -83,7 +88,12 @@ def synthesize_controversial_sentence_pair(all_model_names,decision_models_folde
 
             internal_stopping_condition=lambda loss: False # don't stop optimizing until convergence
 
-            results=optimize_sentence_set(n_sentences,models=models,loss_func=loss_func,sentences=None,sent_len=sent_len,
+            if natural_initialization:
+                initial_sentences=[random.choice(natural_sentences)]*n_sentences
+            else:
+                initial_sentences=None
+                
+            results=optimize_sentence_set(n_sentences,models=models,loss_func=loss_func,sentences=initial_sentences,sent_len=sent_len,
                                      initial_sampling='uniform',external_stopping_check=external_stopping_check,
                                      monitoring_func=monitoring_func,
                                      internal_stopping_condition=internal_stopping_condition,
@@ -120,11 +130,11 @@ if __name__ == "__main__":
                                         '20201228',decision_model_class+'_' +optimizer + '_{}_word'.format(sent_len))
     
     results_csv_folder=os.path.join('synthesized_sentences',
-                                    '20210113_controverisal_sentence_pairs_no_reps',
+                                    '20210113_controverisal_sentence_pairs_no_reps_natural_init',
                                     decision_model_class+'_' +optimizer + '_{}_word'.format(sent_len))
     
     synthesize_controversial_sentence_pair(all_model_names,decision_models_folder,
                                            results_csv_folder=results_csv_folder,
                                            sent_len=sent_len,
-                                           allow_only_prepositions_to_repeat=True,
+                                           allow_only_prepositions_to_repeat=True,natural_initialization=True,
                                            max_pairs=10,verbose=3)
