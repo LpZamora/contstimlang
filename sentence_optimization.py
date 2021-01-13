@@ -418,9 +418,16 @@ def optimize_sentence_set(n_sentences,models,loss_func,sent_len=8,sentences=None
                 return all_models_word_df
             
             all_models_word_df=prepare_word_prob_df(models,words,wordi)
+                                             
+            if keep_words_unique: # filter out replacements that would lead to repeating word
+                other_words_in_sentence=set([w.lower() for w in (words[:wordi] + words[wordi+1:])])
+                if allowed_repeating_words is not None:
+                    other_words_in_sentence=other_words_in_sentence-set(allowed_repeating_words)
+                candidate_word_is_already_in_sentence=all_models_word_df.index.str.lower().isin(other_words_in_sentence)
+                all_models_word_df=all_models_word_df[~candidate_word_is_already_in_sentence]                
                 
             models_with_approximate_probs=[i for i, model in enumerate(models) if not model.is_word_prob_exact]
-            
+                                        
             # For models with approximate log probabilities, we need
             # at least two datapoints to fit a linear regression from
             # approximate log probs to exact log probs.
@@ -441,14 +448,7 @@ def optimize_sentence_set(n_sentences,models,loss_func,sent_len=8,sentences=None
                     all_models_word_df.at[word_to_evaluate,'exact_'+str(i_model)]=modified_sent_prob
                     if verbose>=4:
                             print("sentence {}: evaluated {:<30} for model {}".format(i_sentence, cur_word+'→ '+word_to_evaluate,models[i_model].name))
-            
-            if keep_words_unique: # filter out replacements that would lead to repeating word
-                other_words_in_sentence=set([w.lower() for w in (words[:wordi] + words[wordi+1:])])
-                if allowed_repeating_words is not None:
-                    other_words_in_sentence=other_words_in_sentence-set(allowed_repeating_words)
-                candidate_word_is_already_in_sentence=all_models_word_df.index.str.lower().isin(other_words_in_sentence)
-                all_models_word_df=all_models_word_df[~candidate_word_is_already_in_sentence]
-                
+
             word_list=list(all_models_word_df.index)
           
             # define loss function for updating sentence_i, with the other sentences fixed.
