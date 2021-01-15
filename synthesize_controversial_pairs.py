@@ -3,6 +3,7 @@ import itertools, random
 import csv
 
 import torch
+import numpy as np
 
 # can we move these out of main?
 from lstm_class import RNNLM
@@ -112,25 +113,28 @@ def synthesize_controversial_sentence_pair(all_model_names,decision_models_folde
             human_p = human_choice_probability(sentences_log_p,human_choice_response_models=human_choice_response_models,log_scale=False)
             MI = controversiality_score(human_p)
             
-            # sentence 1, sentence 2, MI, model_1_log_prob_sent1, model_1_log_prob_sent2, model_2_log_prob_sent1, model_2_log_prob_sent2,
-            # model_1_human_prob_sent1, model_1_human_prob_sent2, model_2_human_prob_sent1, model_2_human_prob_sent2
-            outputs=results['sentences']+[MI]+list(sentences_log_p.flat)+list(human_p.flat)                        
-            line=','.join(map(str, outputs))             
-            exclusive_write_line(results_csv_fname,line,max_pairs)
+            if not np.isclose(MI,0):
+                # sentence 1, sentence 2, MI, model_1_log_prob_sent1, model_1_log_prob_sent2, model_2_log_prob_sent1, model_2_log_prob_sent2,
+                # model_1_human_prob_sent1, model_1_human_prob_sent2, model_2_human_prob_sent1, model_2_human_prob_sent2
+                outputs=results['sentences']+[MI]+list(sentences_log_p.flat)+list(human_p.flat)                        
+                line=','.join(map(str, outputs))             
+                exclusive_write_line(results_csv_fname,line,max_pairs)
+            else:
+                print("MI=0, not writing result."
                           
 if __name__ == "__main__":
     #all_model_names=['bigram','trigram','rnn','lstm','gpt2','bert','bert_whole_word','roberta','xlm','electra','bilstm']
-    #all_model_names=['bigram','trigram','rnn','lstm','gpt2','electra']
-    all_model_names=['bigram','trigram','gpt2']
+    all_model_names=['bigram','trigram','rnn','lstm','gpt2']
+    #all_model_names=['bigram','trigram','gpt2']
     sent_len=8
                           
     optimizer='LBFGS'
     decision_model_class='FixedWidthSquashing'
     decision_models_folder=os.path.join('decision_models',
-                                        '20201228',decision_model_class+'_' +optimizer + '_{}_word'.format(sent_len))
+                                        '20210115',decision_model_class+'_' +optimizer + '_{}_word'.format(sent_len))
     
     results_csv_folder=os.path.join('synthesized_sentences',
-                                    '20210113_controverisal_sentence_pairs_no_reps_natural_init',
+                                    '20210115_controverisal_sentence_pairs_no_reps_natural_init',
                                     decision_model_class+'_' +optimizer + '_{}_word'.format(sent_len))
     
     synthesize_controversial_sentence_pair(all_model_names,decision_models_folder,
