@@ -120,7 +120,7 @@ def synthesize_controversial_sentence_pair(all_model_names,decision_models_folde
                 line=','.join(map(str, outputs))             
                 exclusive_write_line(results_csv_fname,line,max_pairs)
             else:
-                print("MI=0, not writing result."
+                print("MI=0, not writing result.")
                           
 if __name__ == "__main__":
     #all_model_names=['bigram','trigram','rnn','lstm','gpt2','bert','bert_whole_word','roberta','xlm','electra','bilstm']
