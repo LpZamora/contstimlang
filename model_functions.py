@@ -67,7 +67,12 @@ class model_factory:
             self.tokenizer = GPT2Tokenizer.from_pretrained('gpt2-xl')
             self.model = GPT2LMHeadModel.from_pretrained('gpt2-xl').to('cuda:'+str(gpu_id))
             self.is_word_prob_exact = False
-            
+        
+        elif name=='naive_gpt2':
+            self.tokenizer = GPT2Tokenizer.from_pretrained('gpt2-xl')
+            self.model = GPT2LMHeadModel.from_pretrained('gpt2-xl').to('cuda:'+str(gpu_id))
+            self.is_word_prob_exact = False
+        
         elif name=='bilstm':
             self.model=torch.load('contstim_bilstm.pt').to('cuda:'+str(gpu_id))
             self.word2id=word2id
@@ -119,6 +124,9 @@ class model_factory:
         elif self.name == 'gpt2':
             prob=gpt2_sent_prob(self,sent)
 
+        elif self.name == 'naive_gpt2':
+            prob=naive_gpt2_sent_prob(self,sent)
+
         elif self.name == 'bilstm':
             prob=bilstm_sent_prob(self,sent)
 
@@ -149,6 +157,9 @@ class model_factory:
             
         elif self.name == 'gpt2':
             probs=gpt2_word_probs(self, words, wordi)
+            
+        elif self.name == 'naive_gpt2':
+            probs=naive_gpt2_word_probs(self, words, wordi)
 
         elif self.name == 'bilstm':
             probs=bilstm_word_probs(self, words, wordi)
@@ -226,7 +237,7 @@ def get_token_info(self):
     model=self.model
 
 
-    if name=='gpt2':
+    if name in ['gpt2','naive_gpt2']:
 
         special_tokens_dict = {'pad_token': '[PAD]'}
         tokenizer.add_special_tokens(special_tokens_dict)
@@ -1091,6 +1102,167 @@ def gpt2_word_probs(self,words,wordi):
     return vocab_probs, vocab_tops_ind
 
 
+def naive_gpt2_sent_prob(self,sent):
+
+    gpu_id=self.gpu_id
+
+    tokenizer=self.tokenizer
+    model=self.model
+
+#     starts=self.starts
+#     suffs=self.suffs
+
+    sent='. ' + sent + '.'
+
+    tokens=tokenizer.encode(sent)
+    inputs=torch.tensor(tokens).to('cuda:'+str(gpu_id))
+
+    with torch.no_grad():
+        out=model(inputs)
+
+    unsoft=out[0]
+    lab1=inputs.cpu().data.numpy()
+
+    probs=[]
+    for x in range(len(lab1)-1):
+
+        lab=lab1[x+1]
+        unsoft1=unsoft[x]
+        
+        soft=logsoftmax(unsoft1)
+        prob=float(soft[lab].cpu().data.numpy())        
+        probs.append(prob)
+
+    prob=np.sum(probs)
+
+    return prob
+
+def naive_gpt2_word_probs(self,words,wordi):
+
+    gpu_id=self.gpu_id
+
+    tokenizer=self.tokenizer
+    model=self.model
+
+    starts=self.starts
+    suffs=self.suffs
+
+    if wordi==0:
+        vocab=vocab_cap
+        toklist=self.toklist_cap
+    else:
+        vocab=vocab_low
+        toklist=self.toklist_low
+
+
+    sent1=' '.join(words[:wordi])
+    sent2=' '.join(words[wordi+1:])
+
+    tok1=tokenizer.encode('. ' + sent1)
+    tok2=tokenizer.encode(' ' + sent2)
+
+    ####################################################3##
+
+    lp=0
+    while 0==0:
+        in1=tok1
+        in1=torch.tensor(in1).to('cuda:'+str(gpu_id))
+
+        with torch.no_grad():
+            out1=model(in1)[0]
+            soft1=torch.softmax(out1,-1)[-1].cpu().data.numpy()
+
+        logsoft1=np.log(soft1)
+
+        tops=np.where(logsoft1>-10-lp*5)[0]
+
+        tops=[t for t in tops if t in starts]
+
+        if len(tops)<10:
+            lp=lp+1
+        else:
+            break
+
+    ##########################
+
+    inputs=[]
+    vocab_to_input_inds=[]
+    vocab_to_input_pred_vocs=[]
+    vocab_to_input_pos=[]
+
+    vocab_tops=[]
+    vocab_tops_ind=[]
+
+
+    for wi,word in enumerate(vocab):
+
+        wordtok=toklist[wi]
+
+        if wordtok[0] in tops:
+
+            vocab_tops.append(word)
+            vocab_tops_ind.append(wi)
+
+            in1 = tok1 + wordtok + tok2 + tokenizer.encode('.')
+
+            inputs.append(in1)
+
+
+    maxlen=np.max([len(i) for i in inputs])
+
+    inputs0=[i+[0]*(maxlen-len(i)) for i in inputs]
+    att_mask=np.ceil(np.array(inputs0)/100000)
+
+    inputs=[i+[tokenizer.pad_token_id]*(maxlen-len(i)) for i in inputs]
+
+    batchsize=64
+
+    for i in range(int(np.ceil(len(inputs)/batchsize))):
+
+        inputs1=np.array(inputs[batchsize*i:batchsize*(i+1)])
+
+        att_mask1=att_mask[batchsize*i:batchsize*(i+1)]
+
+        inputs2=torch.tensor(inputs1).to('cuda:'+str(gpu_id))
+        att_mask1=torch.tensor(att_mask1,dtype=torch.float32).to('cuda:'+str(gpu_id))
+
+
+        with torch.no_grad():
+
+            out1=model(input_ids=inputs2,attention_mask=att_mask1)[0]
+            
+#             out_suff_inds=torch.where(torch.tensor(np.in1d(inputs1,suffs).reshape(inputs1.shape[0],-1)).to('cuda:'+str(gpu_id))==True)
+            
+#             out_start_inds=torch.where(torch.tensor(np.in1d(inputs1,starts).reshape(inputs1.shape[0],-1)).to('cuda:'+str(gpu_id))==True)
+
+#             for x in range(len(out_suff_inds[0])):
+#                 out1[out_suff_inds[0][x],out_suff_inds[1][x]-1,starts]=math.inf*-1
+
+#             for x in range(len(out_start_inds[0])):
+#                 out1[out_start_inds[0][x],out_start_inds[1][x]-1,suffs]=math.inf*-1
+
+            soft=logsoftmax(out1)
+
+
+            for v in range(len(inputs1)):
+
+                numwords=len(np.where(inputs1[v]<tokenizer.pad_token_id)[0])-1
+
+                #probs=torch.tensor([soft[v,n,inputs1[v][n+1]] for n in range(len(tok1)-1,numwords)])
+                
+                probs=torch.tensor([soft[v,n,inputs1[v][n+1]] for n in range(0,numwords)])
+
+                prob=torch.sum(probs)#.cpu().data.numpy())
+
+                if i==0 and v==0:
+                    vocab_probs=prob.unsqueeze(0)
+                else:
+                    vocab_probs=torch.cat((vocab_probs,prob.unsqueeze(0)),0)
+
+
+    vocab_probs=vocab_probs.cpu().data.numpy()
+
+    return vocab_probs, vocab_tops_ind
 
 
 
