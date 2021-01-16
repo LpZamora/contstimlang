@@ -1144,8 +1144,8 @@ def naive_gpt2_word_probs(self,words,wordi):
     tokenizer=self.tokenizer
     model=self.model
 
-    starts=self.starts
-    suffs=self.suffs
+    #starts=self.starts
+    #suffs=self.suffs
 
     if wordi==0:
         vocab=vocab_cap
@@ -1176,7 +1176,7 @@ def naive_gpt2_word_probs(self,words,wordi):
 
         tops=np.where(logsoft1>-10-lp*5)[0]
 
-        tops=[t for t in tops if t in starts]
+        #tops=[t for t in tops if t in starts]
 
         if len(tops)<10:
             lp=lp+1
