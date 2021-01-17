@@ -129,7 +129,7 @@ if __name__ == "__main__":
     sent_len=8
                           
     optimizer='LBFGS'
-    decision_model_class='FixedWidthSquashing'
+    decision_model_class='SquashedSoftmax'
     decision_models_folder=os.path.join('decision_models',
                                         '20210115',decision_model_class+'_' +optimizer + '_{}_word'.format(sent_len))
     
