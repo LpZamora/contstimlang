@@ -10,3 +10,5 @@ knlm==0.1.2
 sklearn
 matplotib
 portalocker
+jsonpickle
+pandas

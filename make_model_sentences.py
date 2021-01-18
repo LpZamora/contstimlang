@@ -18,8 +18,6 @@ from interpolation_search import SetInterpolationSearch
 
 models=['bigram','trigram','rnn','lstm','bilstm','bert','bert_whole_word','roberta','xlm','electra','gpt2']
 
-#models=['bigram','trigram','rnn','lstm','bilstm','bert','bert_whole_word','roberta','electra','gpt2']
-
 # printing verbosity level
 verbose=3
 
@@ -31,35 +29,7 @@ model1_gpu_id=0
 #sentence length
 sent_len=8
 
-def get_n_lines(fname):
-    if not os.path.exists(fname):
-        return 0
-    else:
-        with open(fname,'r') as fh:
-            return sum(1 for line in fh)
-
-def exclusive_write_line(fname,line,max_lines):
-    if not os.path.exists(os.path.dirname(fname)):
-        pathlib.Path(os.path.dirname(fname)).mkdir(parents=True, exist_ok=True)
-    with portalocker.Lock(fname, mode='a+') as fh:
-        n_lines_in_files=sum(1 for line in fh)
-        if n_lines_in_files>=max_lines:
-            print('max lines ('+str(max_lines) + ') in ' + fname + ' reached, not writing.')
-        fh.write(line+'\n')
-        fh.flush()
-        os.fsync(fh.fileno())
-
-with open('vocab_low.pkl', 'rb') as file:
-    vocab_low=pickle.load(file)
-
-with open('vocab_low_freqs.pkl', 'rb') as file:
-    vocab_low_freqs=pickle.load(file)
-
-with open('vocab_cap.pkl', 'rb') as file:
-    vocab_cap=pickle.load(file)
-
-with open('vocab_cap_freqs.pkl', 'rb') as file:
-    vocab_cap_freqs=pickle.load(file)
+from vocabulary import vocab_low, vocab_low_freqs, vocab_cap, vocab_cap_freqs
 
 model_loaded=False
 for model1_name in models:
@@ -250,7 +220,7 @@ for model1_name in models:
                                 cur_word1+'→ '+word1,model1_sent1_prob,model1_sent1t_prob,),end='')
 
                     # check the updated, observed global minimum
-                    minimum_loss_word_idx,minimum_loss=opt.get_observed_loss_minimum()
+                    minimum_loss_word_idx,minimum_loss,_=opt.get_observed_loss_minimum()
 
                     if minimum_loss is not None:
 
