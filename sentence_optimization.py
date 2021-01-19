@@ -469,6 +469,7 @@ def optimize_sentence_set(n_sentences,models,loss_func,sent_len=8,sentences=None
                 # we'll use the approximate sentence log-probabilities to predict a replacement word that will.
                 # we'll then observe the exact sentence log-probabilities for that word.
                 best_approximate_loss=np.inf
+                n_non_decreasing_loss_attempts_per_word=0
                 
                 for word_iteration in range(max_replacement_attempts_per_word):
                     # find the best word according to approximate sentence probabilities
