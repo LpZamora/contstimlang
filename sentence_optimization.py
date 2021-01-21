@@ -272,7 +272,8 @@ def optimize_sentence_set(n_sentences,models,loss_func,sent_len=8,sentences=None
                          max_replacement_attempts_per_word=50,
                          max_non_decreasing_loss_attempts_per_word=5,
                          keep_words_unique=False,
-                         allowed_repeating_words=None, 
+                         allowed_repeating_words=None,
+                         sentences_to_change=None,
                          verbose=3):
     """ Optimize a sentence set of n_sentences.
     n_sentences (int) how many sentences to optimize (e.g., 2 for a sentence pair).
@@ -289,6 +290,7 @@ def optimize_sentence_set(n_sentences,models,loss_func,sent_len=8,sentences=None
     max_non_decreasing_loss_attempts_per_word (int) quit trying to replace a word after max_non_decreasing_loss_attempts_per_word sentences did not show decreasing loss
     keep_words_unique (bool) all words must be unique (within sentence)
     allowed_repeating_words (list) if keep_words_unique is True, these words are excluded from the uniqueness constrain. The words should be lower-case.
+    sentences_to_change (list) which sentences should be optimized (e.g., [0,1]). Default: all sentences.
     verbose (int)
     """
     
@@ -331,6 +333,9 @@ def optimize_sentence_set(n_sentences,models,loss_func,sent_len=8,sentences=None
         else:
             sentences=[initialize_sentence(sent_len,initial_sampling=initial_sampling) for i_sent in range(n_sentences)]
     
+    if sentences_to_change is None:
+        sentences_to_change=list(range(n_sentences)) # by default change all sentences
+        
     # get initial sentence probabilities
     def get_sentence_log_probabilities(models,sentences):
         """ Return a (model x sentence) log_probability numpy matrix """
@@ -379,7 +384,7 @@ def optimize_sentence_set(n_sentences,models,loss_func,sent_len=8,sentences=None
             vocab=vocab_low
         
         # for a given word placement, change one sentence at a time (using a random order).
-        sentence_indecis_to_modify=list(range(n_sentences))
+        sentence_indecis_to_modify=list(sentences_to_change).copy()
         random.shuffle(sentence_indecis_to_modify)
         found_replacement_for_at_least_one_sentence=False
         for i_sentence in sentence_indecis_to_modify:

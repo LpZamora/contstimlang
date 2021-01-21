@@ -17,7 +17,7 @@ from utils import exclusive_write_line, get_n_lines, hash_dict
 
 def synthesize_controversial_sentence_pair(all_model_names,decision_models_folder,
                                            results_csv_folder=None,sent_len=8,max_pairs=10,
-                                           allow_only_prepositions_to_repeat=False,natural_initialization=False,verbose=3):
+                                           allow_only_prepositions_to_repeat=False,natural_initialization=False,sentences_to_change=None,verbose=3):
     n_sentences=2 # we optimize a pair of sentences
     
     if allow_only_prepositions_to_repeat:
@@ -100,7 +100,8 @@ def synthesize_controversial_sentence_pair(all_model_names,decision_models_folde
                                      internal_stopping_condition=internal_stopping_condition,
                                      start_with_identical_sentences=True, max_steps=10000,
                                      keep_words_unique=keep_words_unique,     
-                                     allowed_repeating_words=allowed_repeating_words,                                          
+                                     allowed_repeating_words=allowed_repeating_words,
+                                     sentences_to_change=sentences_to_change,
                                      verbose=verbose)
             if results is False: # optimization was terminated
                 continue
@@ -131,14 +132,14 @@ if __name__ == "__main__":
     optimizer='LBFGS'
     decision_model_class='FixedWidthSquashing'
     decision_models_folder=os.path.join('decision_models',
-                                        '20210118_10th_percentile_squash',decision_model_class+'_' +optimizer + '_{}_word'.format(sent_len))
+                                        '20210115',decision_model_class+'_' +optimizer + '_{}_word'.format(sent_len))
     
     results_csv_folder=os.path.join('synthesized_sentences',
-                                    '20210118_controverisal_sentence_pairs_no_reps_random_init_10th_percentile_squash',
+                                    '20210115_controverisal_sentence_pairs_no_reps_natural_frozen_ref',
                                     decision_model_class+'_' +optimizer + '_{}_word'.format(sent_len))
     
     synthesize_controversial_sentence_pair(all_model_names,decision_models_folder,
                                            results_csv_folder=results_csv_folder,
                                            sent_len=sent_len,
-                                           allow_only_prepositions_to_repeat=True,natural_initialization=False,
-                                           max_pairs=10,verbose=3)
+                                           allow_only_prepositions_to_repeat=True,natural_initialization=True,
+                                           max_pairs=10,verbose=3,sentences_to_change=[0,])
