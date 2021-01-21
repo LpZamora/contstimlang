@@ -134,11 +134,11 @@ if __name__ == "__main__":
                                         '20210118_10th_percentile_squash',decision_model_class+'_' +optimizer + '_{}_word'.format(sent_len))
     
     results_csv_folder=os.path.join('synthesized_sentences',
-                                    '20210118_controverisal_sentence_pairs_no_reps_natural_init_10th_percentile_squash',
+                                    '20210118_controverisal_sentence_pairs_no_reps_random_init_10th_percentile_squash',
                                     decision_model_class+'_' +optimizer + '_{}_word'.format(sent_len))
     
     synthesize_controversial_sentence_pair(all_model_names,decision_models_folder,
                                            results_csv_folder=results_csv_folder,
                                            sent_len=sent_len,
-                                           allow_only_prepositions_to_repeat=True,natural_initialization=True,
-                                           max_pairs=4,verbose=3)
+                                           allow_only_prepositions_to_repeat=True,natural_initialization=False,
+                                           max_pairs=10,verbose=3)
