@@ -14,7 +14,7 @@ cd /scratch/nklab/projects/contstimlang/contstim
 
 conda activate contstimlang
 
-python -u synthesize_controversial_pairs.py
+python -u synthesize_controversial_pairs_heuristic.py
 echo "python script terminated"
 
 # End of script
