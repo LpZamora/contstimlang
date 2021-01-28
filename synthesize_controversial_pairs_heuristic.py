@@ -11,15 +11,14 @@ from bilstm_class import RNNLM_bilstm
 from rnn_class import RNNModel
 
 from model_functions import model_factory
-from sentence_optimization import optimize_sentence_set, human_choice_controversiality_loss, human_choice_controversiality_loss_log_scale, human_choice_probability, controversiality_score
-from model_to_human_decision_torch import load_decision_model, Naive
+from sentence_optimization import optimize_sentence_set, initialize_random_word_sentence
 from utils import exclusive_write_line, get_n_lines, hash_dict
 
 def synthesize_controversial_sentence_pair(all_model_names,results_csv_folder=None,sent_len=8,max_pairs=10,
-                                           allow_only_prepositions_to_repeat=False,verbose=3):
+                                           allow_only_prepositions_to_repeat=False, natural_initialization=True,
+                                           verbose=3):
     n_sentences=2 # we optimize a pair of sentences
 
-    natural_initialization=True
     sentences_to_change=[1] # change the second sentence
 
     if allow_only_prepositions_to_repeat:
@@ -29,9 +28,8 @@ def synthesize_controversial_sentence_pair(all_model_names,results_csv_folder=No
         allowed_repeating_words=None
         keep_words_unique=False
 
-    if natural_initialization:
-        with open('sents10k.txt') as f:
-            natural_sentences=[l.strip().rstrip('.') for l in f]
+    with open('sents10k.txt') as f:
+        natural_sentences=[l.strip().rstrip('.') for l in f]
 
     for model_name_pair in itertools.product(all_model_names,repeat=2):
         [model1_name, model2_name] = model_name_pair
@@ -107,7 +105,8 @@ def synthesize_controversial_sentence_pair(all_model_names,results_csv_folder=No
             if natural_initialization:
                 initial_sentences=[random.choice(natural_sentences)]*n_sentences
             else:
-                initial_sentences=None
+                initial_sentences=[random.choice(natural_sentences),
+                initialize_random_word_sentence(sent_len,initial_sampling='uniform')]
 
             results=optimize_sentence_set(n_sentences,models=models,loss_func=loss_func,sentences=initial_sentences,sent_len=sent_len,
                                      initial_sampling='uniform',external_stopping_check=external_stopping_check,
@@ -126,7 +125,7 @@ def synthesize_controversial_sentence_pair(all_model_names,results_csv_folder=No
             print(sentences)
             monitoring_func(sentences,sentences_log_p)
 
-            if not np.isclose(results['loss'],0):
+            if results['loss']<0:
                 # sentence 1, sentence 2, loss, model_1_log_prob_sent1, model_1_log_prob_sent2, model_2_log_prob_sent1, model_2_log_prob_sent2,
                 outputs=results['sentences']+[results['loss']]+list(sentences_log_p.flat)
                 line=','.join(map(str, outputs))
@@ -141,10 +140,11 @@ if __name__ == "__main__":
     sent_len=8
 
     results_csv_folder=os.path.join('synthesized_sentences',
-                                    '20210126_controverisal_sentence_pairs_heuristic',
+                                    '20210126_controverisal_sentence_pairs_heuristic_random_init',
                                      '{}_word'.format(sent_len))
 
     synthesize_controversial_sentence_pair(all_model_names,results_csv_folder=results_csv_folder,
                                            sent_len=sent_len,
                                            allow_only_prepositions_to_repeat=True,
+                                           natural_initialization=False,
                                            max_pairs=10,verbose=3)
