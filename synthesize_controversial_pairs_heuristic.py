@@ -134,17 +134,17 @@ def synthesize_controversial_sentence_pair(all_model_names,results_csv_folder=No
                 print("failed optimization, not writing results.")
 
 if __name__ == "__main__":
-    #all_model_names=['bigram','trigram','rnn','lstm','gpt2','bert','bert_whole_word','roberta','xlm','electra','bilstm']
+    all_model_names=['bigram','trigram','rnn','lstm','gpt2','bert','bert_whole_word','roberta','xlm','electra','bilstm']
 
-    all_model_names=['bigram','trigram','gpt2']
+    #all_model_names=['bigram','trigram','gpt2','bert_whole_word']
     sent_len=8
 
     results_csv_folder=os.path.join('synthesized_sentences',
-                                    '20210126_controverisal_sentence_pairs_heuristic_random_init',
+                                    '20210128_controverisal_sentence_pairs_heuristic_natural_init_allow_rep',
                                      '{}_word'.format(sent_len))
 
     synthesize_controversial_sentence_pair(all_model_names,results_csv_folder=results_csv_folder,
                                            sent_len=sent_len,
-                                           allow_only_prepositions_to_repeat=True,
-                                           natural_initialization=False,
+                                           allow_only_prepositions_to_repeat=False,
+                                           natural_initialization=True,
                                            max_pairs=10,verbose=3)
