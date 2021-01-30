@@ -72,7 +72,7 @@ def get_word_prob_from_model(model,words,wordi):
     else:
         vocab=vocab_low
 
-    output = model.word_probs(words,wordi)
+    output = model.word_probs(words.copy(),wordi) # copying ensures words remains unchanged regardless of the model code
     if len(output)==2 and isinstance(output,tuple): # model returns indecis and probabilities
         model_word_inds=output[1]
         model_word_probs=output[0]

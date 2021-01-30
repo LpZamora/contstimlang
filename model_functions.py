@@ -42,7 +42,7 @@ class model_factory:
             self.tokenizer = BertTokenizer.from_pretrained('bert-large-cased')
             self.model = BertForMaskedLM.from_pretrained('bert-large-cased').to('cuda:'+str(gpu_id))
             self.is_word_prob_exact = False
-            
+
         elif name=='bert_whole_word':
             self.tokenizer = BertTokenizer.from_pretrained('bert-large-cased')
             self.model = BertForMaskedLM.from_pretrained('bert-large-cased-whole-word-masking').to('cuda:'+str(gpu_id))
@@ -52,27 +52,27 @@ class model_factory:
             self.tokenizer = RobertaTokenizer.from_pretrained('roberta-large')
             self.model = RobertaForMaskedLM.from_pretrained('roberta-large').to('cuda:'+str(gpu_id))
             self.is_word_prob_exact = False
-            
+
         elif name=='xlm':
             self.tokenizer = XLMTokenizer.from_pretrained('xlm-mlm-en-2048')
             self.model = XLMWithLMHeadModel.from_pretrained('xlm-mlm-en-2048').to('cuda:'+str(gpu_id))
             self.is_word_prob_exact = False
-            
+
         elif name=='electra':
             self.tokenizer = ElectraTokenizer.from_pretrained('google/electra-large-generator')
             self.model = ElectraForMaskedLM.from_pretrained('google/electra-large-generator').to('cuda:'+str(gpu_id))
             self.is_word_prob_exact = False
-            
+
         elif name=='gpt2':
             self.tokenizer = GPT2Tokenizer.from_pretrained('gpt2-xl')
             self.model = GPT2LMHeadModel.from_pretrained('gpt2-xl').to('cuda:'+str(gpu_id))
             self.is_word_prob_exact = False
-        
+
         elif name=='naive_gpt2':
             self.tokenizer = GPT2Tokenizer.from_pretrained('gpt2-xl')
             self.model = GPT2LMHeadModel.from_pretrained('gpt2-xl').to('cuda:'+str(gpu_id))
             self.is_word_prob_exact = False
-        
+
         elif name=='bilstm':
             self.model=torch.load('contstim_bilstm.pt').to('cuda:'+str(gpu_id))
             self.word2id=word2id
@@ -82,7 +82,7 @@ class model_factory:
             self.vocab_size=nn_vocab_size
             self.num_layers=1
             self.is_word_prob_exact = False
-            
+
         elif name=='lstm':
             self.model=torch.load('contstim_lstm.pt').to('cuda:'+str(gpu_id))
             self.word2id=word2id
@@ -92,7 +92,7 @@ class model_factory:
             self.vocab_size=nn_vocab_size
             self.num_layers=1
             self.is_word_prob_exact = False
-            
+
         elif name=='rnn':
             self.model=torch.load('contstim_rnn.pt').to('cuda:'+str(gpu_id))
             self.word2id=word2id
@@ -106,7 +106,7 @@ class model_factory:
         elif name=='trigram':
             self.model=KneserNey.load('trigram.model')
             self.is_word_prob_exact = True
-            
+
         elif name=='bigram':
             self.model=KneserNey.load('bigram.model')
             self.is_word_prob_exact = True
@@ -154,10 +154,10 @@ class model_factory:
 
         elif self.name == 'xlm':
              probs=xlm_word_probs(self, words, wordi)
-            
+
         elif self.name == 'gpt2':
             probs=gpt2_word_probs(self, words, wordi)
-            
+
         elif self.name == 'naive_gpt2':
             probs=naive_gpt2_word_probs(self, words, wordi)
 
@@ -296,7 +296,7 @@ def get_token_info(self):
 
             tokparts_all_low.append(tokparts_all)
 
-        
+
 
         tokparts_all_cap=[]
         tps_cap=[]
@@ -656,7 +656,7 @@ def bidirectional_transformer_sent_prob(self,sent):
 
 
         orders=list(itertools.permutations(word_inds,i))
-        
+
         orders=random.Random(1234).sample(orders,500)
 
         for orderi,order in enumerate(orders):
@@ -719,7 +719,7 @@ def bidirectional_transformer_word_probs(self,words,wordi):
 
     tokenizer=self.tokenizer
     model=self.model
-    
+
     name=self.name
     starts=self.starts
     suffs=self.suffs
@@ -736,8 +736,7 @@ def bidirectional_transformer_word_probs(self,words,wordi):
         vocab_to_tokparts_inds_map=self.vocab_to_tokparts_inds_map_cap
 
 
-    words1=words.copy()
-    words2=words.copy()
+    words=words.copy()
 
     words[wordi]=tokenizer.mask_token
 
@@ -759,7 +758,7 @@ def bidirectional_transformer_word_probs(self,words,wordi):
     maxlen=np.max([len(i) for i in inputs])
 
     inputs=[i+[0]*(maxlen-len(i)) for i in inputs]
-    
+
     att_mask=[[1]*len(i)+[0]*(maxlen-len(i)) for i in inputs]
 
     inputs=torch.tensor(inputs).to('cuda:'+str(gpu_id))
@@ -817,7 +816,7 @@ def xlm_word_probs(self,words,wordi):
 
     tokenizer=self.tokenizer
     model=self.model
-    
+
     name=self.name
     starts=self.starts
     suffs=self.suffs
@@ -834,11 +833,10 @@ def xlm_word_probs(self,words,wordi):
         vocab_to_tokparts_inds_map=self.vocab_to_tokparts_inds_map_cap
 
 
-    words1=words.copy()
-    words2=words.copy()
+    words=words.copy() # Don't change the input argument!
 
     words[wordi]=tokenizer.mask_token
-    
+
     sent_len=len(words)
 
     sent=' '.join(words)
@@ -857,11 +855,11 @@ def xlm_word_probs(self,words,wordi):
         inputs.append(in1)
 
     maxlen=np.max([len(i) for i in inputs])
-    
+
     att0s_all=[maxlen-len(i) for i in inputs]
 
     inputs=[[0]*(maxlen-len(i))+i for i in inputs]
-    
+
     att_mask=[[0]*(maxlen-len(i))+[1]*len(i) for i in inputs]
 
 
@@ -875,9 +873,9 @@ def xlm_word_probs(self,words,wordi):
         vocab_to_tokparts_inds_map_batch=vocab_to_tokparts_inds_map[i]
 
         inputs1=inputs[batchsize*i:batchsize*(i+1)]
-        
+
         att0s=att0s_all[batchsize*i:batchsize*(i+1)]
-        
+
         att_mask1=att_mask[batchsize*i:batchsize*(i+1)]
 
         mask_inds=[torch.where(inp==tokenizer.mask_token_id)[0]-wordi-1 for inp in inputs1]
@@ -885,26 +883,26 @@ def xlm_word_probs(self,words,wordi):
         with torch.no_grad():
 
             out1=model(inputs1,attention_mask=att_mask1)[0]
-            
+
             out1[:,-1*(len(tokens)-mask_ind),starts]=math.inf*-1
             out1[:,:-1*(len(tokens)-mask_ind)-1,suffs]=math.inf*-1
 
             t1=time.time()
-            
+
             out2=torch.zeros([batchsize,6,out1.shape[2]])
-            
+
             for x in range(len(inputs1)):
-                
+
                 #print(out1[x,wordi+1+att0s[x]:wordi+7+att0s[x],:].shape[1])
-                
+
                 out2[x,:out1[x,mask_ind+att0s[x]:mask_ind+6+att0s[x],:].shape[0],:] = out1[x,mask_ind+att0s[x]:mask_ind+6+att0s[x],:]
-            
-            
+
+
 #             print(out2)
 #             sys.e
-            
+
 #             out1=torch.tensor([list(out1[x,wordi+1+att0s[x]:wordi+7+att0s[x],:].cpu().data.numpy()) for x in range(len(inputs1))])
-  
+
 
             soft=logsoftmax(out2)
 
@@ -1067,9 +1065,9 @@ def gpt2_word_probs(self,words,wordi):
         with torch.no_grad():
 
             out1=model(input_ids=inputs2,attention_mask=att_mask1)[0]
-            
+
             out_suff_inds=torch.where(torch.tensor(np.in1d(inputs1,suffs).reshape(inputs1.shape[0],-1)).to('cuda:'+str(gpu_id))==True)
-            
+
             out_start_inds=torch.where(torch.tensor(np.in1d(inputs1,starts).reshape(inputs1.shape[0],-1)).to('cuda:'+str(gpu_id))==True)
 
             for x in range(len(out_suff_inds[0])):
@@ -1086,7 +1084,7 @@ def gpt2_word_probs(self,words,wordi):
                 numwords=len(np.where(inputs1[v]<tokenizer.pad_token_id)[0])-1
 
                 #probs=torch.tensor([soft[v,n,inputs1[v][n+1]] for n in range(len(tok1)-1,numwords)])
-                
+
                 probs=torch.tensor([soft[v,n,inputs1[v][n+1]] for n in range(0,numwords)])
 
                 prob=torch.sum(probs)#.cpu().data.numpy())
@@ -1128,9 +1126,9 @@ def naive_gpt2_sent_prob(self,sent):
 
         lab=lab1[x+1]
         unsoft1=unsoft[x]
-        
+
         soft=logsoftmax(unsoft1)
-        prob=float(soft[lab].cpu().data.numpy())        
+        prob=float(soft[lab].cpu().data.numpy())
         probs.append(prob)
 
     prob=np.sum(probs)
@@ -1230,9 +1228,9 @@ def naive_gpt2_word_probs(self,words,wordi):
         with torch.no_grad():
 
             out1=model(input_ids=inputs2,attention_mask=att_mask1)[0]
-            
+
 #             out_suff_inds=torch.where(torch.tensor(np.in1d(inputs1,suffs).reshape(inputs1.shape[0],-1)).to('cuda:'+str(gpu_id))==True)
-            
+
 #             out_start_inds=torch.where(torch.tensor(np.in1d(inputs1,starts).reshape(inputs1.shape[0],-1)).to('cuda:'+str(gpu_id))==True)
 
 #             for x in range(len(out_suff_inds[0])):
@@ -1249,7 +1247,7 @@ def naive_gpt2_word_probs(self,words,wordi):
                 numwords=len(np.where(inputs1[v]<tokenizer.pad_token_id)[0])-1
 
                 #probs=torch.tensor([soft[v,n,inputs1[v][n+1]] for n in range(len(tok1)-1,numwords)])
-                
+
                 probs=torch.tensor([soft[v,n,inputs1[v][n+1]] for n in range(0,numwords)])
 
                 prob=torch.sum(probs)#.cpu().data.numpy())
