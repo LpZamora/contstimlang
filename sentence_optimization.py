@@ -465,7 +465,7 @@ def optimize_sentence_set(n_sentences,models,loss_func,sent_len=8,sentences=None
             # search for the best replacement word
 
             # first, we'll see if any of words for which we already have exact sentence probabilities improves the loss
-            candidate_word_idx,candidate_exact_loss,new_sent_log_p=opt.get_observed_loss_minimum()
+            candidate_word_idx, candidate_exact_loss, new_sent_log_p=opt.get_observed_loss_minimum()
             found_useful_replacement = (candidate_word_idx is not None) and candidate_exact_loss<current_loss
             if found_useful_replacement:
                 candidate_replacement_word=word_list[candidate_word_idx]

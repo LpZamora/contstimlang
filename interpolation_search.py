@@ -106,7 +106,7 @@ class SetInterpolationSearch:
                     continue
             else:
                 is_observed_xs=np.zeros_like(xs_to_predict,dtype=bool)
-            
+
             # some values are missing, or return_ground_truth_when_available is False. Run regression.
             # for fitting the regression, select only values for which we have both the predictor and criterion.
             not_nan_mask=np.logical_and(np.logical_not(np.isnan(self.ys[:,k])),
@@ -117,8 +117,8 @@ class SetInterpolationSearch:
             h.fit(X=expand_to_matrix(self.g[not_nan_mask,k]),y=self.ys[not_nan_mask,k])
             should_predict_xs=np.logical_and(
                 np.logical_not(is_observed_xs),
-                np.logical_not(np.isnan(self.g[xs_to_predict,k])) 
-            )            
+                np.logical_not(np.isnan(self.g[xs_to_predict,k]))
+            )
             y_aprx[should_predict_xs,k]=h.predict(X=expand_to_matrix(self.g[xs_to_predict[should_predict_xs],k]))
         return y_aprx
 
@@ -132,7 +132,7 @@ class SetInterpolationSearch:
         """
         fully_observed_obs=self.fully_observed_obs()
         if len(fully_observed_obs)==0:
-            return None
+            return None, None, None
 
         observed_loss=self.loss_fun(self.ys[fully_observed_obs])
 
@@ -144,10 +144,10 @@ class SetInterpolationSearch:
             minimum_index_in_observed_xs=np.random.choice(minima_indices_in_observed_xs)
         else:
             minimum_index_in_observed_xs=minima_indices_in_observed_xs.item()
-            
-        minimum_index=fully_observed_obs[minimum_index_in_observed_xs]        
+
+        minimum_index=fully_observed_obs[minimum_index_in_observed_xs]
         minimum_ys = self.ys[minimum_index,:]
-        return minimum_index,minimum_loss, minimum_ys
+        return minimum_index, minimum_loss, minimum_ys
 
     def get_unobserved_loss_minimum(self):
         """
@@ -157,45 +157,45 @@ class SetInterpolationSearch:
         and the variable indices (e.g. [0,1]) of the missing variables at that point
         """
 
-        # use initial guesses first, if available        
+        # use initial guesses first, if available
         if len(self.initial_xs_guesses)>0:
             minimum_index=self.initial_xs_guesses.pop(0)
             minimum_loss=None
         else:
             # this line can be optimized for speed by incremental updating
             unobserved_obs=np.flatnonzero(np.any(np.isnan(self.ys),axis=1))
-            
+
             if len(unobserved_obs)==0:
                 return None, None, []
             y_aprx=self._calc_y_aprx(unobserved_obs)
             predicted_loss=self.loss_fun(y_aprx)
-            
+
             minimum_loss=np.nanmin(predicted_loss)
             minima_indices_in_unobserved_xs=np.flatnonzero(predicted_loss==minimum_loss)
-            
+
             if len(minima_indices_in_unobserved_xs)>1:
-                print ("found {} minima.".format(len(minima_indices_in_unobserved_xs)))                            
+                print ("found {} minima.".format(len(minima_indices_in_unobserved_xs)))
                 minimum_index_in_unobserved_xs=np.random.choice(minima_indices_in_unobserved_xs)
             else:
-                minimum_index_in_unobserved_xs=minima_indices_in_unobserved_xs                
-            minimum_index=unobserved_obs[minimum_index_in_unobserved_xs].item()            
+                minimum_index_in_unobserved_xs=minima_indices_in_unobserved_xs
+            minimum_index=unobserved_obs[minimum_index_in_unobserved_xs].item()
         which_variables_are_missing=np.flatnonzero(np.isnan(self.ys[minimum_index]))
         return minimum_index,minimum_loss,which_variables_are_missing
 
     def get_loss_for_x(self,x):
         """
-        yield the exact loss for scalar index x. 
-        
+        yield the exact loss for scalar index x.
+
         args:
         x (int) observation index
-        """        
+        """
         ys=self.ys[slice(x, x+1)]
         assert not np.isnan(ys).any(), 'exact ys must be already observed'
         x_exact_loss=self.loss_fun(ys)
         if isinstance(x_exact_loss,np.ndarray):
             x_exact_loss=x_exact_loss.item()
         return x_exact_loss,ys
-    
+
     def debugging_figure(self):
         fig=plt.figure()
 
@@ -237,25 +237,25 @@ class SetInterpolationSearchPandas(SetInterpolationSearch):
         mask=np.logical_not(np.isnan(initial_observed_ys)).any(axis=1)
         initial_observed_ys=initial_observed_ys[mask]
         initial_observes_xs=np.flatnonzero(mask)
-        
+
         super().__init__(loss_fun,g,initial_observed_xs=initial_observes_xs,initial_observed_ys=initial_observed_ys,initial_xs_guesses=initial_xs_guesses,h_method=h_method)
-        
+
 if __name__ == "__main__":
 
     # toy example
     x=np.arange(100)
-    
+
     g_1=np.asarray(x,dtype=float)
     g_1[11]=np.nan # simulate missing variable
-    
+
     g_2=100-np.asarray(x,dtype=float)
     g_2[11]=np.nan # simulate missing variable
     g=np.stack([g_1,g_2],axis=-1)
     f_1=0.9*g_1+np.random.normal(size=g_1.shape)*1e2
-    
+
     f_2=2*g_2+np.random.normal(size=g_2.shape)*1e2
     f=np.stack([f_1,f_2],axis=-1)
-    
+
     loss_fun=lambda f: abs(f[:,0]**2-f[:,1]**2)
 
     initial_observed_xs=np.asarray([0,11,99])
@@ -274,7 +274,7 @@ if __name__ == "__main__":
             print('root found')
             opt.update_query_result(xs=next_x,ys=next_y)
             break
-            
+
         next_x,predicted_loss,missing_variables=opt.get_unobserved_loss_minimum()
         if next_x is None:
             print('predictions depleted')
@@ -285,7 +285,7 @@ if __name__ == "__main__":
 
         # to test the code, let's update just one variable
         variable_to_update=np.random.choice(missing_variables)
-        print('updating :',variable_to_update)        
+        print('updating :',variable_to_update)
         opt.update_query_result(xs=next_x,ys=next_y[:,variable_to_update],k=variable_to_update)
-        
+
     opt.debugging_figure()
