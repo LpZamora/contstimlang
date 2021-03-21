@@ -55,7 +55,7 @@ def synthesize_controversial_sentence_pair(all_model_names, natural_sentence_ass
 
     sentences_to_change=[1] # change the second sentence
 
-    sch=TaskScheduler(max_job_time_in_seconds=24*3600)
+    sch=TaskScheduler(max_job_time_in_seconds=3600*6)
     job_df = sch.to_pandas()
 
     try:
@@ -63,7 +63,7 @@ def synthesize_controversial_sentence_pair(all_model_names, natural_sentence_ass
     except:
         job_id_df = None
 
-    # determine which model pair has the least jobs completed or running
+    # determine which model pair has least completed jobs or running
     model_pairs_stats=[]
     for model_name_pair in itertools.product(all_model_names,repeat=2):
         [model1_name, model2_name] = model_name_pair
@@ -113,6 +113,9 @@ def synthesize_controversial_sentence_pair(all_model_names, natural_sentence_ass
 
         natural_sentence_df = sentence_assigner.get_sentences(model_name_pair)
         for i_natural_sentence, (sentence_index, natural_sentence) in enumerate(zip(natural_sentence_df.index,natural_sentence_df['sentence'])):
+
+            if i_natural_sentence >= 101:
+                break
 
             # use all sentences for all model pairs
             job_id = {'natural_sentence':natural_sentence, 'model_1':model1_name,'model_2':model2_name}
