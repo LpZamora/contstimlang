@@ -12,3 +12,4 @@ matplotib
 portalocker
 jsonpickle
 pandas
+docplex

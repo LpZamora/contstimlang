@@ -16,8 +16,78 @@ synthesized_sentence_csv_folder = 'synthesized_sentences/20210224_controverisal_
 output_csv_path = 'synthesized_sentences/20210224_controverisal_sentence_pairs_heuristic_natural_init_allow_rep/8_word'
 n_sentence_triplets_for_consideration=100
 n_sentence_triplets_for_human_testing=10
+selection_method = 'decile_balanced' # 'decile_balanced' or 'best'
 
-# processs each csv file ###########
+def docplex_solve(utility_vec,grouping1,grouping2,n_selected_per_group,maximize=True):
+    """ selects elements from utility_vec such that each group in grouping1 and each group in grouping 2 are sampled exactly n_selected_per_group times
+    utility vec (np.ndarray or list) (n,) long vector of utility values
+    grouping 1 (np.ndarray or list) (n,) long vector or list of groups
+    grouping 2 (np.ndarray or list) (n,) long vector or list of groups
+    n_selected_per_group (int) how many samples per marginal group
+    maximize (bool) maximize utility if True, minimize if False
+
+    returns list of selected elements
+    """
+    from docplex.mp.model import Model # requires also cplex -  conda install -c ibmdecisionoptimization cplex
+
+    mdl = Model()
+
+    n = len(utility_vec)
+    assert (len(grouping1)==n) and (len(grouping2)==n)
+
+    groups1 = np.unique(grouping1)
+    groups2 = np.unique(grouping2)
+
+    assert (len(groups1)*n_selected_per_group)<=n and (len(groups2)*n_selected_per_group)<=n
+
+    selection = mdl.binary_var_list(n, name='s') # this represents whether each element was "selected" or not
+    utility_vec=list(utility_vec)
+
+    utility=mdl.sum(utility_vec[i] * selection[i] for i in range(n))
+
+    mdl.add_constraints([
+        mdl.sum(selection[i] for i in range(n) if grouping1[i]==g) == n_selected_per_group
+        for g in groups1])
+
+    mdl.add_constraints([
+        mdl.sum(selection[i] for i in range(n) if grouping2[i]==g) == n_selected_per_group
+        for g in groups2])
+
+    if maximize:
+        mdl.maximize(utility)
+    else:
+        mdl.minimize(utility)
+
+    assert mdl.solve()
+
+    solution=np.zeros(n,dtype=bool)
+    for i in range(n):
+        solution[i]=selection[i].solution_value==1
+    return solution
+
+
+def _test_docplex_solve():
+    """ a simple sanity test for docplex_solve() """
+    n=100
+    utility_vec = np.random.rand(n,)
+    grouping1 = np.random.permutation(100) % 10
+    grouping2 = np.random.permutation(100) % 10
+    print('maximize:')
+    solution = docplex_solve(utility_vec,grouping1,grouping2,1,maximize=True)
+    print('grouping 1:',grouping1[solution])
+    print('grouping 2:',grouping2[solution])
+    print(np.sum(utility_vec[solution]))
+    assert len(np.unique(grouping1[solution]))==10
+    assert len(np.unique(grouping2[solution]))==10
+
+    print('minimize:')
+    solution = docplex_solve(utility_vec,grouping1,grouping2,1,maximize=False)
+    print('grouping 1:',grouping1[solution])
+    print('grouping 2:',grouping2[solution])
+    print(np.sum(utility_vec[solution]))
+    assert len(np.unique(grouping1[solution]))==10
+    assert len(np.unique(grouping2[solution]))==10
+#_test_docplex_solve()
 
 # start by checking which model pairs are available, and loading csvs into pandas dataframes
 csvs = glob.glob(os.path.join(synthesized_sentence_csv_folder,'*.csv'))
@@ -70,16 +140,30 @@ for model1, model2 in itertools.combinations(all_model_names,2):
     assert len(cur_df)>=n_sentence_triplets_for_consideration
     cur_df = cur_df.head(n=n_sentence_triplets_for_consideration)
 
-    # to select trials for the actual experiment, we'd like to most controversial sentences
+    # now, we select trials for the human experiment.
     # rank loss_S1_vs_N and loss_S2_vs_N
-
     cur_df['loss_rank1'] = cur_df['loss_S1_vs_N'].rank(ascending=True)
     cur_df['loss_rank2'] = cur_df['loss_S2_vs_N'].rank(ascending=True)
 
     cur_df['worst_rank_of_two'] = np.maximum(cur_df['loss_rank1'],cur_df['loss_rank2'])
     cur_df['rank'] = cur_df['worst_rank_of_two'].rank(ascending=True,method='first')
 
-    cur_df['selected_for_human_testing'] = cur_df['rank'] <= n_sentence_triplets_for_human_testing
+    if selection_method =='best':
+        # just use the most controversial triplets, according to their worst rank across two synthetic sentences
+
+        cur_df['selected_for_human_testing'] = cur_df['rank'] <= n_sentence_triplets_for_human_testing
+
+    elif selection_method == 'decile_balanced':
+        # choose the most controversial sentences, under the constraint of equally sampling the natural sentence probability deciles of each model
+
+        # rank loss_S1_vs_N and loss_S2_vs_N
+        cur_df['p_N_given_m1_decile']=pd.qcut(cur_df['lp_N_given_m1'],q=10,labels=False)
+        cur_df['p_N_given_m2_decile']=pd.qcut(cur_df['lp_N_given_m2'],q=10,labels=False)
+
+        cur_df['selected_for_human_testing'] = docplex_solve(utility_vec=cur_df['rank'],
+        grouping1=cur_df['p_N_given_m1_decile'],
+        grouping2=cur_df['p_N_given_m2_decile'],
+        n_selected_per_group=1,maximize=False)
 
     cur_df = cur_df.drop(columns='rank')
     selected_df=cur_df[cur_df['selected_for_human_testing']]
