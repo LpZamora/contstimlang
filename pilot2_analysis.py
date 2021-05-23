@@ -1,12 +1,14 @@
 # %%
 from collections import OrderedDict
 import random
+import re
 
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
 import pandas as pd
+import scipy.stats
 
 results_csv = 'behavioral_results/contstim_N32_results.csv'
 
@@ -68,7 +70,10 @@ df=df[~df['Participant Private ID'].isin(excluded_subjects)]
 
 # %% leave one subject out noise ceiling
 def add_leave_one_subject_predictions(df):
-     """ leave one subject out noise ceiling """
+     """ Leave one subject out noise ceiling
+     All of the following measures are lower bounds on the noise ceiling.
+     In other words, an ideal model should be at least as good as these measures.
+     """
 
      # add a sentence pair field. This assumes that s1 and s2 are already sorted.
      df['sentence_pair']=[s1 + '_' + s2 for s1, s2 in zip(df['sentence1'],df['sentence2'])]
@@ -120,8 +125,7 @@ except:
      df.to_csv(aligned_results_csv_with_loso)
 
 # %% Binarized accuracy measurements
-models = ['gpt2','roberta','electra','bert','xlm','lstm','rnn','trigram','bigram','majority_vote_NC']
-def get_binarized_correctness(df,models):
+def get_binarized_accuracy(df,models):
      df2=df.copy()
      """ binarizes model and human predictions and returns 1 or 0 for prediction correctness """
      for model in models:
@@ -135,5 +139,63 @@ def get_binarized_correctness(df,models):
                df2['majority_vote_NC']=df2['majority_vote_NC']==human_chose_sent2
      return df2
 
-df2=get_binarized_correctness(df,models)[models]
+def get_models(df):
+     """ a helper function for extracting model names from column names """
+     models = [re.findall('sentence1_(.+)_prob',col)[0] for col in df.columns if re.search('sentence1_(.+)_prob',col)]
+     return models
+models = get_models(df)+['majority_vote_NC']
+df2=get_binarized_accuracy(df,models)[models]
 print(df2.mean(axis = 0, skipna = True))
+
+# %% Correlation based measurements
+def log_prob_pairs_to_scores(df, transformation_func='diff'):
+     """ each model predicts pair of log-probabilities. To predict human ratings, this function convert each pair to a scalar score """
+     if transformation_func == 'diff': # The most naive approach - use the difference of log probabilities as predictor
+          transformation_func = lambda lp_1, lp_2: lp_2-lp_1
+     elif transformation_func == 'rand': # random LUT. just for debugging
+          transformation_func = lambda lp_1, lp_2: [np.random.RandomState(int(-(p1+p2)*10+42)).rand() for p1,p2 in zip(lp_1, lp_2)]
+     else:
+          raise ValueError
+     models = get_models(df)
+     df2=df.copy()
+     for model in models:
+          df2[model]=transformation_func(df['sentence1_'+model + '_prob'],df['sentence2_'+model + '_prob'])
+          df2=df2.drop(columns=['sentence1_'+model + '_prob','sentence2_'+model + '_prob'])
+     return df2
+
+# %% Correlation based measurements
+def get_correlation_based_accuracy(df,models, correlation_func='pearsonr'):
+     """ within each subject, correlate model scalar scores with subject's ratings"""
+     if correlation_func == 'pearsonr':
+          correlation_func = lambda rating, score: scipy.stats.pearsonr(rating,score)[0]
+     elif correlation_func == 'spearmanr':
+          correlation_func = lambda rating, score: scipy.stats.spearmanr(rating,score,nan_policy='omit')[0]
+     elif correlation_func == 'kendall-Tau-b':
+          # scipy.stats nightly has a somersd function, but it's not yet officially released
+          correlation_func = lambda rating, score: scipy.stats.kendalltau(rating,score,method='asymptotic',variant='b')[0]
+
+     # calculate within-subject correlations
+     df2=[]
+     for subject in df['Participant Private ID'].unique():
+          cur_subject_results={'Participant Private ID':subject}
+          mask=df['Participant Private ID']==subject
+          reduced_df=df[mask]
+          for model in models:
+               cur_subject_results[model]=correlation_func(reduced_df['rating'],reduced_df[model])
+          df2.append(cur_subject_results)
+     df2=pd.DataFrame(df2)
+     return df2
+
+score_df = log_prob_pairs_to_scores(df, transformation_func='diff')
+models = get_models(df)+['mean_rating_NC']
+corr_df=get_correlation_based_accuracy(score_df,models, correlation_func='pearsonr')[models]
+print('predicting ratings from log-prob differences (pearson)')
+print(corr_df.mean(axis = 0, skipna = True))
+
+corr_df=get_correlation_based_accuracy(score_df,models,  correlation_func='spearmanr')[models]
+print('predicting ratings from log-prob differences (spearman)')
+print(corr_df.mean(axis = 0, skipna = True))
+
+corr_df=get_correlation_based_accuracy(score_df,models, correlation_func='kendall-Tau-b')[models]
+print('predicting ratings from log-prob differences (kendall-Tau-b)')
+print(corr_df.mean(axis = 0, skipna = True))
