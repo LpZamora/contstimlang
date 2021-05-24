@@ -6,9 +6,10 @@ import re
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-
 import pandas as pd
 import scipy.stats
+import matplotlib.pyplot as plt
+from matplotlib import cm
 
 #from isotonic_response_model import overfitted_isotonic_mapping
 
@@ -207,8 +208,43 @@ models = get_models(df)
 df_acc_targeted = average_models_within_conditions(df_acc, models, targeting='untargeted')
 print(df_acc_targeted)
 
+def plot_bars(ax, df, chance_level=None, NC_measure=None, ylim=None):
+     cmap = cm.tab10(np.arange(len(df)))
+     plt.bar(df['model'],df['mean'],color=cmap,yerr = df['se'],capsize=5)
 
+     if NC_measure is not None:
+          plt.scatter(np.arange(len(df)),df[NC_measure],marker='_',s=100,color=cmap)
+     if chance_level is not None:
+          plt.axhline(y=chance_level,linestyle='--',color='k',zorder=-100)
+     if ylim is not None:
+          plt.ylim(ylim)
 
+def plot_four_conditions(df,models,NC_measure=None, chance_level=None,ylim=None):
+
+     fig=plt.figure(figsize=(12,6.5))
+     ax=plt.subplot(2,2,1)
+     plot_bars(ax,average_models_within_conditions(df, models, targeting='targeted', pair_type='N_vs_S'), NC_measure=NC_measure, chance_level=chance_level, ylim=ylim)
+     plt.title('N_vs_S, targeted')
+     ax=plt.subplot(2,2,2)
+     plot_bars(ax,average_models_within_conditions(df, models, targeting='targeted', pair_type='S_vs_S'), NC_measure=NC_measure, chance_level=chance_level, ylim=ylim)
+     plt.title('S_vs_S, targeted')
+     ax=plt.subplot(2,2,3)
+     plot_bars(ax,average_models_within_conditions(df, models, targeting='untargeted', pair_type='N_vs_S'), NC_measure=NC_measure, chance_level=chance_level, ylim=ylim)
+     plt.title('N_vs_S, untargeted')
+     ax=plt.subplot(2,2,4)
+     plot_bars(ax,average_models_within_conditions(df, models, targeting='untargeted', pair_type='S_vs_S'), NC_measure=NC_measure, chance_level=chance_level, ylim=ylim)
+     plt.title('S_vs_S, untargeted')
+     plt.tight_layout()
+     plt.show()
+
+# plot average accuracy across all trials
+plt.figure()
+ax=plt.gca()
+models = get_models(df)
+plot_bars(ax,average_models_within_conditions(df_acc, models),NC_measure='majority_vote_NC', chance_level=0.5, ylim=(0,1))
+
+# plot average accuracy within each condition
+plot_four_conditions(df_acc, models, NC_measure='majority_vote_NC',chance_level=0.5,ylim=(0,1))
 
 # %% Correlation based measurements
 def log_prob_pairs_to_scores(df, transformation_func='diff'):
@@ -255,14 +291,14 @@ def get_correlation_based_accuracy(df,models, correlation_func='pearsonr'):
 
 score_df = log_prob_pairs_to_scores(df, transformation_func='diff')
 models = get_models(df)+['mean_rating_NC']
-corr_df=get_correlation_based_accuracy(score_df,models, correlation_func='pearsonr')[models]
+corr_df=get_correlation_based_accuracy(score_df,models, correlation_func='pearsonr')
 print('predicting ratings from log-prob differences (pearson)')
-print(corr_df.mean(axis = 0, skipna = True))
+print(corr_df[models].mean(axis = 0, skipna = True))
 
-corr_df=get_correlation_based_accuracy(score_df,models,  correlation_func='spearmanr')[models]
+corr_df=get_correlation_based_accuracy(score_df,models,  correlation_func='spearmanr')
 print('predicting ratings from log-prob differences (spearman)')
-print(corr_df.mean(axis = 0, skipna = True))
+print(corr_df[models].mean(axis = 0, skipna = True))
 
-corr_df=get_correlation_based_accuracy(score_df,models, correlation_func='kendall-Tau-b')[models]
+corr_df=get_correlation_based_accuracy(score_df,models, correlation_func='kendall-Tau-b')
 print('predicting ratings from log-prob differences (kendall-Tau-b)')
-print(corr_df.mean(axis = 0, skipna = True))
+print(corr_df[models].mean(axis = 0, skipna = True))
