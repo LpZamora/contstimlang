@@ -10,6 +10,8 @@ from tqdm import tqdm
 import pandas as pd
 import scipy.stats
 
+#from isotonic_response_model import overfitted_isotonic_mapping
+
 results_csv = 'behavioral_results/contstim_N32_results.csv'
 
 # %% preprocess results
@@ -68,6 +70,7 @@ except:
 excluded_subjects=[3572610,3572431]
 df=df[~df['Participant Private ID'].isin(excluded_subjects)]
 
+
 # %% leave one subject out noise ceiling
 def add_leave_one_subject_predictions(df):
      """ Leave one subject out noise ceiling
@@ -81,7 +84,7 @@ def add_leave_one_subject_predictions(df):
      # The LOOSO loop.
      df2=df.copy()
 
-     df2['binarized_choice_probability']=np.nan
+     df2['binarized_choice_probability_NC']=np.nan
      df2['majority_vote_NC']=np.nan
      df2['mean_rating_NC']=np.nan
 
@@ -100,13 +103,13 @@ def add_leave_one_subject_predictions(df):
           # 1. binarized choice probability:
           # the predicted probability that a subject will prefer sentence2
           # (to be used for binomial prediction)
-          df2.loc[trial_idx,'binarized_choice_probability']=(reduced_df['rating']>=4).mean()
+          df2.loc[trial_idx,'binarized_choice_probability_NC']=(reduced_df['rating']>=4).mean()
 
           # 2. simple majority vote (1: sentence2, 0: sentence1)
           # to be used for accuracy evaluation)
-          if df2.loc[trial_idx,'binarized_choice_probability']>0.5:
+          if df2.loc[trial_idx,'binarized_choice_probability_NC']>0.5:
                df2.loc[trial_idx,'majority_vote_NC']=1
-          elif df2.loc[trial_idx,'binarized_choice_probability']<0.5:
+          elif df2.loc[trial_idx,'binarized_choice_probability_NC']<0.5:
                df2.loc[trial_idx,'majority_vote_NC']=0
           else:
                raise Warning(f'Tied predictions for trial {trial_idx}. Randomzing prediction.')
@@ -127,6 +130,7 @@ except:
 # %% Binarized accuracy measurements
 def get_binarized_accuracy(df,models):
      df2=df.copy()
+
      """ binarizes model and human predictions and returns 1 or 0 for prediction correctness """
      for model in models:
           if model != 'majority_vote_NC':
@@ -144,16 +148,77 @@ def get_models(df):
      models = [re.findall('sentence1_(.+)_prob',col)[0] for col in df.columns if re.search('sentence1_(.+)_prob',col)]
      return models
 models = get_models(df)+['majority_vote_NC']
-df2=get_binarized_accuracy(df,models)[models]
-print(df2.mean(axis = 0, skipna = True))
+df_acc=get_binarized_accuracy(df,models)
+
+def average_models_within_conditions(df, models, targeting=None, pair_type=None):
+     df = df.copy()
+     df['pair_type']=['N_vs_S' if t1=='N' or t2=='N' else 'S_vs_S' for t1,t2 in zip(df.sentence1_type, df.sentence2_type)]
+
+     results = []
+     for model in models:
+
+          cur_result={'model':model}
+          # split according to model targeting
+          if targeting is None:
+               mask = np.ones(len(df),dtype=bool)
+          elif targeting == 'targeted':
+               mask = (df.sentence1_model == model) | (df.sentence2_model == model)
+               cur_result['targeting']='targeted'
+          elif targeting == 'untargeted':
+               mask =  (df.sentence1_model != model) & (df.sentence2_model != model)
+               cur_result['targeting']='untargeted'
+          else:
+               raise ValueError
+
+          # split according to pair type (N vs S, S vs S)
+          if pair_type is None:
+               pass
+          elif pair_type == 'N_vs_S':
+               mask = mask & (df['pair_type']=='N_vs_S')
+               cur_result['pair_type']='N_vs_S'
+          elif pair_type == 'S_vs_S':
+               mask = mask & (df['pair_type']=='S_vs_S')
+               cur_result['pair_type']='S_vs_S'
+          else:
+               raise ValueError
+
+          assert np.sum(mask)>0
+          reduced_df = df[mask]
+
+          cur_result['mean']=reduced_df[model].mean()
+          cur_result['se']=reduced_df[model].std()/np.sqrt(len(reduced_df[model]))
+
+          NC_measures = [col for col in df.columns if col.endswith('_NC')]
+          for NC_measure in NC_measures:
+               cur_result[NC_measure]=reduced_df[NC_measure].mean()
+          results.append(cur_result)
+     return pd.DataFrame(results)
+
+print ('all trials:')
+print(df_acc[models].mean(axis = 0, skipna = True))
+
+print ('only targeted:')
+models = get_models(df)
+df_acc_targeted = average_models_within_conditions(df_acc, models, targeting='targeted')
+print(df_acc_targeted)
+
+print ('only untargeted:')
+models = get_models(df)
+df_acc_targeted = average_models_within_conditions(df_acc, models, targeting='untargeted')
+print(df_acc_targeted)
+
+
+
 
 # %% Correlation based measurements
 def log_prob_pairs_to_scores(df, transformation_func='diff'):
      """ each model predicts pair of log-probabilities. To predict human ratings, this function convert each pair to a scalar score """
      if transformation_func == 'diff': # The most naive approach - use the difference of log probabilities as predictor
           transformation_func = lambda lp_1, lp_2: lp_2-lp_1
-     elif transformation_func == 'rand': # random LUT. just for debugging
+     elif transformation_func == 'rand': # random detereministic transformation. just for debugging
           transformation_func = lambda lp_1, lp_2: [np.random.RandomState(int(-(p1+p2)*10+42)).rand() for p1,p2 in zip(lp_1, lp_2)]
+     # elif transformation_func == 'isotonic': # best possible mapping
+     #      transformation_func = lambda lp_1, lp_2: overfitted_isotonic_mapping(lp_1,lp_2,df['rating'])
      else:
           raise ValueError
      models = get_models(df)
@@ -162,6 +227,7 @@ def log_prob_pairs_to_scores(df, transformation_func='diff'):
           df2[model]=transformation_func(df['sentence1_'+model + '_prob'],df['sentence2_'+model + '_prob'])
           df2=df2.drop(columns=['sentence1_'+model + '_prob','sentence2_'+model + '_prob'])
      return df2
+
 
 # %% Correlation based measurements
 def get_correlation_based_accuracy(df,models, correlation_func='pearsonr'):
@@ -185,6 +251,7 @@ def get_correlation_based_accuracy(df,models, correlation_func='pearsonr'):
           df2.append(cur_subject_results)
      df2=pd.DataFrame(df2)
      return df2
+
 
 score_df = log_prob_pairs_to_scores(df, transformation_func='diff')
 models = get_models(df)+['mean_rating_NC']
