@@ -225,6 +225,7 @@ def all_sentence_lp_plot(all_sentences, figname):
                     y_S1=row['lp_S1_given_m2']
                     x_S2=row['lp_S2_given_m1']
                     y_S2=row['lp_S2_given_m2']
+                    arrow_markers = ['v','>']
                 elif row['m1'] == y_model and row['m2'] == x_model:
                     x_N=row['lp_N_given_m2']
                     y_N=row['lp_N_given_m1']
@@ -232,7 +233,7 @@ def all_sentence_lp_plot(all_sentences, figname):
                     y_S1=row['lp_S1_given_m1']
                     x_S2=row['lp_S2_given_m2']
                     y_S2=row['lp_S2_given_m1']
-
+                    arrow_markers = ['>','v']
                 linewidth=0.1
 
                 if row['selected_for_human_testing']:
@@ -244,9 +245,12 @@ def all_sentence_lp_plot(all_sentences, figname):
 
                 ax=plt.gca()
 
-                plt.plot((x_N, x_S1), (y_N, y_S1),linewidth=linewidth,color=edgecolor,zorder=zorder,alpha=0.5)
-                plt.plot((x_N, x_S2), (y_N, y_S2),linewidth=linewidth,color=edgecolor,zorder=zorder,alpha=0.5)
+
                 plt.plot((x_N,), (y_N,),marker='o',linewidth=linewidth,color=edgecolor,fillstyle='full',markersize=1.5,zorder=zorder,alpha=0.5)
+                plt.plot((x_N, x_S1), (y_N, y_S1),linewidth=linewidth,color=edgecolor,zorder=zorder-0.1,alpha=0.5)
+                plt.plot((x_N, x_S2), (y_N, y_S2),linewidth=linewidth,color=edgecolor,zorder=zorder-0.1,alpha=0.5)
+                #plt.plot((x_S1,), (y_S1,),marker=arrow_markers[0],linewidth=linewidth,color=edgecolor,fillstyle='full',markersize=1.5,zorder=zorder-0.2,alpha=0.5)
+                #plt.plot((x_S2,), (y_S2,),marker=arrow_markers[1],linewidth=linewidth,color=edgecolor,fillstyle='full',markersize=1.5,zorder=zorder-0.2,alpha=0.5)
 
 
             plt.xlabel(x_model,fontsize=8)
