@@ -4,6 +4,8 @@ import random
 import math
 import argparse
 
+from tqdm import tqdm
+
 from lstm_class import RNNLM
 from bilstm_class import RNNLM_bilstm
 from rnn_class import RNNModel
@@ -22,14 +24,10 @@ sents=file.read()
 sents=sents.split('\n')
 
 probs=[]
-for si,sent in enumerate(sents):
-    
-    if si%10==0:
-        print(si)
-        
+for sent in tqdm(sents):
     prob=model1.sent_prob(sent)
     probs.append(prob)
-    
+
 probs=np.array(probs)
 
 np.save('sents_reddit_natural_May2021_filtered_probs_'+model+'.npy',probs)
