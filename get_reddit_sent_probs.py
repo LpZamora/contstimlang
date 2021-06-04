@@ -13,13 +13,15 @@ from model_functions import model_factory
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--model",required=True)
+parser.add_argument("--gpu",default=0)
+
 args = parser.parse_args()
 
 model=args.model
 
-model1=model_factory(model,0)
+model1=model_factory(model,args.gpu)
 
-file=open('sents_reddit_natural_May2021_filtered.txt','r')
+file=open('natural_sentence_probabilities/sents_reddit_natural_June2021_filtered.txt','r')
 sents=file.read()
 sents=sents.split('\n')
 
@@ -30,4 +32,4 @@ for sent in tqdm(sents):
 
 probs=np.array(probs)
 
-np.save('sents_reddit_natural_May2021_filtered_probs_'+model+'.npy',probs)
+np.save('sents_reddit_natural_June2021_filtered_probs_'+model+'.npy',probs)
