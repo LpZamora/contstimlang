@@ -13,8 +13,9 @@ npys = glob.glob(os.path.join('natural_sentence_probabilities','*.npy'))
 models = [s.split('.')[-2].split('_')[-1] for s in npys]
 n_models=len(models)
 
-txt_fname='sents_reddit_natural_May2021_filtered.txt'
-with open(txt_fname) as f:
+txt_fname='sents_reddit_natural_June2021_filtered.txt'
+
+with open(os.path.join('natural_sentence_probabilities',txt_fname)) as f:
     sentences = f.readlines()
 sentences = [s.strip() for s in sentences]
 n_sentences=len(sentences)
