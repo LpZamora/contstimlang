@@ -2,12 +2,15 @@
 import glob, os
 from operator import itruediv
 import itertools
+import pickle
 
 import numpy as np
 import scipy.stats
 import gurobipy  as gb # Gurobi requires installing a license first (there's a free academic license)
 from gurobipy import GRB
 import pandas as pd
+
+allow_only_prepositions_to_repeat=True
 
 npys = glob.glob(os.path.join('natural_sentence_probabilities','*.npy'))
 models = [s.split('.')[-2].split('_')[-1] for s in npys]
@@ -30,9 +33,21 @@ for i_model, (model, npy) in enumerate(zip(models,npys)):
 ranked_log_prob = scipy.stats.rankdata(log_prob,axis=0, method='average')/len(log_prob)
 
 # %% throw sentences that are not controversial at all
-def prefilter_sentences(sentences, ranked_log_prob):
-    # prefilter sentences for controversiality according to at least one model pair
-    mask=np.zeros((n_sentences,),dtype=bool)
+if allow_only_prepositions_to_repeat:
+    allowed_repeating_words=set(pickle.load(open("preps.pkl","rb")))
+    keep_words_unique=True
+else:
+    allowed_repeating_words=None
+    keep_words_unique=False
+
+def prefilter_sentences(sentences: list, ranked_log_prob: np.ndarray, keep_words_unique=True, allowed_repeating_words=None):
+    """ prefilter sentences for controversiality according to at least one model pair
+
+        keep_words_unique (bool): all words must be unique (within sentence)
+        allowed_repeating_words (list): if keep_words_unique is True, these words are excluded from the uniqueness constrain. The words should be lower-case.
+
+    """
+    mask=np.zeros((n_sentences,),dtype=bool) # True for sentence to be used.
     for i_model in range(n_models):
         for j_model in range(n_models):
             if i_model==j_model:
@@ -45,8 +60,26 @@ def prefilter_sentences(sentences, ranked_log_prob):
 
             mask = np.logical_or(mask,cur_mask)
 
+    if keep_words_unique:
+        if allowed_repeating_words is None:
+            allowed_repeating_words = []
+
+        for idx in np.flatnonzero(mask):
+            sentence=sentences[idx]
+            non_prep_words = [w.lower() for w in sentence.split() if not (w.lower() in allowed_repeating_words)]
+            is_there_a_repetition = len(non_prep_words)>len(set(non_prep_words))
+            if is_there_a_repetition:
+                mask[idx]=False
+                # print('rejected due to word repetition:',sentence)
+                # print(non_prep_words)
+
     return list(np.asarray(sentences)[mask]), ranked_log_prob[mask]
-sentences, ranked_log_prob = prefilter_sentences(sentences, ranked_log_prob)
+
+
+sentences, ranked_log_prob = prefilter_sentences(sentences, ranked_log_prob,
+                                                 keep_words_unique=keep_words_unique,
+                                                 allowed_repeating_words=allowed_repeating_words)
+
 n_sentences = len(sentences)
 print('prefiltered the sentences to a total of',n_sentences,'sentences.')
 
