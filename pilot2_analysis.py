@@ -4,7 +4,8 @@ import random
 import re
 import itertools
 import math
-
+import copy
+import os
 
 import numpy as np
 import pandas as pd
@@ -48,6 +49,8 @@ def niceify(x):
           return x.apply(lambda model: model_name_dict[model])
      elif isinstance(x,dict):
           return {model_name_dict[k]:v for k,v in x.items()}
+     elif isinstance(x,str):
+          return model_name_dict[x]
      else:
           raise ValueError
 
@@ -372,6 +375,204 @@ def calc_binarized_accuracy(df):
      df2['NC_UB']=df2['majority_vote_NC_UB']==human_chose_sent2
      return df2
 
+def build_all_html_files(df):
+     models = get_models(df)
+     for model1 in models:
+          for model2 in models:
+               if model1==model2:
+                    continue
+               build_html_file(df,os.path.join('result_htmls',model1 + "_vs_" +model2 + ".html" ),model1,model2)
+               print('.')
+
+def build_html_file(df, filepath, model1, model2):
+     """ Generate HTML files with trials organized by sentence triplets """
+     triplets = organize_pairwise_data_into_triplets(df,model1,model2)
+
+     # for sorting the triplets, we calcuate triplet-level accuracy for model 1
+     triplet_level_accuracy = (
+           triplets['h_N_NS1']/(triplets['h_N_NS1']+triplets['h_S1_NS1'])
+          +triplets['h_S2_NS2']/(triplets['h_N_NS2']+triplets['h_S2_NS2'])
+          +triplets['h_S2_S1S2']/(triplets['h_S1_S1S2']+triplets['h_S2_S1S2']))/3
+
+     triplets['model_1_accuracy']=triplet_level_accuracy
+
+     ind = (-triplet_level_accuracy).argsort()
+     triplets = triplets.loc[ind]
+
+     with open('triplet_html_table_template.html','r') as f:
+          template = f.read()
+
+     html = '\
+<!DOCTYPE html>\n\
+<html>\n\
+<head>\n\
+\t<meta name="viewport" content="width=device-width, initial-scale=1">\n\
+</head>\n\
+<body>\n'
+
+     for i_triplet, triplet in triplets.iterrows():
+          new_entry = copy.copy(template)
+          for k, v in triplet.items():
+               if k.startswith('p_') and isinstance(v,float):
+                    str_v = f'{v:.1f}'
+               elif k.startswith('h_') and k.endswith('_NS1'):
+                    total = triplet['h_N_NS1']+triplet['h_S1_NS1']
+                    str_v=f'{round(v):d}/{round(total):d}'
+               elif k.startswith('h_') and k.endswith('_NS2'):
+                    total = triplet['h_N_NS2']+triplet['h_S2_NS2']
+                    str_v=f'{round(v):d}/{round(total):d}'
+               elif k.startswith('h_') and k.endswith('_S1S2'):
+                    total = triplet['h_S1_S1S2']+triplet['h_S2_S1S2']
+                    str_v=f'{round(v):d}/{round(total):d}'
+               elif k.startswith('model') and k.endswith('_name'):
+                    str_v = niceify(v)
+               else:
+                    str_v=f'{v}'
+               new_entry = new_entry.replace(k,str_v)
+          html+=new_entry
+          html+='\n<br>\n'
+     html+='\n</body>\n</head>\n'
+
+     with open(filepath,'w') as f:
+          template = f.write(html)
+
+def organize_pairwise_data_into_triplets(df,model1,model2):
+     """ for a pair of model, return all N vs. S and S vs. S trials organized in triplets """
+     models = get_models(df)
+
+     # get only N-vs-S or S-vs-S trials in which the two models were targeted
+     df2=df[(
+               (
+                    ((df['sentence1_model']==model1) & (df['sentence2_model']==model2)) |
+                    ((df['sentence1_model']==model2) & (df['sentence2_model']==model1))
+               ) &
+                     (df['trial_type'].isin(['natural_vs_synthetic','synthetic_vs_synthetic']))
+               )]
+
+     # reduce subjects
+     df2 = df2.assign(humans_chose_sentence2=(df2['rating']>=4).astype(float))
+     df2 = df2.assign(humans_chose_sentence1=(df2['rating']<=3).astype(float))
+     df2 = df2.drop(columns=[f'sentence1_{m}_prob' for m in models if (m not in {model1,model2})])
+     df2 = df2.drop(columns=[f'sentence2_{m}_prob' for m in models if (m not in {model1,model2})])
+     df2 = df2.drop(columns=['subject','Trial Number','Reaction Time'])
+     df2 = df2.groupby(['sentence_pair','sentence1','sentence2','sentence1_model','sentence2_model',
+                        'sentence1_model_targeted_to_accept','sentence2_model_targeted_to_accept',
+                        'sentence1_model_targeted_to_reject','sentence2_model_targeted_to_reject',
+                        'sentence1_type','sentence2_type','trial_type'],dropna=False,
+                        ).sum().reset_index()
+
+     # further split trials to sub-types
+     df3_N_vs_S_model1_targeted_to_reject = df2[
+          ((df2['sentence1_model_targeted_to_reject']==model1) & (df2['sentence2_type']=='N')) |
+          ((df2['sentence2_model_targeted_to_reject']==model1) & (df2['sentence1_type']=='N'))
+          ]
+
+     df3_N_vs_S_model2_targeted_to_reject = df2[
+          ((df2['sentence1_model_targeted_to_reject']==model2) & (df2['sentence2_type']=='N')) |
+          ((df2['sentence2_model_targeted_to_reject']==model2) & (df2['sentence1_type']=='N'))
+          ]
+
+     df3_S_vs_S = df2[df2['trial_type']=='synthetic_vs_synthetic']
+
+     # these three groups should togheter consist the original set of trials
+     assert len(pd.concat([df3_N_vs_S_model1_targeted_to_reject,df3_N_vs_S_model2_targeted_to_reject,df3_S_vs_S]))==len(df2)
+
+     # build triplets dataframe
+     triplets=[]
+     for i_trial, trial in df3_N_vs_S_model1_targeted_to_reject.iterrows():
+          cur_triplet=dict()
+          cur_triplet['model1_name']=model1
+          cur_triplet['model2_name']=model2
+          if trial['sentence1_type']=='N':
+               cur_triplet['NATURAL_SENTENCE']=trial['sentence1']
+               cur_triplet['SYNTHETIC_SENTENCE_1']=trial['sentence2']
+               cur_triplet['p_N_m1'] = trial['sentence1_'+model1+'_prob']
+               cur_triplet['p_N_m2'] = trial['sentence1_'+model2+'_prob']
+               cur_triplet['p_S1_m1'] = trial['sentence2_'+model1+'_prob']
+               cur_triplet['p_S1_m2'] = trial['sentence2_'+model2+'_prob']
+               cur_triplet['h_N_NS1'] = trial['humans_chose_sentence1']
+               cur_triplet['h_S1_NS1'] = trial['humans_chose_sentence2']
+          elif trial['sentence2_type']=='N':
+               cur_triplet['NATURAL_SENTENCE']=trial['sentence2']
+               cur_triplet['SYNTHETIC_SENTENCE_1']=trial['sentence1']
+               cur_triplet['p_N_m1'] = trial['sentence2_'+model1+'_prob']
+               cur_triplet['p_N_m2'] = trial['sentence2_'+model2+'_prob']
+               cur_triplet['p_S1_m1'] = trial['sentence1_'+model1+'_prob']
+               cur_triplet['p_S1_m2'] = trial['sentence1_'+model2+'_prob']
+               cur_triplet['h_N_NS1'] = trial['humans_chose_sentence2']
+               cur_triplet['h_S1_NS1'] = trial['humans_chose_sentence1']
+          else:
+               raise ValueError
+
+          # find the other S vs N trial (with the model roles flipped)
+          other_trial=df3_N_vs_S_model2_targeted_to_reject[(
+               (df3_N_vs_S_model2_targeted_to_reject['sentence1']==cur_triplet['NATURAL_SENTENCE']) |
+               (df3_N_vs_S_model2_targeted_to_reject['sentence2']==cur_triplet['NATURAL_SENTENCE'])
+               )]
+          assert len(other_trial)==1
+          other_trial=other_trial.iloc[0]
+
+          if other_trial['sentence1_type']=='N':
+               cur_triplet['SYNTHETIC_SENTENCE_2']=other_trial['sentence2']
+               cur_triplet['p_S2_m1'] = other_trial['sentence2_'+model1+'_prob']
+               cur_triplet['p_S2_m2'] = other_trial['sentence2_'+model2+'_prob']
+               cur_triplet['h_N_NS2'] = other_trial['humans_chose_sentence1']
+               cur_triplet['h_S2_NS2'] = other_trial['humans_chose_sentence2']
+          elif other_trial['sentence2_type']=='N':
+               cur_triplet['SYNTHETIC_SENTENCE_2']=other_trial['sentence1']
+               cur_triplet['p_S2_m1'] = other_trial['sentence1_'+model1+'_prob']
+               cur_triplet['p_S2_m2'] = other_trial['sentence1_'+model2+'_prob']
+               cur_triplet['h_N_NS2'] = other_trial['humans_chose_sentence2']
+               cur_triplet['h_S2_NS2'] = other_trial['humans_chose_sentence1']
+          else:
+               raise ValueError
+
+          # and now the corresponding S vs S trial
+          other_trial=df3_S_vs_S[(
+               ((df3_S_vs_S['sentence1']==cur_triplet['SYNTHETIC_SENTENCE_1']) & (df3_S_vs_S['sentence2']==cur_triplet['SYNTHETIC_SENTENCE_2'])) |
+               ((df3_S_vs_S['sentence1']==cur_triplet['SYNTHETIC_SENTENCE_2']) & (df3_S_vs_S['sentence2']==cur_triplet['SYNTHETIC_SENTENCE_1']))
+               )]
+          assert len(other_trial)==1
+          other_trial=other_trial.iloc[0]
+          if other_trial['sentence1']==cur_triplet['SYNTHETIC_SENTENCE_1']:
+               cur_triplet['h_S1_S1S2']=other_trial['humans_chose_sentence1']
+               cur_triplet['h_S2_S1S2']=other_trial['humans_chose_sentence2']
+          elif other_trial['sentence2']==cur_triplet['SYNTHETIC_SENTENCE_1']:
+               cur_triplet['h_S1_S1S2']=other_trial['humans_chose_sentence2']
+               cur_triplet['h_S2_S1S2']=other_trial['humans_chose_sentence1']
+          else:
+               raise ValueError
+          triplets.append(cur_triplet)
+     return pd.DataFrame(triplets)
+
+
+
+# def calc_average_human_rating_of_model_sentences(df):
+#      """ measure the average human preference towards each sentence the model prefered """
+
+#      df2=[]]
+#      models = get_models(df)
+
+#      for model in models:
+#           assert not (df['sentence2_'+model + '_prob']==df['sentence1_'+model + '_prob']).any(), f'found tied prediction for model {model}'
+#           model_predicts_sent2=df['sentence2_'+model + '_prob']>df['sentence1_'+model + '_prob']
+
+
+#           df2=df[df['sentence1_model_targeted_to_accept']==model]
+#           df2['percent participants agreeing with ' + ]
+#           # invert rating when model prefered sentence1, so a '1' rating would be transformed to '6'
+#           human_rating_toward_model_prefered_sentence = df['rating'] * model_predicts_sent2.astype(float) + (7-df['rating'])*(1-model_predicts_sent2.astype(float))
+#           subjects_chose_model_prefered_sentence = ((df['rating']>=4) & model_predicts_sent2) | ((df['rating']<=3)& (~model_predicts_sent2))
+#           subjects_chose_model_prefered_sentence=subjects_chose_model_prefered_sentence.astype(float)
+
+#           df2[model +'_average_human_rating_toward_prefered_sentence']=human_rating_toward_model_prefered_sentence
+#           df2[model +'_subjects_chose_model_prefered_sentence']=subjects_chose_model_prefered_sentence
+#           assert 1==2
+#           df3 = df2.groupby(['sentence_pair', 'sentence1', 'sentence1', 'sentence1_model', 'sentence2_model', 'sentence1_type','sentence2_type',
+#           'trial_type','sentence1_model_targeted_to_accept','sentence1_model_targeted_to_reject','sentence2_model_targeted_to_accept','sentence2_model_targeted_to_reject']).mean()
+#      return df3
+
+
 def reduce_within_model(df, reduction_func, models=None, trial_type=None, targeting=None):
      """ group data by targeted model and then apply reduction_func within each group """
      if models is None:
@@ -479,6 +680,30 @@ def plot_one_main_results_panel(df, reduction_fun, models, cur_panel_cfg, ax = N
      print(pairwise_sig)
 
      model_specific_performace_dot_plot(reduced_df,models, ylabel='% accuracy',title=None,ax=ax, each_dot_is='subject_group', chance_level=chance_level, model_specific_NC=True)
+
+def create_sorted_sentence_excel_file(df, models = None):
+     # split data according to trial type and targeted model and generate a spreadsheet of ranked sentences, with the sentences with the biggest model-human misalignment first
+
+     # fields:
+     # sentence1, sentence2, sentence1_type (N/S), log_prog(sentence1|model1), log_prog(sentence1|model2), log_prog(sentence2|model1), log_prog(sentence2|model2), humans chose sentence1, humans chose sentence2, mean human preference
+
+     if models is None:
+          models = get_models(df)
+
+     condition_cfgs  = [
+          {'title':'natural controversial sentences',             'only_targeted_trials':True,      'trial_type':'natural_controversial',       'targeting':None,},
+          {'title':'P(S|model) <  P(N|model)',                    'only_targeted_trials':True,      'trial_type':'natural_vs_synthetic',        'targeting':'reject'},
+          {'title':'P(S|model) ≥ P(N|model)',                     'only_targeted_trials':True,      'trial_type':'natural_vs_synthetic',        'targeting':'accept'},
+          {'title':'synthetic vs. synthetic',                     'only_targeted_trials':True,      'trial_type':'synthetic_vs_synthetic',      'targeting':None,},
+     ]
+
+     for condition_cfg in condition_cfgs:
+          for model in models:
+               if condition_cfg['only_targeted_trials']:
+                    filtered_df=filter_trials(df,targeted_model=model,targeting=condition_cfg['targeting'],trial_type=condition_cfg['targeting'])
+               else:
+                    raise NotImplementedError
+               misalignment = calc_average_human_rating_of_model_sentences(filtered_df)
 
 def plot_main_results_figure(df, models=None):
      if models is None:
@@ -727,50 +952,53 @@ if __name__ == '__main__':
           df.to_csv(aligned_results_csv_with_loso)
 
 # %% Binarized accuracy measurements
-
-     plot_main_results_figure(df)
-     plt.show()
-     # df_acc=get_binarized_accuracy(df,models)
-
-     # print ('all trials:')
-     # print(df_acc[models].mean(axis = 0, skipna = True))
-
-     # # plot average accuracy across all trials
-     # plt.figure()
-     # ax=plt.gca()
-     # models = get_models(df)
-     # plot_bars(ax,average_models_within_conditions(df_acc, models),NC_measure='majority_vote_NC', chance_level=0.5, ylim=(0,1))
-
-#      # plot average accuracy within each condition
-#      plot_four_conditions(df_acc, models, NC_measure='majority_vote_NC',chance_level=0.5,ylim=(0,1))
-
-# # %% Correlation-based accuracy measurements
-
-#      score_df = log_prob_pairs_to_scores(df, transformation_func='diff')
-#      models = get_models(df)
-#      corr_df=get_correlation_based_accuracy(score_df,models, correlation_func='pearsonr')
-#      print(corr_df)
-#      plot_four_conditions_corr(score_df,models,correlation_func='spearmanr')
+     build_all_html_files(df)
 
 
+          # plot_main_results_figure(df)
+          # plt.show()
 
-# # print('predicting ratings from log-prob differences (pearson)')
-# # print(corr_df[models].mean(axis = 0, skipna = True))
+          # df_acc=get_binarized_accuracy(df,models)
 
-# # corr_df=get_correlation_based_accuracy(score_df,models,  correlation_func='pearsonr')
-# # print('predicting ratings from log-prob differences (pearsonr)')
-# # print(corr_df[models].mean(axis = 0, skipna = True))
+          # print ('all trials:')
+          # print(df_acc[models].mean(axis = 0, skipna = True))
+
+          # # plot average accuracy across all trials
+          # plt.figure()
+          # ax=plt.gca()
+          # models = get_models(df)
+          # plot_bars(ax,average_models_within_conditions(df_acc, models),NC_measure='majority_vote_NC', chance_level=0.5, ylim=(0,1))
+
+     #      # plot average accuracy within each condition
+     #      plot_four_conditions(df_acc, models, NC_measure='majority_vote_NC',chance_level=0.5,ylim=(0,1))
+
+     # # %% Correlation-based accuracy measurements
+
+     #      score_df = log_prob_pairs_to_scores(df, transformation_func='diff')
+     #      models = get_models(df)
+     #      corr_df=get_correlation_based_accuracy(score_df,models, correlation_func='pearsonr')
+     #      print(corr_df)
+     #      plot_four_conditions_corr(score_df,models,correlation_func='spearmanr')
 
 
-# # corr_df=get_correlation_based_accuracy(score_df,models,  correlation_func='spearmanr')
-# # print('predicting ratings from log-prob differences (spearman)')
-# # print(corr_df[models].mean(axis = 0, skipna = True))
 
-# # corr_df=get_correlation_based_accuracy(score_df,models, correlation_func='kendall-Tau-b')
-# # print('predicting ratings from log-prob differences (kendall-Tau-b)')
-# # print(corr_df[models].mean(axis = 0, skipna = True))
+     # # print('predicting ratings from log-prob differences (pearson)')
+     # # print(corr_df[models].mean(axis = 0, skipna = True))
+
+     # # corr_df=get_correlation_based_accuracy(score_df,models,  correlation_func='pearsonr')
+     # # print('predicting ratings from log-prob differences (pearsonr)')
+     # # print(corr_df[models].mean(axis = 0, skipna = True))
 
 
-     # add a sentence pair field. This assumes that s1 and s2 are already sorted.
+     # # corr_df=get_correlation_based_accuracy(score_df,models,  correlation_func='spearmanr')
+     # # print('predicting ratings from log-prob differences (spearman)')
+     # # print(corr_df[models].mean(axis = 0, skipna = True))
 
-     #pairwise_binary_choice_analysis(df)
+     # # corr_df=get_correlation_based_accuracy(score_df,models, correlation_func='kendall-Tau-b')
+     # # print('predicting ratings from log-prob differences (kendall-Tau-b)')
+     # # print(corr_df[models].mean(axis = 0, skipna = True))
+
+
+          # add a sentence pair field. This assumes that s1 and s2 are already sorted.
+
+          #pairwise_binary_choice_analysis(df)

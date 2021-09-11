@@ -1,0 +1,29 @@
+<table style="border: 1px solid black; border-spacing: 100px 100;border-collapse: separate; table-layout: fixed; width:100%">
+    <tr>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#f0f0f0">
+
+        minimize p(S1|model1_name)
+        <br>
+        such that p(S1|model2_name) ≥ p(N|model2_name)
+        <p>
+        <b>N</b>atural sentence: <cite>“NATURAL_SENTENCE”</cite><br>
+        <b>S</b>ynthetic <b>1</b>: <cite>“SYNTHETIC_SENTENCE_1”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S1</th></tr></thead><tbody><tr><td>model1_name</td><td>p_N_m1</td><td>p_S1_m1</td></tr><tr><td>model2_name</td><td>p_N_m2</td><td>p_S1_m2</td></tr><tr><td>human choices</td><td>h_N_NS1</td><td>h_S1_NS1</td></tr></tbody></table>
+
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#d9d9d9">
+        minimize p(S2|model2_name)
+        <br>
+        such that p(S2|model1_name) ≥ p(N|model1_name)
+        <p>
+        <b>N</b>atural sentence: <cite>“NATURAL_SENTENCE”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“SYNTHETIC_SENTENCE_2”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S2</th></tr></thead><tbody><tr><td>model1_name</td><td>p_N_m1</td><td>p_S2_m1</td></tr><tr><td>model2_name</td><td>p_N_m2</td><td>p_S2_m2</td></tr><tr><td>human choices</td><td>h_N_NS2</td><td>h_S2_NS2</td></tr></tbody></table>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#bdbdbd">
+        S1 vs S2
+        <br>
+        <br>
+        <p>
+        <b>S</b>ynthetic <b>1</b>: <cite>“SYNTHETIC_SENTENCE_1”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“SYNTHETIC_SENTENCE_2”</cite>
+        <table><thead><tr><th></th><th>S1</th><th>S2</th></tr></thead><tbody><tr><td>model1_name</td><td>p_S1_m1</td><td>p_S2_m1</td></tr><tr><td>model2_name</td><td>p_S1_m2</td><td>p_S2_m2</td></tr><tr><td>human choices</td><td>h_S1_S1S2</td><td>h_S2_S1S2</td></tr></tbody></table>
+    </table>
