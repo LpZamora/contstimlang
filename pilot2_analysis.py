@@ -5,7 +5,9 @@ import re
 import itertools
 import math
 import copy
-import os
+import os, pathlib
+
+from contextlib import contextmanager
 
 import numpy as np
 import pandas as pd
@@ -18,6 +20,11 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 import matplotlib
 import seaborn as sns
+from matplotlib.gridspec import GridSpec
+
+from metroplot import metroplot
+
+
 
 # filename definitions
 natural_controversial_sentences_fname = 'sents_reddit_natural_June2021_selected.csv'
@@ -27,8 +34,11 @@ synthetic_controversial_sentences_fname = 'synthesized_sentences/20210224_contro
 model_order=['gpt2','roberta','electra','bert','xlm','lstm','rnn','trigram','bigram']
 
 # define model colors
-# color palleter from colorbrewer2 : https://colorbrewer2.org/?type=qualitative&scheme=Set1&n=9#type=qualitative&scheme=Set1&n=9
-model_palette={'gpt2':'#e41a1c','roberta':'#377eb8','electra':'#4daf4a','bert':'#984ea3','xlm':'#ff7f00','lstm':'#ffff33','rnn':'#a65628','trigram':'#f781bf','bigram':'#999999'}
+# color pallete from colorbrewer2 : https://colorbrewer2.org/?type=qualitative&scheme=Set1&n=9#type=qualitative&scheme=Set1&n=9
+# model_palette={'gpt2':'#e41a1c','roberta':'#377eb8','electra':'#4daf4a','bert':'#984ea3','xlm':'#ff7f00','lstm':'#ffff33','rnn':'#a65628','trigram':'#f781bf','bigram':'#999999'}
+
+# color pallete from colorbrewer2 : https://colorbrewer2.org/?type=qualitative&scheme=Paired&n=9#type=qualitative&scheme=Accent&n=3
+model_palette={'gpt2':'#a6cee3','roberta':'#1f78b4','electra':'#b2df8a','bert':'#33a02c','xlm':'#fb9a99','lstm':'#e31a1c','rnn':'#fdbf6f','trigram':'#ff7f00','bigram':'#cab2d6'}
 
 # nice labels for the models
 model_name_dict = {'gpt2':'GPT-2',
@@ -40,6 +50,16 @@ model_name_dict = {'gpt2':'GPT-2',
                    'rnn':'RNN',
                    'trigram':'3-gram',
                    'bigram':'2-gram'}
+
+# https://stackoverflow.com/questions/38629830/how-to-turn-off-autoscaling-in-matplotlib-pyplot
+@contextmanager
+def autoscale_turned_off(ax=None):
+  ax = ax or plt.gca()
+  lims = [ax.get_xlim(), ax.get_ylim()]
+  yield
+  ax.set_xlim(*lims[0])
+  ax.set_ylim(*lims[1])
+
 
 # transform lists and dicts to use nice model labels
 def niceify(x):
@@ -348,7 +368,18 @@ def group_level_signed_ranked_test(reduced_df, models):
      results=[]
      for model1, model2 in itertools.combinations(models,2):
           s, p = scipy.stats.wilcoxon(group_level_df[model1],group_level_df[model2],zero_method='zsplit')
-          results.append({'model1':model1,'model2':model2,'p-value':p})
+          results.append({'model1':model1,'model2':model2,'p-value':p,
+          'avg_model1_minus_avg_model2':(group_level_df[model1]-group_level_df[model2]).mean()})
+
+     # noise ceiling comparisons
+     for model1 in models:
+          if 'NC_LB' in group_level_df.columns:
+               model2 = 'NC_LB'
+          elif ('NC_LB_'+ model1) in group_level_df.columns:
+               model2 = 'NC_LB_' + model1
+          s, p = scipy.stats.wilcoxon(group_level_df[model1],group_level_df[model2],zero_method='zsplit')
+          results.append({'model1':model1,'model2':model2,'p-value':p,
+               'avg_model1_minus_avg_model2':(group_level_df[model1]-group_level_df[model2]).mean()})
      results = pd.DataFrame(results)
      _ , results['FDR_corrected_p-value']=statsmodels.stats.multitest.fdrcorrection(results['p-value'])
      return results
@@ -371,8 +402,8 @@ def calc_binarized_accuracy(df):
           # drop probability
           df2=df2.drop(columns=['sentence1_'+model + '_prob','sentence2_'+model + '_prob'])
 
-     df2['NC_LB']=df2['majority_vote_NC_LB']==human_chose_sent2
-     df2['NC_UB']=df2['majority_vote_NC_UB']==human_chose_sent2
+     df2['NC_LB']=(df2['majority_vote_NC_LB']==human_chose_sent2).astype(float)
+     df2['NC_UB']=(df2['majority_vote_NC_UB']==human_chose_sent2).astype(float)
      return df2
 
 def build_all_html_files(df):
@@ -545,34 +576,6 @@ def organize_pairwise_data_into_triplets(df,model1,model2):
           triplets.append(cur_triplet)
      return pd.DataFrame(triplets)
 
-
-
-# def calc_average_human_rating_of_model_sentences(df):
-#      """ measure the average human preference towards each sentence the model prefered """
-
-#      df2=[]]
-#      models = get_models(df)
-
-#      for model in models:
-#           assert not (df['sentence2_'+model + '_prob']==df['sentence1_'+model + '_prob']).any(), f'found tied prediction for model {model}'
-#           model_predicts_sent2=df['sentence2_'+model + '_prob']>df['sentence1_'+model + '_prob']
-
-
-#           df2=df[df['sentence1_model_targeted_to_accept']==model]
-#           df2['percent participants agreeing with ' + ]
-#           # invert rating when model prefered sentence1, so a '1' rating would be transformed to '6'
-#           human_rating_toward_model_prefered_sentence = df['rating'] * model_predicts_sent2.astype(float) + (7-df['rating'])*(1-model_predicts_sent2.astype(float))
-#           subjects_chose_model_prefered_sentence = ((df['rating']>=4) & model_predicts_sent2) | ((df['rating']<=3)& (~model_predicts_sent2))
-#           subjects_chose_model_prefered_sentence=subjects_chose_model_prefered_sentence.astype(float)
-
-#           df2[model +'_average_human_rating_toward_prefered_sentence']=human_rating_toward_model_prefered_sentence
-#           df2[model +'_subjects_chose_model_prefered_sentence']=subjects_chose_model_prefered_sentence
-#           assert 1==2
-#           df3 = df2.groupby(['sentence_pair', 'sentence1', 'sentence1', 'sentence1_model', 'sentence2_model', 'sentence1_type','sentence2_type',
-#           'trial_type','sentence1_model_targeted_to_accept','sentence1_model_targeted_to_reject','sentence2_model_targeted_to_accept','sentence2_model_targeted_to_reject']).mean()
-#      return df3
-
-
 def reduce_within_model(df, reduction_func, models=None, trial_type=None, targeting=None):
      """ group data by targeted model and then apply reduction_func within each group """
      if models is None:
@@ -588,12 +591,18 @@ def reduce_within_model(df, reduction_func, models=None, trial_type=None, target
 
           # reduce (e.g., calculate accuracy, correlation)
           reduced_df = reduction_func(filtered_df)
+
+          if 'NC_LB' in reduced_df.columns:
+               reduced_df=reduced_df.rename(columns={'NC_LB':'NC_LB_'+model})
+          if 'NC_UB' in reduced_df.columns:
+               reduced_df=reduced_df.rename(columns={'NC_UB':'NC_UB_'+model})
+
           results.append(reduced_df)
      results = pd.concat(results)
      return results
 
 
-def model_specific_performace_dot_plot(df, models, ylabel='% accuracy',title=None,ax=None, each_dot_is='subject_group',chance_level=None, model_specific_NC=False):
+def model_specific_performace_dot_plot(df, models, ylabel='% accuracy',title=None,ax=None, each_dot_is='subject_group',chance_level=None, model_specific_NC=False, pairwise_sig=None, tick_label_fontsize=8):
 
      matplotlib.rcParams.update({'font.size': 10})
      matplotlib.rcParams.update({'font.family':'sans-serif'})
@@ -619,10 +628,12 @@ def model_specific_performace_dot_plot(df, models, ylabel='% accuracy',title=Non
      long_df['model_label'] = niceify(long_df['model'])
 
 #    strippplot
-     g1=sns.stripplot(data=long_df, y='model_label',x='prediction_accuracy',hue='model_label',linewidth=1,edgecolor='black',jitter=0.25,alpha=1,size=5,zorder=2,palette=niceify(model_palette),order=niceify(model_order))
+     g1=sns.stripplot(data=long_df, y='model_label',x='prediction_accuracy',hue='model_label',linewidth=0.333,edgecolor='white',jitter=0.25,alpha=1,size=4,zorder=2,palette=niceify(model_palette),order=niceify(model_order))
      g1.legend_.remove()
 
-     g2=sns.stripplot(data=long_df.groupby('model_label').mean().reset_index(), y='model_label',x='prediction_accuracy',hue='model_label',linewidth=4,edgecolor='black',jitter=0.0,alpha=1,size=15,zorder=3,palette=niceify(model_palette),order=niceify(model_order), marker='|')
+     # it seems that stripplot can't produce markers with outlines
+     verts = [(-1,-4.8),(-1,4.8),(1,4.8),(1,-4.8),(-1,-4.8)]
+     g2=sns.stripplot(data=long_df.groupby('model_label').mean().reset_index(), y='model_label',x='prediction_accuracy',hue='model_label',edgecolors='k',linewidth=0.5,jitter=0.0,alpha=1,size=15,zorder=3,palette=niceify(model_palette),order=niceify(model_order), marker=verts)
      g2.legend_.remove()
 
      # # bootstrapped violin
@@ -642,27 +653,47 @@ def model_specific_performace_dot_plot(df, models, ylabel='% accuracy',title=Non
 
      plt.xlim([0.0,1.0])
      plt.xticks([0,0.25,0.5,0.75,1.0],['0','25%','50%','75%','100%'])
+     ax.tick_params(axis='both', which='major', labelsize=tick_label_fontsize)
+     ax.tick_params(axis='both', which='minor', labelsize=tick_label_fontsize)
 
      if chance_level is not None:
           plt.axvline(x=chance_level,linestyle='--',color='k',zorder=-100)
 
+     def plot_NC_sig(NC_LB,i_model,model,model_specific_NC):
+          if model_specific_NC:
+               NC_LB_fieldname='NC_LB_' + model
+          else:
+               NC_LB_fieldname='NC_LB'
+          row_filter = (
+                         ((pairwise_sig['model1']==model) & (pairwise_sig['model2']==NC_LB_fieldname)) |
+                         ((pairwise_sig['model2']==model) & (pairwise_sig['model1']==NC_LB_fieldname))
+                    )
+          assert row_filter.sum()==1, f'expecting to find a single comparison of model {model} to the noise ceiling'
+          p_value = pairwise_sig[row_filter].iloc[0].loc['FDR_corrected_p-value']
+          if p_value<0.05:
+               mask = pd.notnull(df[model]) # consider only lines with non-null performance value
+               model_score=df[mask][model].mean()
+               assert NC_LB > model_score, f'model score for {model} is greater than the lower bound on the noise ceiling, this is not correctly represented with the asterisks scheme.'
+               #plt.text(NC_LB, i_model,'*', ha='center',color='k')
+               plt.plot(NC_LB,i_model,marker=(5, 2, 0),color='k',markersize=8,zorder=1000)
 
      # model-specific noise ceiling
-     model_specific_NCs=[]
-     if model_specific_NC:
+     with autoscale_turned_off(ax):
           for i_model, model in enumerate(model_order):
-               mask = pd.notnull(df[model]) # consider only lines with non-null performance value
-               NC_LB = df[mask]['NC_LB'].mean()
-               NC_UB = df[mask]['NC_UB'].mean()
-               ax.add_patch(matplotlib.patches.Rectangle(xy=(NC_LB,i_model-0.4),width=NC_UB-NC_LB, height=0.8,alpha=1.0,fill=None,edgecolor='k',facecolor=None,linewidth=1.0, zorder=100))
-     else: # one noise ceiling for all models.
-          NC_LB=df['NC_LB'].mean()
-          NC_UB=df['NC_UB'].mean()
-
-          ax.add_patch(matplotlib.patches.Rectangle(xy=(NC_LB,-0.5),width=NC_UB-NC_LB, height=len(models)+1.0,alpha=0.25,facecolor='k',edgecolor='k',linewidth=0.5, zorder=-100))
+               if model_specific_NC:
+                    NC_LB = df['NC_LB_'+model].mean()
+                    NC_UB = df['NC_UB_'+model].mean()
+                    ax.add_patch(matplotlib.patches.Rectangle(xy=(NC_LB,i_model-0.4),width=NC_UB-NC_LB, height=0.8,alpha=1.0,fill=True,edgecolor='silver',facecolor='silver',linewidth=1.0, zorder=-100))
+               else:
+                    NC_LB = df['NC_LB'].mean()
+                    NC_UB = df['NC_UB'].mean()
+               plot_NC_sig(NC_LB,i_model,model,model_specific_NC=model_specific_NC)
+          if not model_specific_NC:
+               # plot single rectangle for all models.
+               ax.add_patch(matplotlib.patches.Rectangle(xy=(NC_LB,-1),width=NC_UB-NC_LB, height=len(models)-1+2.0,alpha=1.0,fill=True,edgecolor='silver',facecolor='silver',linewidth=1.0, zorder=-100))
      return ax
 
-def plot_one_main_results_panel(df, reduction_fun, models, cur_panel_cfg, ax = None, chance_level=None):
+def plot_one_main_results_panel(df, reduction_fun, models, cur_panel_cfg, ax = None, metroplot_ax = None, chance_level=None, metroplot_preallocated_positions=None, tick_label_fontsize=8):
      """ plot one panel of model-human alignment dot plot """
      if cur_panel_cfg['only_targeted_trials']:
           # analyze each model's performance on the the trials that targeted it.
@@ -673,39 +704,35 @@ def plot_one_main_results_panel(df, reduction_fun, models, cur_panel_cfg, ax = N
           # reduce (e.g., calculate accuracy, correlation)
           reduced_df = reduction_fun(filtered_df)
 
-     pairwise_sig = group_level_signed_ranked_test(reduced_df,models+['NC_LB'])
+     pairwise_sig = group_level_signed_ranked_test(reduced_df,models)
 
      print(cur_panel_cfg['title'])
      print(reduced_df.mean())
      print(pairwise_sig)
 
-     model_specific_performace_dot_plot(reduced_df,models, ylabel='% accuracy',title=None,ax=ax, each_dot_is='subject_group', chance_level=chance_level, model_specific_NC=True)
+     model_specific_performace_dot_plot(reduced_df,models, ylabel='% accuracy',title=None,ax=ax, each_dot_is='subject_group', chance_level=chance_level, model_specific_NC=cur_panel_cfg['only_targeted_trials'], pairwise_sig=pairwise_sig, tick_label_fontsize=tick_label_fontsize)
 
-def create_sorted_sentence_excel_file(df, models = None):
-     # split data according to trial type and targeted model and generate a spreadsheet of ranked sentences, with the sentences with the biggest model-human misalignment first
+     if metroplot_ax is not None: # plot metroplot significance plot
+          level_to_location={model_name:i for i, model_name in enumerate(model_order)}
+          # prepare dataframe for metroplot
+          plots_df = pairwise_sig.rename(columns={'model1':'level1','model2':'level2'})
+          plots_df['effect_direction']=np.sign(pairwise_sig['avg_model1_minus_avg_model2'])
+          plots_df['is_sig']=pairwise_sig['FDR_corrected_p-value']<0.05
 
-     # fields:
-     # sentence1, sentence2, sentence1_type (N/S), log_prog(sentence1|model1), log_prog(sentence1|model2), log_prog(sentence2|model1), log_prog(sentence2|model2), humans chose sentence1, humans chose sentence2, mean human preference
+          # to make metrplots aligned across panels, we fix the xlim of the metroplot axes
+          if metroplot_preallocated_positions is not None:
+               element_axis_lim=[-0.4,0.25+metroplot_preallocated_positions]
+          else:
+               element_axis_lim=None
 
-     if models is None:
-          models = get_models(df)
+          metroplot(plots_df,level_to_location,metroplot_element_order=model_order,level_axis='y',ax=metroplot_ax,
+                                   dominating_effect_direction=1,level_pallete=model_palette, level_axis_lim=ax.get_ylim(),
+                                   element_axis_lim=element_axis_lim,
+                                   empty_dot_fill_color='w',
+                                   marker='o', linewidth=0.5, markeredgewidth=0.5, markersize=8)
 
-     condition_cfgs  = [
-          {'title':'natural controversial sentences',             'only_targeted_trials':True,      'trial_type':'natural_controversial',       'targeting':None,},
-          {'title':'P(S|model) <  P(N|model)',                    'only_targeted_trials':True,      'trial_type':'natural_vs_synthetic',        'targeting':'reject'},
-          {'title':'P(S|model) ≥ P(N|model)',                     'only_targeted_trials':True,      'trial_type':'natural_vs_synthetic',        'targeting':'accept'},
-          {'title':'synthetic vs. synthetic',                     'only_targeted_trials':True,      'trial_type':'synthetic_vs_synthetic',      'targeting':None,},
-     ]
 
-     for condition_cfg in condition_cfgs:
-          for model in models:
-               if condition_cfg['only_targeted_trials']:
-                    filtered_df=filter_trials(df,targeted_model=model,targeting=condition_cfg['targeting'],trial_type=condition_cfg['targeting'])
-               else:
-                    raise NotImplementedError
-               misalignment = calc_average_human_rating_of_model_sentences(filtered_df)
-
-def plot_main_results_figure(df, models=None):
+def plot_main_results_figures(df, models=None, plot_metroplot=True, save_folder = None):
      if models is None:
           models = get_models(df)
 
@@ -713,33 +740,85 @@ def plot_main_results_figure(df, models=None):
 
      # define figure structure
      panel_cfg  = [
-          # {'title':'natural vs. shuffled',                        'only_targeted_trials':False,     'trial_type':'natural_vs_shuffled',         'targeting':None,},
+          {'title':'natural vs. shuffled',                        'only_targeted_trials':False,     'trial_type':'natural_vs_shuffled',         'targeting':None,},
           {'title':'randomly sampled natural sentences',          'only_targeted_trials':False,     'trial_type':'randomly_sampled_natural',    'targeting':None,},
           {'title':'natural controversial sentences',             'only_targeted_trials':True,      'trial_type':'natural_controversial',       'targeting':None,},
-          {'title':'P(S|model) <  P(N|model)',                    'only_targeted_trials':True,      'trial_type':'natural_vs_synthetic',        'targeting':'reject'},
-          {'title':'P(S|model) ≥ P(N|model)',                     'only_targeted_trials':True,      'trial_type':'natural_vs_synthetic',        'targeting':'accept'},
+          {'title':'p(synthetic|model ) <  p(natural|model)',                    'only_targeted_trials':True,      'trial_type':'natural_vs_synthetic',        'targeting':'reject'},
+          {'title':'p(synthetic|model ) ≥ p(natural|model)',                     'only_targeted_trials':True,      'trial_type':'natural_vs_synthetic',        'targeting':'accept'},
           {'title':'synthetic vs. synthetic',                     'only_targeted_trials':True,      'trial_type':'synthetic_vs_synthetic',      'targeting':None,},
           {'title':'all trials',                                  'only_targeted_trials':False,     'trial_type':None,                          'targeting':None,},
      ]
 
-     n_panels = len(panel_cfg)
-     plt.figure(figsize=(7.2,9.2))
+     figure_plans = [
+          {'panels':[0,1,2], 'fname':'natural_and_natural_controversial.pdf'},
+          {'panels':[3,4,5], 'fig_size':(7,7), 'fname':'synthetic.pdf'},
+          {'panels':[6], 'fig_size':(7,7/3), 'fname':'all_trials.pdf'},
+     ]
 
-     n_cols = 2
-     n_rows = math.ceil(n_panels/n_cols)
-     plt.subplot(n_rows,n_cols,1)
-     for i_panel, cur_panel_cfg in enumerate(panel_cfg):
-          plt.subplot(math.ceil(n_panels/2),2,i_panel+1)
-          plot_one_main_results_panel(df, reduction_fun, models, cur_panel_cfg, ax=plt.gca(), chance_level=0.5)
-          plt.title(cur_panel_cfg['title'])
-          plt.ylabel('')
-          i_row = (i_panel // n_cols)
-          if i_row == (n_rows-1): # last row
-               plt.xlabel('human-choice prediction accuracy')
-          else:
-               plt.xlabel('')
+     # all of the following measures are in inches
+     top_margin = 0.0
+     bottom_margin = 0.2
+     left_margin = 0
+     right_margin = 0.00
+     panel_h = 1.8
+     panel_w = 1.8
+     v_space_above_panel = 0.225
+     v_space_below_panel = 0.25
+     h_space1 = 0 # horizontal space between left column and result panel
+     h_space2 = 0.05 # horizontal space between result column and metroplot
+     metroplot_w = 1.125
+     metroplot_preallocated_positions=7 # how many significance elements are we expecting.
+     fig_w = 7 # total figure width - 7 inches (PNAS limitation, Nat. Comm is more generous)
+     left_col_w = fig_w - (left_margin+h_space1+panel_w+h_space2+metroplot_w+right_margin)
+     panel_title_fontsize = 10
+     axes_label_fontsize = 10
+     tick_label_fontsize = 8
 
-     plt.tight_layout()
+     figs =[]
+     for figure_plan in figure_plans:
+
+          # setup gridspec grid structure
+          n_panels = len(figure_plan['panels'])
+
+          widths_in_inches = [left_margin, left_col_w, h_space1, panel_w, h_space2, metroplot_w, right_margin]
+          horizontal_elements = [None,None,None,'panel',None,'metroplot',None]
+          assert np.isclose(np.sum(widths_in_inches),fig_w), 'widths don''t match'
+
+          heights_in_inches = [top_margin]
+          vertical_elements =[None]
+          for i_panel in range(n_panels):
+               heights_in_inches.extend([v_space_above_panel,panel_h,v_space_below_panel])
+               vertical_elements.extend([None,f'panel{i_panel}',None])
+          heights_in_inches.append(bottom_margin)
+          vertical_elements.append(None)
+          fig_h = np.sum(heights_in_inches) # height is set adaptively
+
+          print(f"figure {figure_plan['fname']} size: {fig_w},{fig_h} inches")
+
+          fig = plt.figure(figsize=(fig_w,fig_h))
+
+          gs0=GridSpec(ncols=len(widths_in_inches), nrows=len(heights_in_inches), figure=fig,
+          width_ratios=widths_in_inches,height_ratios=heights_in_inches, hspace=0, wspace=0,top=1,bottom=0,left=0,right=1)
+
+          for i_panel, panel_idx in enumerate(figure_plan['panels']):
+               cur_panel_cfg = panel_cfg[panel_idx]
+               result_panel_ax=fig.add_subplot(gs0[vertical_elements.index(f'panel{i_panel}'), horizontal_elements.index('panel')])
+               if plot_metroplot:
+                    metroplot_ax = fig.add_subplot(gs0[vertical_elements.index(f'panel{i_panel}'), horizontal_elements.index('metroplot')])
+               else:
+                    metroplot_ax = None
+               plot_one_main_results_panel(df, reduction_fun, models, cur_panel_cfg, ax=result_panel_ax, chance_level=0.5, metroplot_ax=metroplot_ax, metroplot_preallocated_positions=metroplot_preallocated_positions, tick_label_fontsize=tick_label_fontsize)
+               result_panel_ax.set_title(cur_panel_cfg['title'],fontdict={'fontsize':panel_title_fontsize})
+               result_panel_ax.set_ylabel('')
+               if i_panel == n_panels-1:
+                    result_panel_ax.set_xlabel('human-choice prediction accuracy',fontdict={'fontsize':axes_label_fontsize})
+               else:
+                    result_panel_ax.set_xlabel('')
+          if save_folder is not None:
+               pathlib.Path(save_folder).mkdir(parents=True,exist_ok=True)
+               fig.savefig(os.path.join(save_folder,figure_plan['fname']), dpi=600)
+               figs.append(fig)
+     return figs
 
 def pairwise_binary_choice_analysis(df):
 
@@ -913,9 +992,85 @@ def plot_four_conditions_corr(score_df,models,correlation_func='pearsonr', NC_me
      plt.tight_layout()
      plt.show()
 
+def model_by_model_heatmap(df, models=None, save_folder=None):
+     if models is None:
+          models = get_models(df)
+     n_models = len(models)
+
+     heatmap = np.empty((n_models,n_models))
+     heatmap[:] = np.nan
+
+     for i_row, synthetic_sentence_preferring_model in enumerate(models):
+          for j_row, natural_sentence_preferring_model in enumerate(models):
+               if natural_sentence_preferring_model == synthetic_sentence_preferring_model:
+                    continue
+
+               # filter trials
+               df2 = filter_trials(df, targeted_model = synthetic_sentence_preferring_model,targeting='accept',trial_type='natural_vs_synthetic')
+               df3 = filter_trials(df2, targeted_model = natural_sentence_preferring_model, targeting='reject',trial_type='natural_vs_synthetic')
+
+               df3['subject_preferred_natural']=(
+                                                  (df3['sentence1_type']=='N') & (df3['rating']<=3) |
+                                                  (df3['sentence2_type']=='N') & (df3['rating']>=4)
+                                                )
+
+               # average human judgements
+               proportion_natural_preferred = df3['subject_preferred_natural'].mean()
+               heatmap[i_row,j_row] = proportion_natural_preferred
+
+     axes_label_fontsize=10
+
+     # plot heatmap
+
+     matplotlib.rcParams.update({'font.size': 10})
+     matplotlib.rcParams.update({'font.family':'sans-serif'})
+     matplotlib.rcParams.update({'font.sans-serif':'Arial'})
+
+     mask = np.eye(n_models, n_models,dtype=bool)
+
+     widths_in_inches = [0.9,1.8,0.35]
+     horizontal_elements=['left_margin','heatmaps','right_margin']
+     heights_in_inches= [0.8,1.8,0.1,0.15,0.6]
+     vertical_elements = ['top_margin','heatmaps','middle_margin','colorbar','bottom_margin']
+
+     fig_w = np.sum(widths_in_inches)
+     fig_h = np.sum(heights_in_inches)
+     fig = plt.figure(figsize=(fig_w,fig_h))
+     fig.set_size_inches(fig_w, fig_h)
+
+     gs0=GridSpec(ncols=len(widths_in_inches), nrows=len(heights_in_inches), figure=fig, width_ratios=widths_in_inches,height_ratios=heights_in_inches, hspace=0, wspace=0,top=1,bottom=0,left=0,right=1)
+
+     heatmap_ax = fig.add_subplot(gs0[vertical_elements.index('heatmaps'),horizontal_elements.index('heatmaps')])
+     cbar_ax = fig.add_subplot(gs0[vertical_elements.index('colorbar'),horizontal_elements.index('heatmaps')])
+
+     sns.heatmap(heatmap, mask=mask, xticklabels=niceify(models), yticklabels=niceify(models),
+                 annot=True, fmt='.2f', cmap='bwr', vmin=0, vmax=1, center=0.5, square=True, linewidth=1.0,
+                 ax = heatmap_ax, cbar_ax=cbar_ax, cbar_kws={'orientation':'horizontal'},
+                 annot_kws={'fontsize':6})
+     heatmap_ax.xaxis.set_ticks_position('top')
+     heatmap_ax.tick_params('x', labelrotation=90)
+     heatmap_ax.tick_params(axis='both', which='major', labelsize=8)
+     heatmap_ax.tick_params(axis='both', which='minor', labelsize=8)
+     cbar_ax.tick_params(axis='both', which='major', labelsize=8)
+     cbar_ax.tick_params(axis='both', which='minor', labelsize=8)
+     cbar_ax.set_xticks([0,0.25,0.5,0.75,1.0])
+     cbar_ax.set_xlabel('humans preference of natural sentences\n(proportion of trials)',fontdict={'fontsize':axes_label_fontsize})
+     heatmap_ax.set_ylabel('models assigned as $m_{accept}$',fontdict={'fontsize':axes_label_fontsize})
+     heatmap_ax.set_xlabel('models assigned as $m_{reject}$',fontdict={'fontsize':axes_label_fontsize})
+     heatmap_ax.xaxis.set_label_position('top')
+
+     print(f"figure size: {fig_w},{fig_h} inches")
+
+     if save_folder is not None:
+               pathlib.Path(save_folder).mkdir(parents=True,exist_ok=True)
+               fig.savefig(os.path.join(save_folder,'natural_vs_synthetic_human_preference_matrix.pdf'), dpi=600)
+     else:
+          plt.show()
+
+
+
 if __name__ == '__main__':
 # %% data preprocessing
-#     results_csv = 'behavioral_results/contstim_N32_results.csv'
      results_csv = 'behavioral_results/contstim_Aug2021_n100_results.csv'
 
      aligned_results_csv = results_csv.replace('.csv','_aligned.csv')
@@ -952,11 +1107,15 @@ if __name__ == '__main__':
           df.to_csv(aligned_results_csv_with_loso)
 
 # %% Binarized accuracy measurements
-     build_all_html_files(df)
+     # uncomment this next line to generate html result tables
+     # build_all_html_files(df)
 
+     # uncomment to plot main result figures
+     # figs=plot_main_results_figures(df, save_folder = 'figures/binarized_acc')
+     # plt.show()
 
-          # plot_main_results_figure(df)
-          # plt.show()
+     model_by_model_heatmap(df,save_folder='figures/heatmaps')
+
 
           # df_acc=get_binarized_accuracy(df,models)
 
