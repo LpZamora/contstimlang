@@ -385,11 +385,10 @@ def group_level_signed_ranked_test(reduced_df, models):
      return results
 
 def calc_binarized_accuracy(df):
+     """ binarizes model and human predictions and returns 1 or 0 for prediction correctness """
 
      df2=df.copy()
      models = get_models(df)
-
-     """ binarizes model and human predictions and returns 1 or 0 for prediction correctness """
      for model in models:
 
           assert not (df['sentence2_'+model + '_prob']==df['sentence1_'+model + '_prob']).any(), f'found tied prediction for model {model}'
@@ -405,6 +404,126 @@ def calc_binarized_accuracy(df):
      df2['NC_LB']=(df2['majority_vote_NC_LB']==human_chose_sent2).astype(float)
      df2['NC_UB']=(df2['majority_vote_NC_UB']==human_chose_sent2).astype(float)
      return df2
+
+
+def calc_somersD(df):
+     """ a simple ordinal correlation between log p(s1|m) - log p(s2|m) and human ranks
+     """
+
+     def _calc_somersD(model_log_prob_diff,human_rating):
+          """ Calculate Somers' D ordinal correlation, assuming the model-to-human-rating mapping is symmetric for s1 vs. s2 and s2 vs. s1 trials """
+          assert len(model_log_prob_diff) == len(human_rating)
+          # negative_mask = model_log_prob_diff<0
+          # model_log_prob_diff=np.where(negative_mask,-model_log_prob_diff,model_log_prob_diff)
+          # human_rating = np.where(negative_mask, 7-human_rating,human_rating) # rating mapping: 1-->6, 2-->3, 3-->4, ..., 6-->1
+
+          # model_log_prob_diff = np.concatenate([model_log_prob_diff,-model_log_prob_diff],axis=0)
+          # human_rating = np.concatenate([human_rating,7-human_rating],axis=0)
+
+          somersd_result = scipy.stats.somersd(y=model_log_prob_diff,x=human_rating)
+          ordinal_corr = somersd_result.statistic
+          return ordinal_corr
+
+     models = get_models(df)
+     subjects =  df['subject'].unique()
+
+     results=[]
+
+     for subject in subjects:
+          df_subject = df[df['subject']==subject]
+          subject_rating = df_subject['rating']
+
+          cur_result={}
+          cur_result['subject']=subject
+          cur_result['subject_group']=df_subject['subject_group'].unique().item()
+
+          for model in models:
+               model_log_prob_diff = df_subject['sentence2_'+model + '_prob'] - df_subject['sentence1_'+model + '_prob']
+               cur_result[model]=_calc_somersD(model_log_prob_diff,subject_rating)
+
+          # now for the noise ceiling:
+          # lower bound - use the other nine subjects' mean response
+          leave_1_subject_out = df_subject['mean_rating_NC_LB']-3.5
+
+          cur_result['NC_LB'] = _calc_somersD(leave_1_subject_out,subject_rating)
+          cur_result['NC_UB'] = 1.0 # using non-informative bound, for now.
+
+          results.append(cur_result)
+
+     return pd.DataFrame(results)
+
+
+def calc_flexible_somersD(df):
+     """ a simple ordinal correlation between log p(s1|m) - log p(s2|m) and human ranks
+     """
+
+     def _calc_flexible_somersD(log_prob_s1_m,log_prob_s2_m,human_rating,leave_1_subject_out):
+          """ Calculate Somers' D ordinal correlation, assuming the model-to-human-rating mapping is symmetric for s1 vs. s2 and s2 vs. s1 trials """
+          assert len(log_prob_s1_m) == len(human_rating)
+          # negative_mask = log_prob_s2_m<log_prob_s1_m
+          # log_prob_s1_m_=np.where(negative_mask,log_prob_s2_m,log_prob_s1_m)
+          # log_prob_s2_m_=np.where(negative_mask,log_prob_s1_m,log_prob_s2_m)
+          # human_rating = np.where(negative_mask, 7-human_rating,human_rating) # rating mapping: 1-->6, 2-->3, 3-->4, ..., 6-->1
+
+          log_prob_s1_m_ = np.concatenate([log_prob_s1_m,log_prob_s2_m],axis=0)
+          log_prob_s2_m_ = np.concatenate([log_prob_s2_m,log_prob_s1_m],axis=0)
+          log_prob_s1_m = log_prob_s1_m_
+          log_prob_s2_m = log_prob_s2_m_
+          human_rating = np.concatenate([human_rating,7-human_rating],axis=0)
+          leave_1_subject_out = np.concatenate([leave_1_subject_out,7-leave_1_subject_out],axis=0)
+          n_trials = len(log_prob_s1_m)
+
+          # log_prob_s1_m=log_prob_s1_m.to_numpy()
+          # log_prob_s2_m=log_prob_s2_m.to_numpy()
+          # human_rating=human_rating.to_numpy()
+          # leave_1_subject_out=leave_1_subject_out.to_numpy()
+
+          n_total=0
+          n_incongruent_LB_NC=0
+          n_incongruent=0
+          for i_trial in range(n_trials):
+               for j_trial in range(n_trials):
+                    if i_trial == j_trial:
+                         continue
+                    if (log_prob_s2_m[j_trial] >= log_prob_s2_m[i_trial]) and ((log_prob_s1_m[j_trial] <= log_prob_s1_m[i_trial])):
+                         n_total+=1
+
+                         if human_rating[j_trial] < human_rating[i_trial]:
+                              n_incongruent +=1
+
+                         if (
+                            ((leave_1_subject_out[i_trial] > leave_1_subject_out[j_trial]) and (human_rating[i_trial] < human_rating[j_trial])) or
+                            ((leave_1_subject_out[i_trial] < leave_1_subject_out[j_trial]) and (human_rating[i_trial] > human_rating[j_trial]))
+                            ):
+                              n_incongruent_LB_NC+=1
+
+          if n_total == 0:
+               n_total = 1
+          return 1 - n_incongruent/n_total, 1-n_incongruent_LB_NC/n_total
+
+     models = get_models(df)
+     subjects =  df['subject'].unique()
+
+     results=[]
+
+     for subject in subjects:
+          df_subject = df[df['subject']==subject]
+          subject_rating = df_subject['rating']
+
+          cur_result={}
+          cur_result['subject']=subject
+          cur_result['subject_group']=df_subject['subject_group'].unique().item()
+
+          for model in models:
+               log_prob_s1_m = df_subject['sentence1_'+model + '_prob']
+               log_prob_s2_m = df_subject['sentence2_'+model + '_prob']
+               leave_1_subject_out = df_subject['mean_rating_NC_LB']
+               cur_result[model], cur_result['NC_LB_' + model]=_calc_flexible_somersD(log_prob_s1_m,log_prob_s2_m,subject_rating, leave_1_subject_out)
+               cur_result['NC_UB_' + model] = 1.0 # using non-informative bound, for now.
+
+          results.append(cur_result)
+
+     return pd.DataFrame(results)
 
 def build_all_html_files(df):
      models = get_models(df)
@@ -602,7 +721,7 @@ def reduce_within_model(df, reduction_func, models=None, trial_type=None, target
      return results
 
 
-def model_specific_performace_dot_plot(df, models, ylabel='% accuracy',title=None,ax=None, each_dot_is='subject_group',chance_level=None, model_specific_NC=False, pairwise_sig=None, tick_label_fontsize=8):
+def model_specific_performace_dot_plot(df, models, ylabel='% accuracy',title=None,ax=None, each_dot_is='subject_group',chance_level=None, model_specific_NC=False, pairwise_sig=None, tick_label_fontsize=8, measure='binarized_accuracy'):
 
      matplotlib.rcParams.update({'font.size': 10})
      matplotlib.rcParams.update({'font.family':'sans-serif'})
@@ -651,8 +770,12 @@ def model_specific_performace_dot_plot(df, models, ylabel='% accuracy',title=Non
      # g1=sns.violinplot(data=long_df, y='model',x='prediction_accuracy',hue='model',zorder=2,palette=model_palette,order=model_order)
      # g1.legend_.remove()
 
-     plt.xlim([0.0,1.0])
-     plt.xticks([0,0.25,0.5,0.75,1.0],['0','25%','50%','75%','100%'])
+     if measure=='binarized_accuracy':
+          plt.xlim([0.0,1.0])
+          plt.xticks([0,0.25,0.5,0.75,1.0],['0','25%','50%','75%','100%'])
+     else:
+          plt.xlim([-1.0,1.0])
+          plt.xticks([-1,-0.5,0,0.5,1.0])
      ax.tick_params(axis='both', which='major', labelsize=tick_label_fontsize)
      ax.tick_params(axis='both', which='minor', labelsize=tick_label_fontsize)
 
@@ -693,7 +816,7 @@ def model_specific_performace_dot_plot(df, models, ylabel='% accuracy',title=Non
                ax.add_patch(matplotlib.patches.Rectangle(xy=(NC_LB,-1),width=NC_UB-NC_LB, height=len(models)-1+2.0,alpha=1.0,fill=True,edgecolor='silver',facecolor='silver',linewidth=1.0, zorder=-100))
      return ax
 
-def plot_one_main_results_panel(df, reduction_fun, models, cur_panel_cfg, ax = None, metroplot_ax = None, chance_level=None, metroplot_preallocated_positions=None, tick_label_fontsize=8):
+def plot_one_main_results_panel(df, reduction_fun, models, cur_panel_cfg, ax = None, metroplot_ax = None, chance_level=None, metroplot_preallocated_positions=None, tick_label_fontsize=8, measure='binarized_accuracy'):
      """ plot one panel of model-human alignment dot plot """
      if cur_panel_cfg['only_targeted_trials']:
           # analyze each model's performance on the the trials that targeted it.
@@ -710,7 +833,12 @@ def plot_one_main_results_panel(df, reduction_fun, models, cur_panel_cfg, ax = N
      print(reduced_df.mean())
      print(pairwise_sig)
 
-     model_specific_performace_dot_plot(reduced_df,models, ylabel='% accuracy',title=None,ax=ax, each_dot_is='subject_group', chance_level=chance_level, model_specific_NC=cur_panel_cfg['only_targeted_trials'], pairwise_sig=pairwise_sig, tick_label_fontsize=tick_label_fontsize)
+
+     model_specific_NC=cur_panel_cfg['only_targeted_trials']
+     if measure=='flexible_SomersD':
+          model_specific_NC=True
+
+     model_specific_performace_dot_plot(reduced_df,models, ylabel='% accuracy',title=None,ax=ax, each_dot_is='subject_group', chance_level=chance_level, model_specific_NC=model_specific_NC, pairwise_sig=pairwise_sig, tick_label_fontsize=tick_label_fontsize, measure=measure)
 
      if metroplot_ax is not None: # plot metroplot significance plot
           level_to_location={model_name:i for i, model_name in enumerate(model_order)}
@@ -732,11 +860,24 @@ def plot_one_main_results_panel(df, reduction_fun, models, cur_panel_cfg, ax = N
                                    marker='o', linewidth=0.5, markeredgewidth=0.5, markersize=8)
 
 
-def plot_main_results_figures(df, models=None, plot_metroplot=True, save_folder = None):
+def plot_main_results_figures(df, models=None, plot_metroplot=True, save_folder = None, measure='binarized_accuracy'):
      if models is None:
           models = get_models(df)
 
-     reduction_fun = calc_binarized_accuracy
+     if measure == 'binarized_accuracy':
+          reduction_fun = calc_binarized_accuracy
+          chance_level=0.5
+     elif measure == 'SomersD':
+          reduction_fun = calc_somersD
+          chance_level=0
+     elif measure == 'Pearsons_r':
+          reduction_fun = calc_r
+          chance_level=0
+     elif measure == 'flexible_SomersD':
+          chance_level=0
+          reduction_fun=calc_flexible_somersD
+     else:
+          raise ValueError
 
      # define figure structure
      panel_cfg  = [
@@ -750,14 +891,14 @@ def plot_main_results_figures(df, models=None, plot_metroplot=True, save_folder 
      ]
 
      figure_plans = [
-          {'panels':[0,1,2], 'fname':'natural_and_natural_controversial.pdf'},
-          {'panels':[3,4,5], 'fig_size':(7,7), 'fname':'synthetic.pdf'},
-          {'panels':[6], 'fig_size':(7,7/3), 'fname':'all_trials.pdf'},
+          {'panels':[0,1,2], 'fname':f'natural_and_natural_controversial_{measure}.pdf', 'include_left_col':True},
+          {'panels':[3,4,5], 'fname':f'synthetic_{measure}.pdf', 'include_left_col':True},
+          {'panels':[6], 'fname':f'all_trials_{measure}.pdf', 'include_left_col':False},
      ]
 
      # all of the following measures are in inches
      top_margin = 0.0
-     bottom_margin = 0.2
+     bottom_margin = 0.3
      left_margin = 0
      right_margin = 0.00
      panel_h = 1.8
@@ -765,11 +906,11 @@ def plot_main_results_figures(df, models=None, plot_metroplot=True, save_folder 
      v_space_above_panel = 0.225
      v_space_below_panel = 0.25
      h_space1 = 0 # horizontal space between left column and result panel
+     left_margin_narrow = 0.65 # left margin used for single column figures
      h_space2 = 0.05 # horizontal space between result column and metroplot
-     metroplot_w = 1.125
-     metroplot_preallocated_positions=7 # how many significance elements are we expecting.
-     fig_w = 7 # total figure width - 7 inches (PNAS limitation, Nat. Comm is more generous)
-     left_col_w = fig_w - (left_margin+h_space1+panel_w+h_space2+metroplot_w+right_margin)
+     metroplot_w = 1.2
+     metroplot_preallocated_positions=8 # how many significance elements are we expecting.
+
      panel_title_fontsize = 10
      axes_label_fontsize = 10
      tick_label_fontsize = 8
@@ -780,8 +921,15 @@ def plot_main_results_figures(df, models=None, plot_metroplot=True, save_folder 
           # setup gridspec grid structure
           n_panels = len(figure_plan['panels'])
 
-          widths_in_inches = [left_margin, left_col_w, h_space1, panel_w, h_space2, metroplot_w, right_margin]
-          horizontal_elements = [None,None,None,'panel',None,'metroplot',None]
+          if figure_plan['include_left_col']:
+               fig_w = 7 # total figure width - 7 inches (PNAS limitation, Nat. Comm is more generous)
+               left_col_w = fig_w - (left_margin+h_space1+panel_w+h_space2+metroplot_w+right_margin)
+               widths_in_inches = [left_margin, left_col_w, h_space1, panel_w, h_space2, metroplot_w, right_margin]
+               horizontal_elements = [None,None,None,'panel',None,'metroplot',None]
+          else: # only right coloumn
+               widths_in_inches = [left_margin_narrow, panel_w, h_space2, metroplot_w, right_margin]
+               fig_w = np.sum(widths_in_inches)
+               horizontal_elements = [None,'panel',None,'metroplot',None]
           assert np.isclose(np.sum(widths_in_inches),fig_w), 'widths don''t match'
 
           heights_in_inches = [top_margin]
@@ -807,11 +955,17 @@ def plot_main_results_figures(df, models=None, plot_metroplot=True, save_folder 
                     metroplot_ax = fig.add_subplot(gs0[vertical_elements.index(f'panel{i_panel}'), horizontal_elements.index('metroplot')])
                else:
                     metroplot_ax = None
-               plot_one_main_results_panel(df, reduction_fun, models, cur_panel_cfg, ax=result_panel_ax, chance_level=0.5, metroplot_ax=metroplot_ax, metroplot_preallocated_positions=metroplot_preallocated_positions, tick_label_fontsize=tick_label_fontsize)
+
+               plot_one_main_results_panel(df, reduction_fun, models, cur_panel_cfg, ax=result_panel_ax, chance_level=chance_level, metroplot_ax=metroplot_ax, metroplot_preallocated_positions=metroplot_preallocated_positions, tick_label_fontsize=tick_label_fontsize, measure=measure)
                result_panel_ax.set_title(cur_panel_cfg['title'],fontdict={'fontsize':panel_title_fontsize})
                result_panel_ax.set_ylabel('')
                if i_panel == n_panels-1:
-                    result_panel_ax.set_xlabel('human-choice prediction accuracy',fontdict={'fontsize':axes_label_fontsize})
+                    if measure=='binarized_accuracy':
+                         result_panel_ax.set_xlabel('human-choice prediction accuracy',fontdict={'fontsize':axes_label_fontsize})
+                    elif measure=='SomersD':
+                         result_panel_ax.set_xlabel("ordinal correlation between human ratings and models'\nsentence pair probability log-ratio (Somers' D)",fontdict={'fontsize':axes_label_fontsize})
+                    elif measure=='flexible_SomersD':
+                         result_panel_ax.set_xlabel("modified Somers' D between human ratings and models'\nsentence probabilities",fontdict={'fontsize':axes_label_fontsize})
                else:
                     result_panel_ax.set_xlabel('')
           if save_folder is not None:
@@ -820,50 +974,6 @@ def plot_main_results_figures(df, models=None, plot_metroplot=True, save_folder 
                figs.append(fig)
      return figs
 
-def pairwise_binary_choice_analysis(df):
-
-     # first, let's consider only trials with N, S sentence pairs
-     mask = (df['sentence1_type']=='N') | (df['sentence2_type']=='N')
-     reduced_df2 = df[mask]
-
-     models = get_models(df)
-     n_models = len(models)
-
-     n = np.zeros((n_models,n_models)) # n[i,j] is the count of trials in which the i-th model preferred the natural sentence and the j-th model the synthetic sentence.
-     x = np.zeros((n_models,n_models)) # x[i,j] is the count of trials "" and the human participant favor the natural sentence as well.
-
-     for idx_trial, trial in reduced_df2.iterrows():
-          if trial.sentence1_type=='N' and trial.sentence2_type=='S':
-               i_model = models.index(trial.sentence1_model)
-               j_model = models.index(trial.sentence2_model)
-               if trial.rating<=3:
-                    x[i_model,j_model]+=1
-          elif trial.sentence1_type=='S' and trial.sentence2_type=='N':
-               i_model = models.index(trial.sentence2_model)
-               j_model = models.index(trial.sentence1_model)
-               if trial.rating>=4:
-                    x[i_model,j_model]+=1
-          else:
-               raise ValueError
-
-          n[i_model,j_model]+=1
-     print (n)
-     print (x)
-     fig=plt.figure()
-     ax=plt.gca()
-     im = ax.imshow(x/n)
-     plt.colorbar(im, ax=ax)
-
-     ax.set_xticks(np.arange(n_models))
-     ax.set_yticks(np.arange(n_models))
-     ax.set_xticklabels(models)
-     ax.set_yticklabels(models)
-     #ax.xaxis.tick_top()
-     plt.ylabel('models targeted to reject the synthetic sentence P(S)<P(N)')
-     plt.xlabel('models held equivariant P(S)>=P(N)')
-     plt.setp(ax.get_xticklabels(), rotation=45, ha="right",rotation_mode="anchor")
-     plt.tight_layout()
-     plt.show()
 def log_prob_pairs_to_scores(df, transformation_func='diff'):
      """ each model predicts pair of log-probabilities. To predict human ratings, this function convert each pair to a scalar score """
      if transformation_func == 'diff': # The most naive approach - use the difference of log probabilities as predictor
@@ -881,118 +991,7 @@ def log_prob_pairs_to_scores(df, transformation_func='diff'):
           df2=df2.drop(columns=['sentence1_'+model + '_prob','sentence2_'+model + '_prob'])
      return df2
 
-
-
-def get_correlation_based_accuracy_old(df,models, correlation_func='pearsonr'):
-     """ within each subject, correlate model scalar scores with subject's ratings"""
-     if correlation_func == 'pearsonr':
-          correlation_func = lambda rating, score: scipy.stats.pearsonr(rating,score)[0]
-     elif correlation_func == 'spearmanr':
-          correlation_func = lambda rating, score: scipy.stats.spearmanr(rating,score,nan_policy='omit')[0]
-     elif correlation_func == 'kendall-Tau-b':
-          # scipy.stats nightly has a somersd function, but it's not yet officially released
-          correlation_func = lambda rating, score: scipy.stats.kendalltau(rating,score,method='asymptotic',variant='b')[0]
-
-     # calculate within-subject correlations
-     df2=[]
-     for subject in df['Participant Private ID'].unique():
-          cur_subject_results={'Participant Private ID':subject}
-          mask=df['Participant Private ID']==subject
-          reduced_df=df[mask]
-          for model in models:
-               cur_subject_results[model]=correlation_func(reduced_df['rating'],reduced_df[model])
-          df2.append(cur_subject_results)
-     df2=pd.DataFrame(df2)
-     return df2
-
-def get_correlation_based_accuracy(df,models, correlation_func='pearsonr',targeting=None, pair_type=None):
-     """ within each subject, correlate model scalar scores with subject's ratings"""
-     if correlation_func == 'pearsonr':
-          correlation_func = lambda rating, score: scipy.stats.pearsonr(rating,score)[0]
-     elif correlation_func == 'spearmanr':
-          correlation_func = lambda rating, score: scipy.stats.spearmanr(rating,score,nan_policy='omit')[0]
-     elif correlation_func == 'kendall-Tau-b':
-          # scipy.stats nightly has a somersd function, but it's not yet officially released
-          correlation_func = lambda rating, score: scipy.stats.kendalltau(rating,score,method='asymptotic',variant='b')[0]
-
-     df = df.copy()
-     df['pair_type']=['N_vs_S' if t1=='N' or t2=='N' else 'S_vs_S' for t1,t2 in zip(df.sentence1_type, df.sentence2_type)]
-
-     df2=[]
-
-     results = []
-     for model in models:
-          cur_result={'model':model}
-          # split according to model targeting
-          if targeting is None:
-               mask = np.ones(len(df),dtype=bool)
-          elif targeting == 'targeted':
-               mask = (df.sentence1_model == model) | (df.sentence2_model == model)
-               cur_result['targeting']='targeted'
-          elif targeting == 'untargeted':
-               mask =  (df.sentence1_model != model) & (df.sentence2_model != model)
-               cur_result['targeting']='untargeted'
-          else:
-               raise ValueError
-
-          # split according to pair type (N vs S, S vs S)
-          if pair_type is None:
-               pass
-          elif pair_type == 'N_vs_S':
-               mask = mask & (df['pair_type']=='N_vs_S')
-               cur_result['pair_type']='N_vs_S'
-          elif pair_type == 'S_vs_S':
-               mask = mask & (df['pair_type']=='S_vs_S')
-               cur_result['pair_type']='S_vs_S'
-          else:
-               raise ValueError
-
-          assert np.sum(mask)>0
-          reduced_df = df[mask]
-
-          # calculate within-subject correlations
-          for subject in reduced_df['Participant Private ID'].unique():
-               cur_subject_results=cur_result.copy()
-               cur_subject_results['Participant Private ID']=subject
-               mask=reduced_df['Participant Private ID']==subject
-               cur_subject_reduced_df=reduced_df[mask]
-               cur_subject_results['corr']=correlation_func(cur_subject_reduced_df['rating'],cur_subject_reduced_df[model])
-               cur_subject_results['mean_rating_NC_corr']=correlation_func(cur_subject_reduced_df['rating'],cur_subject_reduced_df['mean_rating_NC'])
-               df2.append(cur_subject_results)
-     df2=pd.DataFrame(df2)
-     return df2
-
-
-def plot_four_conditions_corr(score_df,models,correlation_func='pearsonr', NC_measure='mean_rating_NC', chance_level=0.0,ylim=None):
-
-     fig=plt.figure(figsize=(12,6.5))
-
-     targeting = ['targeted','targeted','untargeted','untargeted']
-     pair_type = ['N_vs_S','S_vs_S','N_vs_S','S_vs_S']
-     title = ['N_vs_S, targeted','S_vs_S, targeted', 'N_vs_S, untargeted', 'S_vs_S, untargeted']
-
-     for i_subplot in range(4):
-          ax=plt.subplot(2,2,1+i_subplot)
-          corr_df = get_correlation_based_accuracy(score_df, models,  correlation_func=correlation_func, targeting=targeting[i_subplot], pair_type=pair_type[i_subplot])
-
-          mean_corr_df = corr_df.groupby('model').mean().drop(columns=['Participant Private ID'])
-          mean_corr_df = mean_corr_df.rename(columns={'corr':'mean','mean_rating_NC_corr':'mean_rating_NC'})
-          mean_corr_df['se'] = corr_df.groupby('model').std()['corr']/np.sqrt(corr_df.groupby('model').count()['corr'])
-          mean_corr_df=mean_corr_df.reset_index()
-
-          mean_corr_df['model'] = mean_corr_df['model'].astype("category")
-          mean_corr_df.model.cat.set_categories(models, inplace=True)
-          mean_corr_df=mean_corr_df.sort_values('model')
-
-          print(mean_corr_df)
-          plot_bars(ax, mean_corr_df, chance_level=chance_level, NC_measure=NC_measure, ylim=None)
-
-          plt.title(title[i_subplot])
-
-     plt.tight_layout()
-     plt.show()
-
-def model_by_model_heatmap(df, models=None, save_folder=None):
+def model_by_model_N_vs_S_heatmap(df, models=None, save_folder=None):
      if models is None:
           models = get_models(df)
      n_models = len(models)
@@ -1001,7 +1000,7 @@ def model_by_model_heatmap(df, models=None, save_folder=None):
      heatmap[:] = np.nan
 
      for i_row, synthetic_sentence_preferring_model in enumerate(models):
-          for j_row, natural_sentence_preferring_model in enumerate(models):
+          for i_col, natural_sentence_preferring_model in enumerate(models):
                if natural_sentence_preferring_model == synthetic_sentence_preferring_model:
                     continue
 
@@ -1016,7 +1015,7 @@ def model_by_model_heatmap(df, models=None, save_folder=None):
 
                # average human judgements
                proportion_natural_preferred = df3['subject_preferred_natural'].mean()
-               heatmap[i_row,j_row] = proportion_natural_preferred
+               heatmap[i_row,i_col] = proportion_natural_preferred
 
      axes_label_fontsize=10
 
@@ -1045,7 +1044,7 @@ def model_by_model_heatmap(df, models=None, save_folder=None):
 
      sns.heatmap(heatmap, mask=mask, xticklabels=niceify(models), yticklabels=niceify(models),
                  annot=True, fmt='.2f', cmap='bwr', vmin=0, vmax=1, center=0.5, square=True, linewidth=1.0,
-                 ax = heatmap_ax, cbar_ax=cbar_ax, cbar_kws={'orientation':'horizontal'},
+                 ax = heatmap_ax, cbar_ax=cbar_ax, cbar_kws={'orientation':'horizontal','ticks':[0,0.25,0.5,0.75,1.0]},
                  annot_kws={'fontsize':6})
      heatmap_ax.xaxis.set_ticks_position('top')
      heatmap_ax.tick_params('x', labelrotation=90)
@@ -1053,7 +1052,6 @@ def model_by_model_heatmap(df, models=None, save_folder=None):
      heatmap_ax.tick_params(axis='both', which='minor', labelsize=8)
      cbar_ax.tick_params(axis='both', which='major', labelsize=8)
      cbar_ax.tick_params(axis='both', which='minor', labelsize=8)
-     cbar_ax.set_xticks([0,0.25,0.5,0.75,1.0])
      cbar_ax.set_xlabel('humans preference of natural sentences\n(proportion of trials)',fontdict={'fontsize':axes_label_fontsize})
      heatmap_ax.set_ylabel('models assigned as $m_{accept}$',fontdict={'fontsize':axes_label_fontsize})
      heatmap_ax.set_xlabel('models assigned as $m_{reject}$',fontdict={'fontsize':axes_label_fontsize})
@@ -1067,7 +1065,92 @@ def model_by_model_heatmap(df, models=None, save_folder=None):
      else:
           plt.show()
 
+def model_by_model_consistency_heatmap(df, models=None, save_folder=None, trial_type = None):
+     if models is None:
+          models = get_models(df)
+     n_models = len(models)
 
+     heatmap = np.empty((n_models,n_models))
+     heatmap[:] = np.nan
+
+     for i_row, model1 in enumerate(models):
+          for i_col, model2 in enumerate(models):
+               if model1 == model2:
+                    continue
+
+               # filter trials
+               df2 = filter_trials(df, targeted_model = model1, trial_type=trial_type)
+               df2 = filter_trials(df2, targeted_model = model2)
+
+               n_aligned_with_model1=0
+               n_aligned_with_model2=0
+               for i_trial, trial in df2.iterrows():
+
+                    if ((trial[f'sentence1_{model1}_prob'] < trial[f'sentence2_{model1}_prob']) and
+                        (trial[f'sentence1_{model2}_prob'] > trial[f'sentence2_{model2}_prob'])):
+                        # model1 preferred sentence 2, model2 preferred sentence 1
+                         if trial['rating']>=4: # subject preferred sentence 2 (aligned with model1)
+                              n_aligned_with_model1+=1
+                         elif trial['rating']<=3: # subject preferred sentence 1 (aligned with model2)
+                              n_aligned_with_model2+=1
+                    elif ((trial[f'sentence1_{model1}_prob'] > trial[f'sentence2_{model1}_prob']) and
+                          (trial[f'sentence1_{model2}_prob'] < trial[f'sentence2_{model2}_prob'])):
+                         # model1 preferred sentence 1, model2 preferred sentence 2
+                         if trial['rating']>=4: # subject preferred sentence 2 (aligned with model2)
+                              n_aligned_with_model2+=1
+                         elif trial['rating']<=3: # subject preferred sentence 1 (aligned with model1)
+                              n_aligned_with_model1+=1
+
+               # average human judgements
+               heatmap[i_row,i_col] = n_aligned_with_model1/(n_aligned_with_model1+n_aligned_with_model2)
+
+     axes_label_fontsize=10
+
+     # plot heatmap
+
+     matplotlib.rcParams.update({'font.size': 10})
+     matplotlib.rcParams.update({'font.family':'sans-serif'})
+     matplotlib.rcParams.update({'font.sans-serif':'Arial'})
+
+     mask = np.eye(n_models, n_models,dtype=bool)
+
+     widths_in_inches = [0.9,1.8,0.35]
+     horizontal_elements=['left_margin','heatmaps','right_margin']
+     heights_in_inches= [0.8,1.8,0.1,0.15,0.6]
+     vertical_elements = ['top_margin','heatmaps','middle_margin','colorbar','bottom_margin']
+
+     fig_w = np.sum(widths_in_inches)
+     fig_h = np.sum(heights_in_inches)
+     fig = plt.figure(figsize=(fig_w,fig_h))
+     fig.set_size_inches(fig_w, fig_h)
+
+     gs0=GridSpec(ncols=len(widths_in_inches), nrows=len(heights_in_inches), figure=fig, width_ratios=widths_in_inches,height_ratios=heights_in_inches, hspace=0, wspace=0,top=1,bottom=0,left=0,right=1)
+
+     heatmap_ax = fig.add_subplot(gs0[vertical_elements.index('heatmaps'),horizontal_elements.index('heatmaps')])
+     cbar_ax = fig.add_subplot(gs0[vertical_elements.index('colorbar'),horizontal_elements.index('heatmaps')])
+
+     sns.heatmap(heatmap, mask=mask, xticklabels=niceify(models), yticklabels=niceify(models),
+                 annot=True, fmt='.2f', cmap='PiYG', vmin=0, vmax=1, center=0.5, square=True, linewidth=1.0,
+                 ax = heatmap_ax, cbar_ax=cbar_ax, cbar_kws={'orientation':'horizontal','ticks':[0,0.25,0.5,0.75,1.0]},
+                 annot_kws={'fontsize':6})
+     heatmap_ax.xaxis.set_ticks_position('top')
+     heatmap_ax.tick_params('x', labelrotation=90)
+     heatmap_ax.tick_params(axis='both', which='major', labelsize=8)
+     heatmap_ax.tick_params(axis='both', which='minor', labelsize=8)
+     cbar_ax.tick_params(axis='both', which='major', labelsize=8)
+     cbar_ax.tick_params(axis='both', which='minor', labelsize=8)
+     cbar_ax.set_xlabel('human choice aligned with model 1\n(proportion of trials)',fontdict={'fontsize':axes_label_fontsize})
+     heatmap_ax.set_ylabel('model 1',fontdict={'fontsize':axes_label_fontsize})
+     heatmap_ax.set_xlabel('model 2',fontdict={'fontsize':axes_label_fontsize})
+     heatmap_ax.xaxis.set_label_position('top')
+
+     print(f"figure size: {fig_w},{fig_h} inches")
+
+     if save_folder is not None:
+               pathlib.Path(save_folder).mkdir(parents=True,exist_ok=True)
+               fig.savefig(os.path.join(save_folder,f'{trial_type}_model_by_model_human_consistency_matrix.pdf'), dpi=600)
+     else:
+          plt.show()
 
 if __name__ == '__main__':
 # %% data preprocessing
@@ -1110,54 +1193,19 @@ if __name__ == '__main__':
      # uncomment this next line to generate html result tables
      # build_all_html_files(df)
 
-     # uncomment to plot main result figures
-     # figs=plot_main_results_figures(df, save_folder = 'figures/binarized_acc')
+     # # # uncomment to plot main result figures
+     #figs=plot_main_results_figures(df, save_folder = 'figures/binarized_acc',measure='binarized_accuracy')
      # plt.show()
 
-     model_by_model_heatmap(df,save_folder='figures/heatmaps')
+     #figs=plot_main_results_figures(df, save_folder = 'figures/SomersD',measure='SomersD')
+     figs=plot_main_results_figures(df, measure='SomersD')
+     plt.show()
 
+     # figs=plot_main_results_figures(df, save_folder = 'figures/Flexible_SomersD',measure='flexible_SomersD')
+     # plt.show()
 
-          # df_acc=get_binarized_accuracy(df,models)
+     # for trial_type in ['natural_vs_synthetic','natural_controversial','synthetic_vs_synthetic']:
+     #      model_by_model_consistency_heatmap(df,trial_type = trial_type, save_folder = 'figures/heatmaps')
 
-          # print ('all trials:')
-          # print(df_acc[models].mean(axis = 0, skipna = True))
-
-          # # plot average accuracy across all trials
-          # plt.figure()
-          # ax=plt.gca()
-          # models = get_models(df)
-          # plot_bars(ax,average_models_within_conditions(df_acc, models),NC_measure='majority_vote_NC', chance_level=0.5, ylim=(0,1))
-
-     #      # plot average accuracy within each condition
-     #      plot_four_conditions(df_acc, models, NC_measure='majority_vote_NC',chance_level=0.5,ylim=(0,1))
-
-     # # %% Correlation-based accuracy measurements
-
-     #      score_df = log_prob_pairs_to_scores(df, transformation_func='diff')
-     #      models = get_models(df)
-     #      corr_df=get_correlation_based_accuracy(score_df,models, correlation_func='pearsonr')
-     #      print(corr_df)
-     #      plot_four_conditions_corr(score_df,models,correlation_func='spearmanr')
-
-
-
-     # # print('predicting ratings from log-prob differences (pearson)')
-     # # print(corr_df[models].mean(axis = 0, skipna = True))
-
-     # # corr_df=get_correlation_based_accuracy(score_df,models,  correlation_func='pearsonr')
-     # # print('predicting ratings from log-prob differences (pearsonr)')
-     # # print(corr_df[models].mean(axis = 0, skipna = True))
-
-
-     # # corr_df=get_correlation_based_accuracy(score_df,models,  correlation_func='spearmanr')
-     # # print('predicting ratings from log-prob differences (spearman)')
-     # # print(corr_df[models].mean(axis = 0, skipna = True))
-
-     # # corr_df=get_correlation_based_accuracy(score_df,models, correlation_func='kendall-Tau-b')
-     # # print('predicting ratings from log-prob differences (kendall-Tau-b)')
-     # # print(corr_df[models].mean(axis = 0, skipna = True))
-
-
-          # add a sentence pair field. This assumes that s1 and s2 are already sorted.
-
-          #pairwise_binary_choice_analysis(df)
+     # # uncomment to plot n_vs_s heatmap
+     # model_by_model_N_vs_S_heatmap(df,save_folder='figures/heatmaps')
