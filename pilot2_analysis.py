@@ -22,6 +22,7 @@ import matplotlib
 import seaborn as sns
 from matplotlib.gridspec import GridSpec
 
+from scipy.spatial.distance import cosine
 from metroplot import metroplot
 
 
@@ -405,6 +406,55 @@ def calc_binarized_accuracy(df):
      df2['NC_UB']=(df2['majority_vote_NC_UB']==human_chose_sent2).astype(float)
      return df2
 
+def _calc_RAE_signed_spearman(a,b, n_samples=100):
+     """ Calculate non-centered Spearman's rho, expectancy over random tie breaking"""
+     assert len(a) == len(b)
+
+     def rank_with_random_tie_breaking(x):
+          my_vec = pd.Series(x)
+          return np.asarray(my_vec.sample(frac=1).rank(method='first').reindex_like(my_vec))
+
+     def calc_signed_rank(x):
+          return np.sign(x)*rank_with_random_tie_breaking(np.abs(x))
+
+     result = []
+     for i_sample in range(n_samples):
+          a_signed_ranks = calc_signed_rank(a)
+          b_signed_ranks = calc_signed_rank(b)
+          result.append(1-cosine(a_signed_ranks,b_signed_ranks))
+     return np.mean(result)
+
+def RAE_signed_spearman(df):
+     """ ordinal correlation between log p(s1|m) - log p(s2|m) and human ranks
+     """
+
+     models = get_models(df)
+     subjects =  df['subject'].unique()
+
+     results=[]
+
+     for subject in tqdm(subjects):
+          df_subject = df[df['subject']==subject]
+
+          cur_result={}
+          cur_result['subject']=subject
+          cur_result['subject_group']=df_subject['subject_group'].unique().item()
+          zero_centered_human_rating = df_subject['rating']-3.5
+
+          for model in models:
+               model_log_prob_diff = df_subject['sentence2_'+model + '_prob'] - df_subject['sentence1_'+model + '_prob']
+               cur_result[model]=_calc_RAE_signed_spearman(model_log_prob_diff,zero_centered_human_rating)
+
+          # now for the noise ceiling:
+          # lower bound - use the other nine subjects' mean response
+          zero_centered_leave_1_subject_out = df_subject['mean_rating_NC_LB']-3.5
+
+          cur_result['NC_LB'] = _calc_RAE_signed_spearman(zero_centered_leave_1_subject_out,zero_centered_human_rating)
+          cur_result['NC_UB'] = 1.0
+
+          results.append(cur_result)
+
+     return pd.DataFrame(results)
 
 def calc_somersD(df):
      """ a simple ordinal correlation between log p(s1|m) - log p(s2|m) and human ranks
@@ -876,6 +926,9 @@ def plot_main_results_figures(df, models=None, plot_metroplot=True, save_folder 
      elif measure == 'flexible_SomersD':
           chance_level=0
           reduction_fun=calc_flexible_somersD
+     elif measure == 'RAE_signed_spearman':
+          chance_level=0
+          reduction_fun=RAE_signed_spearman
      else:
           raise ValueError
 
@@ -891,14 +944,14 @@ def plot_main_results_figures(df, models=None, plot_metroplot=True, save_folder 
      ]
 
      figure_plans = [
-          {'panels':[0,1,2], 'fname':f'natural_and_natural_controversial_{measure}.pdf', 'include_left_col':True},
+          {'panels':[1,2], 'fname':f'natural_and_natural_controversial_{measure}.pdf', 'include_left_col':True},
           {'panels':[3,4,5], 'fname':f'synthetic_{measure}.pdf', 'include_left_col':True},
           {'panels':[6], 'fname':f'all_trials_{measure}.pdf', 'include_left_col':False},
      ]
 
      # all of the following measures are in inches
      top_margin = 0.0
-     bottom_margin = 0.3
+     bottom_margin = 0.325
      left_margin = 0
      right_margin = 0.00
      panel_h = 1.8
@@ -906,7 +959,7 @@ def plot_main_results_figures(df, models=None, plot_metroplot=True, save_folder 
      v_space_above_panel = 0.225
      v_space_below_panel = 0.25
      h_space1 = 0 # horizontal space between left column and result panel
-     left_margin_narrow = 0.65 # left margin used for single column figures
+     left_margin_narrow = 1.1 # left margin used for single column figures
      h_space2 = 0.05 # horizontal space between result column and metroplot
      metroplot_w = 1.2
      metroplot_preallocated_positions=8 # how many significance elements are we expecting.
@@ -966,6 +1019,8 @@ def plot_main_results_figures(df, models=None, plot_metroplot=True, save_folder 
                          result_panel_ax.set_xlabel("ordinal correlation between human ratings and models'\nsentence pair probability log-ratio (Somers' D)",fontdict={'fontsize':axes_label_fontsize})
                     elif measure=='flexible_SomersD':
                          result_panel_ax.set_xlabel("modified Somers' D between human ratings and models'\nsentence probabilities",fontdict={'fontsize':axes_label_fontsize})
+                    elif measure=='RAE_signed_spearman':
+                         result_panel_ax.set_xlabel("ordinal correlation between human ratings and models'\nsentence pair probability log-ratio (signed-rank cosine similarity)",fontdict={'fontsize':axes_label_fontsize})
                else:
                     result_panel_ax.set_xlabel('')
           if save_folder is not None:
@@ -1194,12 +1249,12 @@ if __name__ == '__main__':
      # build_all_html_files(df)
 
      # # # uncomment to plot main result figures
-     #figs=plot_main_results_figures(df, save_folder = 'figures/binarized_acc',measure='binarized_accuracy')
+     figs=plot_main_results_figures(df, save_folder = 'figures/binarized_acc',measure='binarized_accuracy')
      # plt.show()
 
      #figs=plot_main_results_figures(df, save_folder = 'figures/SomersD',measure='SomersD')
-     figs=plot_main_results_figures(df, measure='SomersD')
-     plt.show()
+     figs=plot_main_results_figures(df, measure='RAE_signed_spearman',save_folder = 'figures/RAE_signed_spearman')
+     # plt.show()
 
      # figs=plot_main_results_figures(df, save_folder = 'figures/Flexible_SomersD',measure='flexible_SomersD')
      # plt.show()
