@@ -223,7 +223,9 @@ def recode_model_targeting(df):
                assert (p_A_s1 > p_R_s2) & (p_A_s2 > p_R_s1)
           elif {trial.sentence1_type, trial.sentence2_type} == {'C1','C2'}:
                # Catch trials (natural sentences and their shuffled version)
-               df.loc[idx_trial,'trial_type']='natural_vs_shuffled'
+               df.loc[idx_trial,'trial_type']='natural_vs_shuffled' # C1-> N (natural), C2-> C (catch)
+               df.loc[idx_trial,'sentence1_type']=trial.sentence1_type.replace('C1','N').replace('C2','C')
+               df.loc[idx_trial,'sentence2_type']=trial.sentence2_type.replace('C1','N').replace('C2','C')
           elif {trial.sentence1_type, trial.sentence2_type} == {'R1','R2'}:
                # randomly sampled natural sentences
                df.loc[idx_trial,'trial_type']='randomly_sampled_natural'
@@ -231,8 +233,8 @@ def recode_model_targeting(df):
                raise ValueError
 
           # remove 1 and 2 from sentence type
-          df.loc[idx_trial,'sentence1_type']=trial.sentence1_type.replace('1','').replace('2','')
-          df.loc[idx_trial,'sentence2_type']=trial.sentence2_type.replace('1','').replace('2','')
+          df.loc[idx_trial,'sentence1_type']=df.loc[idx_trial,'sentence1_type'].replace('1','').replace('2','')
+          df.loc[idx_trial,'sentence2_type']=df.loc[idx_trial,'sentence2_type'].replace('1','').replace('2','')
      return df
 
 
