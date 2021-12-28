@@ -6,6 +6,7 @@ import itertools
 import math
 import copy
 import os, pathlib
+import string
 
 from contextlib import contextmanager
 
@@ -51,6 +52,8 @@ model_name_dict = {'gpt2':'GPT-2',
                    'rnn':'RNN',
                    'trigram':'3-gram',
                    'bigram':'2-gram'}
+
+panel_letter_fontsize=12
 
 # https://stackoverflow.com/questions/38629830/how-to-turn-off-autoscaling-in-matplotlib-pyplot
 @contextmanager
@@ -408,13 +411,13 @@ def calc_binarized_accuracy(df):
      df2['NC_UB']=(df2['majority_vote_NC_UB']==human_chose_sent2).astype(float)
      return df2
 
+def rank_with_random_tie_breaking(x):
+          my_vec = pd.Series(x)
+          return np.asarray(my_vec.sample(frac=1).rank(method='first').reindex_like(my_vec))
+
 def _calc_RAE_signed_spearman(a,b, n_samples=100):
      """ Calculate non-centered Spearman's rho, expectancy over random tie breaking"""
      assert len(a) == len(b)
-
-     def rank_with_random_tie_breaking(x):
-          my_vec = pd.Series(x)
-          return np.asarray(my_vec.sample(frac=1).rank(method='first').reindex_like(my_vec))
 
      def calc_signed_rank(x):
           return np.sign(x)*rank_with_random_tie_breaking(np.abs(x))
@@ -911,8 +914,25 @@ def plot_one_main_results_panel(df, reduction_fun, models, cur_panel_cfg, ax = N
                                    empty_dot_fill_color='w',
                                    marker='o', linewidth=0.5, markeredgewidth=0.5, markersize=8)
 
+def catch_trial_report(df):
+     """ generate statistics on subject performance in catch trials"""
 
-def plot_main_results_figures(df, models=None, plot_metroplot=True, save_folder = None, measure='binarized_accuracy'):
+     df2=df[df['trial_type']=='natural_vs_shuffled']
+
+     # how many unique catch trials were presented?
+     # distribution of errors
+
+     n_catch_trials = int(df2.groupby('subject')['sentence_pair'].count().unique())
+     print(f'each subject was presented with {n_catch_trials} catch trials.')
+
+     df2['correct_catch']=((df2['sentence1_type']=='N') & (df2['rating']<=3)) | ((df2['sentence2_type']=='N') & (df2['rating']>=4))
+     subject_specific_correct_catch_trials = df2.groupby('subject')['correct_catch'].sum('correct_catch')
+     print('distribution of correct catch trials (subjects):\n',subject_specific_correct_catch_trials.value_counts())
+
+
+
+
+def plot_main_results_figures(df, models=None, plot_metroplot=True, save_folder = None, measure='binarized_accuracy', initial_panel_letter_index=0):
      if models is None:
           models = get_models(df)
 
@@ -936,100 +956,280 @@ def plot_main_results_figures(df, models=None, plot_metroplot=True, save_folder 
 
      # define figure structure
      panel_cfg  = [
-          {'title':'natural vs. shuffled',                        'only_targeted_trials':False,     'trial_type':'natural_vs_shuffled',         'targeting':None,},
-          {'title':'randomly sampled natural sentences',          'only_targeted_trials':False,     'trial_type':'randomly_sampled_natural',    'targeting':None,},
-          {'title':'natural controversial sentences',             'only_targeted_trials':True,      'trial_type':'natural_controversial',       'targeting':None,},
-          {'title':'p(synthetic|model ) <  p(natural|model)',                    'only_targeted_trials':True,      'trial_type':'natural_vs_synthetic',        'targeting':'reject'},
-          {'title':'p(synthetic|model ) ≥ p(natural|model)',                     'only_targeted_trials':True,      'trial_type':'natural_vs_synthetic',        'targeting':'accept'},
-          {'title':'synthetic vs. synthetic',                     'only_targeted_trials':True,      'trial_type':'synthetic_vs_synthetic',      'targeting':None,},
-          {'title':'all trials',                                  'only_targeted_trials':False,     'trial_type':None,                          'targeting':None,},
+          {'title':'natural vs. shuffled',                             'only_targeted_trials':False,     'trial_type':'natural_vs_shuffled',         'targeting':None,},
+          {'title':'Randomly sampled natural sentence pairs',          'only_targeted_trials':False,     'trial_type':'randomly_sampled_natural',    'targeting':None,},
+          {'title':'Selected controversial sentence pairs',            'only_targeted_trials':True,      'trial_type':'natural_controversial',       'targeting':None,},
+          {'title':'Synthetic vs. natural sentences (models targeted to reject the synthetic sentence)',      'only_targeted_trials':True,      'trial_type':'natural_vs_synthetic',        'targeting':'reject'},
+          {'title':'Synthetic vs. natural sentences (models targeted to accept the synthetic sentence)',      'only_targeted_trials':True,      'trial_type':'natural_vs_synthetic',        'targeting':'accept'},
+          {'title':'Synthetic controversial sentence pairs',                     'only_targeted_trials':True,      'trial_type':'synthetic_vs_synthetic',      'targeting':None,},
+          {'title':None,                                  'only_targeted_trials':False,     'trial_type':None,                          'targeting':None,},
      ]
 
      figure_plans = [
-          {'panels':[1,2], 'fname':f'natural_and_natural_controversial_{measure}.pdf', 'include_left_col':True},
-          {'panels':[3,4,5], 'fname':f'synthetic_{measure}.pdf', 'include_left_col':True},
-          {'panels':[6], 'fname':f'all_trials_{measure}.pdf', 'include_left_col':False},
+          {'panels':[1,2], 'fname':f'natural_and_natural_controversial_{measure}.pdf', 'include_scatter_plot_col':True},
+          {'panels':[3,4,5], 'fname':f'synthetic_{measure}.pdf', 'include_scatter_plot_col':True},
+          {'panels':[6], 'fname':f'all_trials_{measure}.pdf', 'include_scatter_plot_col':False},
      ]
 
+
+     dotplot_xaxis_label = {
+          'binarized_accuracy':'human-choice prediction accuracy',
+          'SomersD':"ordinal correlation between human ratings and models'\nsentence pair probability log-ratio (Somers' D)",
+          'flexible_SomersD':"modified Somers' D between human ratings and models'\nsentence probabilities",
+          'RAE_signed_spearman':"ordinal correlation between human ratings and models'\nsentence pair probability log-ratio (signed-rank cosine similarity)"
+     }[measure]
+
      # all of the following measures are in inches
-     top_margin = 0.0
-     bottom_margin = 0.325
-     left_margin = 0
+     left_margin = 0.6 # space to the left of the scatter plot
      right_margin = 0.00
      panel_h = 1.8
      panel_w = 1.8
-     v_space_above_panel = 0.225
-     v_space_below_panel = 0.25
-     h_space1 = 0 # horizontal space between left column and result panel
+
+     scatter_plot_w = 1.2 # space reserved for scatter plot
+     scatter_plot_h = 1.2 # space reserved for scatter plot
+
+     v_space_above_panel = 0.2
+
+     if '\n' in dotplot_xaxis_label: # allocate more space for two-line x-axis label
+          v_space_below_panel = 0.535
+     else:
+          v_space_below_panel = 0.4
+
+     v_space_between_rows = 0.0
+
+     h_space1 = 0.85 # horizontal space between scatter plot and result panel
      left_margin_narrow = 1.1 # left margin used for single column figures
      h_space2 = 0.05 # horizontal space between result column and metroplot
      metroplot_w = 1.2
      metroplot_preallocated_positions=8 # how many significance elements are we expecting.
 
+     title_vertical_shift = 16/72
+
+     dotplot_panel_letter_horizontal_shift = 0.725 # distance between dotplot y-axis and panel letter
+     dotplot_panel_letter_vertical_shift = -0.13# distance between dotplot top edge and panel letter
+     scatterplot_panel_letter_horizontal_shift = 0.54 # distance between scatterplot y-axis and panel letter
      panel_title_fontsize = 10
      axes_label_fontsize = 10
      tick_label_fontsize = 8
 
-     figs =[]
-     for figure_plan in figure_plans:
+     figs = []
+     for i_figure, figure_plan in enumerate(figure_plans):
 
           # setup gridspec grid structure
           n_panels = len(figure_plan['panels'])
 
-          if figure_plan['include_left_col']:
-               fig_w = 7 # total figure width - 7 inches (PNAS limitation, Nat. Comm is more generous)
-               left_col_w = fig_w - (left_margin+h_space1+panel_w+h_space2+metroplot_w+right_margin)
-               widths_in_inches = [left_margin, left_col_w, h_space1, panel_w, h_space2, metroplot_w, right_margin]
-               horizontal_elements = [None,None,None,'panel',None,'metroplot',None]
-          else: # only right coloumn
-               widths_in_inches = [left_margin_narrow, panel_w, h_space2, metroplot_w, right_margin]
-               fig_w = np.sum(widths_in_inches)
-               horizontal_elements = [None,'panel',None,'metroplot',None]
-          assert np.isclose(np.sum(widths_in_inches),fig_w), 'widths don''t match'
+          if isinstance(initial_panel_letter_index,list):
+               panel_letter_index=initial_panel_letter_index[i_figure] # panel counter (0 for a, 1 for b, and so on)
+          else:
+               panel_letter_index=initial_panel_letter_index
 
-          heights_in_inches = [top_margin]
-          vertical_elements =[None]
-          for i_panel in range(n_panels):
-               heights_in_inches.extend([v_space_above_panel,panel_h,v_space_below_panel])
-               vertical_elements.extend([None,f'panel{i_panel}',None])
-          heights_in_inches.append(bottom_margin)
-          vertical_elements.append(None)
-          fig_h = np.sum(heights_in_inches) # height is set adaptively
+          # vertical structure
+          panel_height = v_space_above_panel + panel_h + v_space_below_panel
+          fig_h = panel_height*n_panels + v_space_between_rows*(n_panels-1) # height is set adaptively
+          fig_hspace = v_space_between_rows/panel_height
+
+          # determine horizontal structure
+          if figure_plan['include_scatter_plot_col']: # scatter plot on left, results dot plot on right
+               widths_in_inches = [left_margin, scatter_plot_w, h_space1, panel_w, h_space2, metroplot_w, right_margin]
+               horizontal_elements = [None,'scatter_plot',None,'dot_plot',None,'metroplot',None]
+          else: # only a single coloumn
+               widths_in_inches = [left_margin_narrow, panel_w, h_space2, metroplot_w, right_margin]
+               horizontal_elements = [None,'dot_plot',None,'metroplot',None]
+          fig_w = np.sum(widths_in_inches)
 
           print(f"figure {figure_plan['fname']} size: {fig_w},{fig_h} inches")
-
           fig = plt.figure(figsize=(fig_w,fig_h))
 
-          gs0=GridSpec(ncols=len(widths_in_inches), nrows=len(heights_in_inches), figure=fig,
-          width_ratios=widths_in_inches,height_ratios=heights_in_inches, hspace=0, wspace=0,top=1,bottom=0,left=0,right=1)
+          gs0=GridSpec(ncols=1, nrows=n_panels, figure=fig,hspace=fig_hspace, wspace=0,
+          top=1,bottom=0,
+          left=0,right=1)
+
+          gs_row_list = [] # this list contains the grispecs for panel-specific row gridspecs
+          gs_inner_list = []
 
           for i_panel, panel_idx in enumerate(figure_plan['panels']):
                cur_panel_cfg = panel_cfg[panel_idx]
-               result_panel_ax=fig.add_subplot(gs0[vertical_elements.index(f'panel{i_panel}'), horizontal_elements.index('panel')])
+
+               # build a vertical subgridspec within gs_row
+               gs_row = gs0[i_panel].subgridspec(nrows=3,ncols=1,wspace=0,hspace=0,height_ratios=[v_space_above_panel,panel_h,v_space_below_panel])
+               gs_row_list.append(gs_row)
+
+               # build a horizontal subgridspec within the central cell of gs_row
+               gs_inner = gs_row[1].subgridspec(nrows=1,ncols=len(horizontal_elements),wspace=0,hspace=0,width_ratios=widths_in_inches)
+               gs_inner_list.append(gs_inner_list)
+
+               result_panel_ax=fig.add_subplot(gs_inner[horizontal_elements.index(f'dot_plot')])
+
                if plot_metroplot:
-                    metroplot_ax = fig.add_subplot(gs0[vertical_elements.index(f'panel{i_panel}'), horizontal_elements.index('metroplot')])
+                    metroplot_ax = fig.add_subplot(gs_inner[horizontal_elements.index(f'metroplot')])
                else:
                     metroplot_ax = None
 
+               panel_top_edge = (i_panel*(panel_height+v_space_between_rows)+v_space_above_panel)-dotplot_panel_letter_vertical_shift
+               panel_top_edge = 1 - panel_top_edge/fig_h # figure relative coordinates
+               def get_panel_left_edge(which_panel='dot_plot'):
+                    if which_panel == 'dot_plot':
+                         panel_left_edge =  (np.cumsum(widths_in_inches)[horizontal_elements.index('dot_plot')-1]-dotplot_panel_letter_horizontal_shift)
+                    elif which_panel == 'scatter_plot':
+                         panel_left_edge =  (np.cumsum(widths_in_inches)[horizontal_elements.index('scatter_plot')-1]-scatterplot_panel_letter_horizontal_shift)
+                    panel_left_edge = panel_left_edge / fig_w # figure relative coordinates
+                    return panel_left_edge
+
+               # plot scatter plots?
+               if figure_plan['include_scatter_plot_col']:
+
+                    x_model='gpt2'
+                    y_model='roberta'
+
+                    # Since the scatter plot and the dot plot reside within the same container and the scatter plot is smaller,
+                    # we'd like to pad the scatter plot from above and below so it is vertically centered.
+
+                    scatter_gs = gs_inner[horizontal_elements.index(f'scatter_plot')].subgridspec(nrows=3,ncols=1,wspace=0,hspace=0,height_ratios=[(panel_w-scatter_plot_h)/2,scatter_plot_h,(panel_w-scatter_plot_h)/2])
+                    scatter_plot_ax = fig.add_subplot(scatter_gs[1])
+                    if cur_panel_cfg['only_targeted_trials']:
+                         targeted_model_1=x_model
+                         targeted_model_2=y_model
+                         if cur_panel_cfg['targeting']=='reject':
+                              targeting_1 = 'reject'
+                              targeting_2 = 'accept'
+                         elif cur_panel_cfg['targeting']=='accept':
+                              targeting_1 = 'accept'
+                              targeting_2 = 'reject'
+                         else:
+                              targeting_1 = None
+                              targeting_2 = None
+                    else:
+                         targeting_1 = None
+                         targeting_2 = None
+                         targeted_model_1=None
+                         targeted_model_2=None
+
+                    sentence_pair_scatter_plot(df, x_model=x_model, y_model=y_model,
+                                               trial_type=cur_panel_cfg['trial_type'], targeting_1=targeting_1, targeting_2=targeting_2,
+                                               targeted_model_1=targeted_model_1,targeted_model_2=targeted_model_2,
+                                               ax = scatter_plot_ax, axes_label_fontsize=tick_label_fontsize, tick_label_fontsize=tick_label_fontsize)
+
+                    # add panel letter
+                    plt.figtext(x=get_panel_left_edge(which_panel='scatter_plot'),y=panel_top_edge,
+                           s=string.ascii_letters[panel_letter_index],
+                           fontdict={'fontsize':panel_letter_fontsize,'weight':'bold'})
+                    panel_letter_index+=1
+
                plot_one_main_results_panel(df, reduction_fun, models, cur_panel_cfg, ax=result_panel_ax, chance_level=chance_level, metroplot_ax=metroplot_ax, metroplot_preallocated_positions=metroplot_preallocated_positions, tick_label_fontsize=tick_label_fontsize, measure=measure)
-               result_panel_ax.set_title(cur_panel_cfg['title'],fontdict={'fontsize':panel_title_fontsize})
+
+               # add panel letter
+               plt.figtext(x=get_panel_left_edge(which_panel='dot_plot'),
+                         y=panel_top_edge,
+                         s=string.ascii_letters[panel_letter_index],
+                         fontdict={'fontsize':panel_letter_fontsize,'weight':'bold'}
+                         )
+               panel_letter_index+=1
+
+               #result_panel_ax.set_title(cur_panel_cfg['title'],fontdict={'fontsize':panel_title_fontsize})
+
+
                result_panel_ax.set_ylabel('')
-               if i_panel == n_panels-1:
-                    if measure=='binarized_accuracy':
-                         result_panel_ax.set_xlabel('human-choice prediction accuracy',fontdict={'fontsize':axes_label_fontsize})
-                    elif measure=='SomersD':
-                         result_panel_ax.set_xlabel("ordinal correlation between human ratings and models'\nsentence pair probability log-ratio (Somers' D)",fontdict={'fontsize':axes_label_fontsize})
-                    elif measure=='flexible_SomersD':
-                         result_panel_ax.set_xlabel("modified Somers' D between human ratings and models'\nsentence probabilities",fontdict={'fontsize':axes_label_fontsize})
-                    elif measure=='RAE_signed_spearman':
-                         result_panel_ax.set_xlabel("ordinal correlation between human ratings and models'\nsentence pair probability log-ratio (signed-rank cosine similarity)",fontdict={'fontsize':axes_label_fontsize})
-               else:
-                    result_panel_ax.set_xlabel('')
+
+               # if i_panel == n_panels-1:
+               result_panel_ax.set_xlabel(dotplot_xaxis_label,fontdict={'fontsize':axes_label_fontsize})
+
+               if cur_panel_cfg['title'] is not None:
+                    # title_ax = fig.add_subplot(gs_row[0])
+                    # title_ax.set_title(cur_panel_cfg['title'],y=0.1,fontdict={'fontsize':panel_title_fontsize})
+                    # title_ax.set_axis_off()
+                    if figure_plan['include_scatter_plot_col']:
+                         title_left_edge =  get_panel_left_edge(which_panel='scatter_plot')
+                    else:
+                         title_left_edge =  get_panel_left_edge(which_panel='dot_plot')
+                    plt.figtext(x=title_left_edge,
+                           y=panel_top_edge+title_vertical_shift/fig_h,
+                           s=cur_panel_cfg['title'],
+                           fontdict={'fontsize':panel_title_fontsize}
+                           )
+
           if save_folder is not None:
                pathlib.Path(save_folder).mkdir(parents=True,exist_ok=True)
                fig.savefig(os.path.join(save_folder,figure_plan['fname']), dpi=600)
                figs.append(fig)
      return figs
+
+def _rank_transform_sentence_probs(df,model, percentile=True):
+     new_df = pd.DataFrame({
+          'sentence':pd.concat([df['sentence1'],  df['sentence2']]),
+          'log_prob':pd.concat([df[f'sentence1_{model}_prob'],   df[f'sentence2_{model}_prob']])
+          })
+     new_df=new_df.drop_duplicates(subset='sentence')
+     new_df['rank']=new_df.log_prob.rank(method='dense')
+     new_df['rank']=new_df['rank']/new_df['rank'].max()
+     if percentile:
+          new_df['rank']=new_df['rank']*100
+
+     df2 = df.copy()
+     df2=df2.merge(new_df,left_on='sentence1',right_on='sentence',validate='many_to_one',how='left')
+     df2=df2.drop(columns=['sentence','log_prob']).rename(columns={'rank':f'sentence1_{model}_rank'})
+     df2=df2.merge(new_df,left_on='sentence2',right_on='sentence',validate='many_to_one',how='left')
+     df2=df2.drop(columns=['sentence','log_prob']).rename(columns={'rank':f'sentence2_{model}_rank'})
+
+     return df2
+
+def sentence_pair_scatter_plot(df, x_model, y_model, trial_type=None, targeting_1=None, targeting_2=None, targeted_model_1=None, targeted_model_2=None,
+                               ax=None,  axes_label_fontsize=10, tick_label_fontsize=8):
+
+     # first, rank transform all sentences across the experiment
+
+     df2 = df.copy()
+
+     df2 = _rank_transform_sentence_probs(df2, x_model,percentile=True)
+     df2 = _rank_transform_sentence_probs(df2, y_model,percentile=True)
+
+     df2_filtered = filter_trials(df2, targeted_model = targeted_model_1,targeting=targeting_1,trial_type=trial_type)
+     df2_filtered = filter_trials(df2_filtered, targeted_model = targeted_model_2,targeting=targeting_2,trial_type=trial_type)
+     df2['trial_selected']=df2['sentence_pair'].isin(df2_filtered['sentence_pair'])
+
+     # https://www.visualisingdata.com/2019/08/five-ways-to-design-for-red-green-colour-blindness/
+     natural_sentence_color   = '#FFFFFF'
+     synthetic_sentence_color = '#AAAAAA'
+     shuffled_sentence_color  = '#000000'
+     selected_trial_color   =   '#000000'
+     unselected_trial_color =   '#AAAAAA'
+
+     color = []
+
+     for idx, trial in df2.iterrows():
+          for i_sentence in [1,2]:
+               if trial['trial_selected']:
+                    if trial[f'sentence{i_sentence}_type'] in ['R','N']:
+                         df2.loc[idx,f'sentence{i_sentence}_color'] = natural_sentence_color
+                    elif trial[f'sentence{i_sentence}_type'] in ['S']:
+                         df2.loc[idx,f'sentence{i_sentence}_color'] = synthetic_sentence_color
+                    elif trial[f'sentence{i_sentence}_type'] in ['C']:
+                         df2.loc[idx,f'sentence{i_sentence}_color'] = shuffled_sentence_color
+               else:
+                    df2.loc[idx,f'sentence{i_sentence}_color']=unselected_trial_color
+
+
+     df2_filtered = filter_trials(df2, targeted_model = targeted_model_1,targeting=targeting_1,trial_type=trial_type)
+     df2_filtered = filter_trials(df2_filtered, targeted_model = targeted_model_2,targeting=targeting_2,trial_type=trial_type)
+
+     if ax is None:
+          fig = plt.figure()
+          ax = plt.gca()
+
+     ax.scatter(x=df2_filtered[f'sentence1_{x_model}_rank'],y=df2_filtered[f'sentence1_{y_model}_rank'],c=df2_filtered[f'sentence1_color'],s=10,zorder=100, edgecolors = 'k',linewidths=0.1, clip_on=False)
+     ax.scatter(x=df2_filtered[f'sentence2_{x_model}_rank'],y=df2_filtered[f'sentence2_{y_model}_rank'],c=df2_filtered[f'sentence2_color'],s=10,zorder=100, edgecolors = 'k',linewidths=0.1, clip_on=False)
+     for idx, trial in df2_filtered.iterrows():
+          ax.plot([trial[f'sentence1_{x_model}_rank'],trial[f'sentence2_{x_model}_rank']],
+                   [trial[f'sentence1_{y_model}_rank'],trial[f'sentence2_{y_model}_rank']],
+              marker=None,
+              color=selected_trial_color,
+              linewidth=0.1, zorder=0,alpha=0.1)
+     ax.set_xlim([0,100])
+     ax.set_ylim([0,100])
+     ax.set_aspect('equal','box')
+     ax.set_xlabel(f'{niceify(x_model)}\np(sentence) percentile', fontsize=axes_label_fontsize)
+     ax.set_ylabel(f'{niceify(y_model)}\np(sentence) percentile', fontsize=axes_label_fontsize)
+     ax.tick_params(axis='both', which='major', labelsize=tick_label_fontsize)
+     ax.tick_params(axis='both', which='minor', labelsize=tick_label_fontsize)
 
 def log_prob_pairs_to_scores(df, transformation_func='diff'):
      """ each model predicts pair of log-probabilities. To predict human ratings, this function convert each pair to a scalar score """
@@ -1142,7 +1342,6 @@ def model_by_model_consistency_heatmap(df, models=None, save_folder=None, trial_
                n_aligned_with_model1=0
                n_aligned_with_model2=0
                for i_trial, trial in df2.iterrows():
-
                     if ((trial[f'sentence1_{model1}_prob'] < trial[f'sentence2_{model1}_prob']) and
                         (trial[f'sentence1_{model2}_prob'] > trial[f'sentence2_{model2}_prob'])):
                         # model1 preferred sentence 2, model2 preferred sentence 1
@@ -1160,6 +1359,55 @@ def model_by_model_consistency_heatmap(df, models=None, save_folder=None, trial_
 
                # average human judgements
                heatmap[i_row,i_col] = n_aligned_with_model1/(n_aligned_with_model1+n_aligned_with_model2)
+
+def model_by_model_agreement_heatmap(df, models=None, save_folder=None, trial_type = 'randomly_sampled_natural'):
+     """ regardless of human choices, how often each pair of models agreed on which sentence is more probable."""
+
+     if models is None:
+          models = get_models(df)
+     n_models = len(models)
+
+     heatmap = np.empty((n_models,n_models))
+     heatmap[:] = np.nan
+
+     min_agreement = np.inf
+     min_agreement_models = ()
+     max_agreement = -np.inf
+     max_agreement_models = ()
+
+     for i_row, model1 in enumerate(models):
+          for i_col, model2 in enumerate(models):
+               if model1 == model2:
+                    continue
+
+               # filter trials
+               df2 = filter_trials(df, trial_type=trial_type)
+
+               n_congruent=0
+               n_incongruent=0
+               for i_trial, trial in df2.iterrows():
+                    model1_sign = np.sign(trial[f'sentence1_{model1}_prob']-trial[f'sentence2_{model1}_prob'])
+                    model2_sign = np.sign(trial[f'sentence1_{model2}_prob']-trial[f'sentence2_{model2}_prob'])
+                    assert model1_sign!=0, 'this function assumes that there are no sentence probability ties'
+                    assert model2_sign!=0, 'this function assumes that there are no sentence probability ties'
+                    if model1_sign == -model2_sign:
+                        n_incongruent+=1
+                    elif model1_sign == model2_sign:
+                        n_congruent+=1
+               agreement_rate = n_congruent/(n_congruent+n_incongruent)
+               heatmap[i_row,i_col] = agreement_rate
+
+               if agreement_rate < min_agreement:
+                    min_agreement = agreement_rate
+                    min_agreement_models = model1, model2
+
+               if agreement_rate > max_agreement:
+                    max_agreement = agreement_rate
+                    max_agreement_models = model1, model2
+
+     print (f'min agreement: {min_agreement:.1%}, {niceify(min_agreement_models[0])} vs. {niceify(min_agreement_models[1])}' )
+     print (f'max agreement: {max_agreement:.1%}, {niceify(max_agreement_models[0])} vs. {niceify(max_agreement_models[1])}' )
+     print (f'mean agreement: {np.nanmean(heatmap):.1%}')
 
      axes_label_fontsize=10
 
@@ -1196,7 +1444,7 @@ def model_by_model_consistency_heatmap(df, models=None, save_folder=None, trial_
      heatmap_ax.tick_params(axis='both', which='minor', labelsize=8)
      cbar_ax.tick_params(axis='both', which='major', labelsize=8)
      cbar_ax.tick_params(axis='both', which='minor', labelsize=8)
-     cbar_ax.set_xlabel('human choice aligned with model 1\n(proportion of trials)',fontdict={'fontsize':axes_label_fontsize})
+     cbar_ax.set_xlabel('between model agreement rate\n(proportion of sentence pairs)',fontdict={'fontsize':axes_label_fontsize})
      heatmap_ax.set_ylabel('model 1',fontdict={'fontsize':axes_label_fontsize})
      heatmap_ax.set_xlabel('model 2',fontdict={'fontsize':axes_label_fontsize})
      heatmap_ax.xaxis.set_label_position('top')
@@ -1205,7 +1453,7 @@ def model_by_model_consistency_heatmap(df, models=None, save_folder=None, trial_
 
      if save_folder is not None:
                pathlib.Path(save_folder).mkdir(parents=True,exist_ok=True)
-               fig.savefig(os.path.join(save_folder,f'{trial_type}_model_by_model_human_consistency_matrix.pdf'), dpi=600)
+               fig.savefig(os.path.join(save_folder,f'{trial_type}_model_by_model_agreement_matrix.pdf'), dpi=600)
      else:
           plt.show()
 
@@ -1246,18 +1494,20 @@ if __name__ == '__main__':
           df=add_leave_one_subject_predictions(df)
           df.to_csv(aligned_results_csv_with_loso)
 
+
 # %% Binarized accuracy measurements
      # uncomment this next line to generate html result tables
      # build_all_html_files(df)
 
      # # # uncomment to plot main result figures
      figs=plot_main_results_figures(df, save_folder = 'figures/binarized_acc',measure='binarized_accuracy')
-     # plt.show()
 
-     #figs=plot_main_results_figures(df, save_folder = 'figures/SomersD',measure='SomersD')
-     figs=plot_main_results_figures(df, measure='RAE_signed_spearman',save_folder = 'figures/RAE_signed_spearman')
-     # plt.show()
+     # # warning - this is a slow one to run
+     figs=plot_main_results_figures(df, measure='RAE_signed_spearman',save_folder = 'figures/RAE_signed_spearman', initial_panel_letter_index=[0,0,1])
+     # #plt.show()
 
+     # deprecated
+     # figs=plot_main_results_figures(df, save_folder = 'figures/SomersD',measure='SomersD')
      # figs=plot_main_results_figures(df, save_folder = 'figures/Flexible_SomersD',measure='flexible_SomersD')
      # plt.show()
 
@@ -1266,3 +1516,19 @@ if __name__ == '__main__':
 
      # # uncomment to plot n_vs_s heatmap
      # model_by_model_N_vs_S_heatmap(df,save_folder='figures/heatmaps')
+
+     # individual sentence probability scatter plots
+     # x_model='gpt2'
+     # y_model='roberta'
+     # # sentence_pair_scatter_plot(df, x_model=x_model, y_model=y_model, trial_type='randomly_sampled_natural', targeting_1=None, targeting_2=None, targeted_model_1=None,targeted_model_2=None)
+     # # sentence_pair_scatter_plot(df, x_model=x_model, y_model=y_model, trial_type='natural_controversial', targeting_1=None, targeting_2=None, targeted_model_1=x_model,targeted_model_2=y_model)
+     # sentence_pair_scatter_plot(df, x_model=x_model, y_model=y_model, trial_type='natural_vs_synthetic', targeting_1='accept', targeting_2='reject', targeted_model_1=x_model,targeted_model_2=y_model)
+     # plt.savefig(f'figures/sentence_scatterplots/natural_vs_synthetic_{x_model}_accept_vs_{y_model}_reject.pdf')
+     # sentence_pair_scatter_plot(df, x_model=x_model, y_model=y_model, trial_type='natural_vs_synthetic', targeting_1='reject', targeting_2='accept', targeted_model_1=x_model,targeted_model_2=y_model)
+     # plt.savefig(f'figures/sentence_scatterplots/natural_vs_synthetic_{x_model}_reject_vs_{y_model}_accept.pdf')
+     # sentence_pair_scatter_plot(df, x_model=x_model, y_model=y_model, trial_type='synthetic_vs_synthetic', targeting_1=None, targeting_2=None, targeted_model_1=x_model,targeted_model_2=y_model)
+     # plt.savefig(f'figures/sentence_scatterplots/synthetic_vs_synthetic_{x_model}_vs_{y_model}.pdf')
+
+     # model_by_model_agreement_heatmap(df,save_folder='figures/heatmaps', trial_type = 'randomly_sampled_natural')
+
+     plt.show()
