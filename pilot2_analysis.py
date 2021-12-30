@@ -996,7 +996,7 @@ def plot_main_results_figures(df, models=None, plot_metroplot=True, save_folder 
      else:
           v_space_below_panel = 0.4
 
-     v_space_between_rows = 0.0
+     v_space_between_rows = 6/72
 
      h_space1 = 0.85 # horizontal space between scatter plot and result panel
      left_margin_narrow = 1.1 # left margin used for single column figures
@@ -1004,10 +1004,11 @@ def plot_main_results_figures(df, models=None, plot_metroplot=True, save_folder 
      metroplot_w = 1.2
      metroplot_preallocated_positions=8 # how many significance elements are we expecting.
 
-     title_vertical_shift = 16/72
+     title_vertical_shift = 0 #16/72
+     title_horizontal_shift = 12/72
 
-     dotplot_panel_letter_horizontal_shift = 0.725 # distance between dotplot y-axis and panel letter
-     dotplot_panel_letter_vertical_shift = -0.13# distance between dotplot top edge and panel letter
+     dotplot_panel_letter_horizontal_shift = 0.6  # distance between dotplot y-axis and panel letter
+     dotplot_panel_letter_vertical_shift = -0.13+16/72# distance between dotplot top edge and panel letter
      scatterplot_panel_letter_horizontal_shift = 0.54 # distance between scatterplot y-axis and panel letter
      panel_title_fontsize = 10
      axes_label_fontsize = 10
@@ -1110,23 +1111,21 @@ def plot_main_results_figures(df, models=None, plot_metroplot=True, save_folder 
                                                targeted_model_1=targeted_model_1,targeted_model_2=targeted_model_2,
                                                ax = scatter_plot_ax, axes_label_fontsize=tick_label_fontsize, tick_label_fontsize=tick_label_fontsize)
 
-                    # add panel letter
-                    plt.figtext(x=get_panel_left_edge(which_panel='scatter_plot'),y=panel_top_edge,
-                           s=string.ascii_letters[panel_letter_index],
-                           fontdict={'fontsize':panel_letter_fontsize,'weight':'bold'})
-                    panel_letter_index+=1
+
 
                plot_one_main_results_panel(df, reduction_fun, models, cur_panel_cfg, ax=result_panel_ax, chance_level=chance_level, metroplot_ax=metroplot_ax, metroplot_preallocated_positions=metroplot_preallocated_positions, tick_label_fontsize=tick_label_fontsize, measure=measure)
 
-               # add panel letter
-               plt.figtext(x=get_panel_left_edge(which_panel='dot_plot'),
+               # add panel a letter to the left (only if no scatter plot)
+               if figure_plan['include_scatter_plot_col']:
+                    panel_letter_x = get_panel_left_edge(which_panel='scatter_plot')
+               else:
+                    panel_letter_x = get_panel_left_edge(which_panel='dot_plot')
+               plt.figtext(x=panel_letter_x,
                          y=panel_top_edge,
                          s=string.ascii_letters[panel_letter_index],
                          fontdict={'fontsize':panel_letter_fontsize,'weight':'bold'}
                          )
                panel_letter_index+=1
-
-               #result_panel_ax.set_title(cur_panel_cfg['title'],fontdict={'fontsize':panel_title_fontsize})
 
 
                result_panel_ax.set_ylabel('')
@@ -1138,10 +1137,9 @@ def plot_main_results_figures(df, models=None, plot_metroplot=True, save_folder 
                     # title_ax = fig.add_subplot(gs_row[0])
                     # title_ax.set_title(cur_panel_cfg['title'],y=0.1,fontdict={'fontsize':panel_title_fontsize})
                     # title_ax.set_axis_off()
-                    if figure_plan['include_scatter_plot_col']:
-                         title_left_edge =  get_panel_left_edge(which_panel='scatter_plot')
-                    else:
-                         title_left_edge =  get_panel_left_edge(which_panel='dot_plot')
+
+                    title_left_edge = panel_letter_x + title_horizontal_shift/fig_w
+
                     plt.figtext(x=title_left_edge,
                            y=panel_top_edge+title_vertical_shift/fig_h,
                            s=cur_panel_cfg['title'],
