@@ -957,10 +957,11 @@ def plot_main_results_figures(df, models=None, plot_metroplot=True, save_folder 
      # define figure structure
      panel_cfg  = [
           {'title':'natural vs. shuffled',                             'only_targeted_trials':False,     'trial_type':'natural_vs_shuffled',         'targeting':None,},
-          {'title':'Randomly sampled natural sentence pairs',          'only_targeted_trials':False,     'trial_type':'randomly_sampled_natural',    'targeting':None,},
-          {'title':'Selected controversial sentence pairs',            'only_targeted_trials':True,      'trial_type':'natural_controversial',       'targeting':None,},
+          {'title':'Randomly sampled natural-sentence pairs',          'only_targeted_trials':False,     'trial_type':'randomly_sampled_natural',    'targeting':None,},
+          {'title':'Controversial natural-sentence pairs',             'only_targeted_trials':True,      'trial_type':'natural_controversial',       'targeting':None,},
           {'title':'Synthetic vs. natural sentences (models targeted to reject the synthetic sentence)',      'only_targeted_trials':True,      'trial_type':'natural_vs_synthetic',        'targeting':'reject'},
           {'title':'Synthetic vs. natural sentences (models targeted to accept the synthetic sentence)',      'only_targeted_trials':True,      'trial_type':'natural_vs_synthetic',        'targeting':'accept'},
+          {'title':'Synthetic vs. natural sentences (both)',      'only_targeted_trials':True,      'trial_type':'natural_vs_synthetic',        'targeting':None},
           {'title':'Synthetic controversial sentence pairs',                     'only_targeted_trials':True,      'trial_type':'synthetic_vs_synthetic',      'targeting':None,},
           {'title':None,                                  'only_targeted_trials':False,     'trial_type':None,                          'targeting':None,},
      ]
@@ -1502,8 +1503,8 @@ if __name__ == '__main__':
      # # # uncomment to plot main result figures
      figs=plot_main_results_figures(df, save_folder = 'figures/binarized_acc',measure='binarized_accuracy')
 
-     # # warning - this is a slow one to run
-     figs=plot_main_results_figures(df, measure='RAE_signed_spearman',save_folder = 'figures/RAE_signed_spearman', initial_panel_letter_index=[0,0,1])
+     # # warning - this is a slow one to run (an hour or so)
+     # figs=plot_main_results_figures(df, measure='RAE_signed_spearman',save_folder = 'figures/RAE_signed_spearman', initial_panel_letter_index=[0,0,1])
      # #plt.show()
 
      # deprecated
