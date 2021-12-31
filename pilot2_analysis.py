@@ -1178,6 +1178,8 @@ def sentence_pair_scatter_plot(df, x_model, y_model, trial_type=None, targeting_
 
      df2 = df.copy()
 
+     df2 = df2.drop_duplicates(subset='sentence_pair',keep='first')
+
      df2 = _rank_transform_sentence_probs(df2, x_model,percentile=True)
      df2 = _rank_transform_sentence_probs(df2, y_model,percentile=True)
 
@@ -1221,7 +1223,7 @@ def sentence_pair_scatter_plot(df, x_model, y_model, trial_type=None, targeting_
                    [trial[f'sentence1_{y_model}_rank'],trial[f'sentence2_{y_model}_rank']],
               marker=None,
               color=selected_trial_color,
-              linewidth=0.1, zorder=0,alpha=0.1)
+              linewidth=0.1, zorder=0,alpha=0.5)
      ax.set_xlim([0,100])
      ax.set_ylim([0,100])
      ax.set_aspect('equal','box')
