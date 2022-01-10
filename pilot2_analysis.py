@@ -18,7 +18,7 @@ import pandas as pd
 import scipy.stats
 import statsmodels.stats.multitest
 import matplotlib.pyplot as plt
-from matplotlib import cm
+from matplotlib.lines import Line2D
 import matplotlib
 import seaborn as sns
 from matplotlib.gridspec import GridSpec
@@ -54,6 +54,16 @@ model_name_dict = {'gpt2':'GPT-2',
                    'bigram':'2-gram'}
 
 panel_letter_fontsize=12
+
+
+# colors for scatter plot:
+# https://www.visualisingdata.com/2019/08/five-ways-to-design-for-red-green-colour-blindness/
+natural_sentence_color   = '#FFFFFF'
+synthetic_sentence_color = '#AAAAAA'
+shuffled_sentence_color  = '#000000'
+selected_trial_color   =   '#000000'
+unselected_trial_color =   '#AAAAAA'
+
 
 # https://stackoverflow.com/questions/38629830/how-to-turn-off-autoscaling-in-matplotlib-pyplot
 @contextmanager
@@ -956,22 +966,22 @@ def plot_main_results_figures(df, models=None, plot_metroplot=True, save_folder 
 
      # define figure structure
      panel_cfg  = [
-          {'title':'natural vs. shuffled',                             'only_targeted_trials':False,     'trial_type':'natural_vs_shuffled',         'targeting':None,},
+          # {'title':'natural vs. shuffled',                             'only_targeted_trials':False,     'trial_type':'natural_vs_shuffled',         'targeting':None,},
           {'title':'Randomly sampled natural-sentence pairs',          'only_targeted_trials':False,     'trial_type':'randomly_sampled_natural',    'targeting':None,},
           {'title':'Controversial natural-sentence pairs',             'only_targeted_trials':True,      'trial_type':'natural_controversial',       'targeting':None,},
-          {'title':'Synthetic vs. natural sentences (models targeted to reject the synthetic sentence)',      'only_targeted_trials':True,      'trial_type':'natural_vs_synthetic',        'targeting':'reject'},
-          {'title':'Synthetic vs. natural sentences (models targeted to accept the synthetic sentence)',      'only_targeted_trials':True,      'trial_type':'natural_vs_synthetic',        'targeting':'accept'},
-          {'title':'Synthetic vs. natural sentences (both)',      'only_targeted_trials':True,      'trial_type':'natural_vs_synthetic',        'targeting':None},
           {'title':'Synthetic controversial sentence pairs',                     'only_targeted_trials':True,      'trial_type':'synthetic_vs_synthetic',      'targeting':None,},
-          {'title':None,                                  'only_targeted_trials':False,     'trial_type':None,                          'targeting':None,},
+          {'title':'Synthetic vs. natural sentences',      'only_targeted_trials':True,      'trial_type':'natural_vs_synthetic',        'targeting':'accept',},
+          # {'title':'Synthetic vs. natural sentences (both)',      'only_targeted_trials':True,      'trial_type':'natural_vs_synthetic',        'targeting':None},
+          {'title':None,      'only_targeted_trials':False,     'trial_type':None,                          'targeting':None,},
+          {'title':None,      'only_targeted_trials':True,      'trial_type':'natural_vs_synthetic',        'targeting':'reject'},
      ]
 
      figure_plans = [
-          {'panels':[1,2], 'fname':f'natural_and_natural_controversial_{measure}.pdf', 'include_scatter_plot_col':True},
-          {'panels':[3,4,5], 'fname':f'synthetic_{measure}.pdf', 'include_scatter_plot_col':True},
-          {'panels':[6], 'fname':f'all_trials_{measure}.pdf', 'include_scatter_plot_col':False},
+          {'panels':[0,1], 'fname':f'natural_and_natural_controversial_{measure}.pdf', 'include_scatter_plot_col':True, 'include_panel_letters':True},
+          {'panels':[2,3], 'fname':f'synthetic_{measure}.pdf', 'include_scatter_plot_col':True, 'include_panel_letters':True, 'include_scatter_plot_legend':True},
+          {'panels':[4],   'fname':f'all_trials_{measure}.pdf', 'include_scatter_plot_col':False, 'include_panel_letters':True},
+          {'panels':[5], 'fname':f'synthetic_vs_natural_reject_{measure}.pdf', 'include_scatter_plot_col':False, 'include_panel_letters':False},
      ]
-
 
      dotplot_xaxis_label = {
           'binarized_accuracy':'human-choice prediction accuracy',
@@ -986,15 +996,18 @@ def plot_main_results_figures(df, models=None, plot_metroplot=True, save_folder 
      panel_h = 1.8
      panel_w = 1.8
 
-     scatter_plot_w = 1.2 # space reserved for scatter plot
-     scatter_plot_h = 1.2 # space reserved for scatter plot
+     golden = (1 + 5 ** 0.5) / 2
+     scatter_plot_w = 1.8/golden # space reserved for scatter plot
+     scatter_plot_h = 1.8/golden # space reserved for scatter plot (1.2 for smaller size)
 
-     v_space_above_panel = 0.2
+     v_space_above_panel = 0.2 # 0.25 for larger panels, 0.2 for smaller panels
 
      if '\n' in dotplot_xaxis_label: # allocate more space for two-line x-axis label
           v_space_below_panel = 0.535
      else:
           v_space_below_panel = 0.4
+
+     # v_space_below_panel = v_space_below_panel + 9/72 # for bigger size scatter plot
 
      v_space_between_rows = 6/72
 
@@ -1008,7 +1021,7 @@ def plot_main_results_figures(df, models=None, plot_metroplot=True, save_folder 
      title_horizontal_shift = 12/72
 
      dotplot_panel_letter_horizontal_shift = 0.6  # distance between dotplot y-axis and panel letter
-     dotplot_panel_letter_vertical_shift = -0.13+16/72# distance between dotplot top edge and panel letter
+     dotplot_panel_letter_vertical_shift = 6/72# distance between dotplot top edge and panel letter (9/72 for larger, 6/72 for smaller)
      scatterplot_panel_letter_horizontal_shift = 0.54 # distance between scatterplot y-axis and panel letter
      panel_title_fontsize = 10
      axes_label_fontsize = 10
@@ -1091,12 +1104,16 @@ def plot_main_results_figures(df, models=None, plot_metroplot=True, save_folder 
                     if cur_panel_cfg['only_targeted_trials']:
                          targeted_model_1=x_model
                          targeted_model_2=y_model
-                         if cur_panel_cfg['targeting']=='reject':
-                              targeting_1 = 'reject'
-                              targeting_2 = 'accept'
-                         elif cur_panel_cfg['targeting']=='accept':
-                              targeting_1 = 'accept'
-                              targeting_2 = 'reject'
+                         if hasattr(cur_panel_cfg,'use_targeting_in_scatter_plot') and cur_panel_cfg['use_targeting_in_scatter_plot']:
+                              if cur_panel_cfg['targeting']=='reject':
+                                   targeting_1 = 'reject'
+                                   targeting_2 = 'accept'
+                              elif cur_panel_cfg['targeting']=='accept':
+                                   targeting_1 = 'accept'
+                                   targeting_2 = 'reject'
+                              else:
+                                   targeting_1 = None
+                                   targeting_2 = None
                          else:
                               targeting_1 = None
                               targeting_2 = None
@@ -1110,7 +1127,9 @@ def plot_main_results_figures(df, models=None, plot_metroplot=True, save_folder 
                                                trial_type=cur_panel_cfg['trial_type'], targeting_1=targeting_1, targeting_2=targeting_2,
                                                targeted_model_1=targeted_model_1,targeted_model_2=targeted_model_2,
                                                ax = scatter_plot_ax, axes_label_fontsize=tick_label_fontsize, tick_label_fontsize=tick_label_fontsize)
-
+               if ('include_scatter_plot_legend' in figure_plan) and figure_plan['include_scatter_plot_legend']:
+                    # scatter_plot_legend_ax = fig.add_subplot(scatter_gs[2])
+                    scatter_plot_legend(fig, fig_w, fig_h)
 
 
                plot_one_main_results_panel(df, reduction_fun, models, cur_panel_cfg, ax=result_panel_ax, chance_level=chance_level, metroplot_ax=metroplot_ax, metroplot_preallocated_positions=metroplot_preallocated_positions, tick_label_fontsize=tick_label_fontsize, measure=measure)
@@ -1120,12 +1139,14 @@ def plot_main_results_figures(df, models=None, plot_metroplot=True, save_folder 
                     panel_letter_x = get_panel_left_edge(which_panel='scatter_plot')
                else:
                     panel_letter_x = get_panel_left_edge(which_panel='dot_plot')
-               plt.figtext(x=panel_letter_x,
-                         y=panel_top_edge,
-                         s=string.ascii_letters[panel_letter_index],
-                         fontdict={'fontsize':panel_letter_fontsize,'weight':'bold'}
-                         )
-               panel_letter_index+=1
+
+               if figure_plan['include_panel_letters']:
+                    plt.figtext(x=panel_letter_x,
+                              y=panel_top_edge,
+                              s=string.ascii_letters[panel_letter_index],
+                              fontdict={'fontsize':panel_letter_fontsize,'weight':'bold'}
+                              )
+                    panel_letter_index+=1
 
 
                result_panel_ax.set_ylabel('')
@@ -1187,12 +1208,6 @@ def sentence_pair_scatter_plot(df, x_model, y_model, trial_type=None, targeting_
      df2_filtered = filter_trials(df2_filtered, targeted_model = targeted_model_2,targeting=targeting_2,trial_type=trial_type)
      df2['trial_selected']=df2['sentence_pair'].isin(df2_filtered['sentence_pair'])
 
-     # https://www.visualisingdata.com/2019/08/five-ways-to-design-for-red-green-colour-blindness/
-     natural_sentence_color   = '#FFFFFF'
-     synthetic_sentence_color = '#AAAAAA'
-     shuffled_sentence_color  = '#000000'
-     selected_trial_color   =   '#000000'
-     unselected_trial_color =   '#AAAAAA'
 
      color = []
 
@@ -1231,6 +1246,20 @@ def sentence_pair_scatter_plot(df, x_model, y_model, trial_type=None, targeting_
      ax.set_ylabel(f'{niceify(y_model)}\np(sentence) percentile', fontsize=axes_label_fontsize)
      ax.tick_params(axis='both', which='major', labelsize=tick_label_fontsize)
      ax.tick_params(axis='both', which='minor', labelsize=tick_label_fontsize)
+
+def scatter_plot_legend(fig, fig_w, fig_h):
+     # https://matplotlib.org/stable/gallery/text_labels_and_annotations/custom_legends.html
+     legend_elements = [ # this styles should match the scatter plot in sentence_pair_scatter_plot
+          Line2D([0], [0], marker='o', color='w', label='natural sentence',markerfacecolor=natural_sentence_color, markeredgecolor='k', markersize=np.sqrt(10), markeredgewidth=0.1),
+          Line2D([0], [0], marker='o', color='w', label='synthetic sentence',markerfacecolor=synthetic_sentence_color, markeredgecolor='k', markersize=np.sqrt(10),  markeredgewidth=0.1),
+     ]
+     # explanation about sqrt marker size : https://stackoverflow.com/a/47403507/
+     fig.legend(
+          handles=legend_elements, loc=[(-6/72)/fig_w,(6/72)/fig_h], ncol=2,
+          fontsize=8, handletextpad=0.0, labelspacing=0.2, frameon=False,
+          columnspacing=0.5, borderaxespad=0,
+          borderpad=0., handleheight=0.5)
+
 
 def log_prob_pairs_to_scores(df, transformation_func='diff'):
      """ each model predicts pair of log-probabilities. To predict human ratings, this function convert each pair to a scalar score """
