@@ -400,7 +400,7 @@ def group_level_signed_ranked_test(reduced_df, models):
      _ , results['FDR_corrected_p-value']=statsmodels.stats.multitest.fdrcorrection(results['p-value'])
      return results
 
-def calc_binarized_accuracy(df):
+def calc_binarized_accuracy(df, drop_model_prob = True):
      """ binarizes model and human predictions and returns 1 or 0 for prediction correctness """
 
      df2=df.copy()
@@ -415,7 +415,8 @@ def calc_binarized_accuracy(df):
           df2[model]=(model_predicts_sent2==human_chose_sent2).astype('float')
 
           # drop probability
-          df2=df2.drop(columns=['sentence1_'+model + '_prob','sentence2_'+model + '_prob'])
+          if drop_model_prob:
+               df2=df2.drop(columns=['sentence1_'+model + '_prob','sentence2_'+model + '_prob'])
 
      df2['NC_LB']=(df2['majority_vote_NC_LB']==human_chose_sent2).astype(float)
      df2['NC_UB']=(df2['majority_vote_NC_UB']==human_chose_sent2).astype(float)
@@ -940,7 +941,86 @@ def catch_trial_report(df):
      print('distribution of correct catch trials (subjects):\n',subject_specific_correct_catch_trials.value_counts())
 
 
+def generate_worst_sentence_pairs_table(df, models=None, n_sentences_per_model=1):
+     if models is None:
+          models = get_models(df)
+     latex_table = pd.DataFrame()
 
+
+     trial_type  = 'natural_controversial'
+     for min_acc_model in models:
+
+          df_filtered = filter_trials(df, targeted_model = min_acc_model, trial_type=trial_type)
+
+          acc_df = calc_binarized_accuracy(df_filtered, drop_model_prob=False).groupby('sentence_pair').mean(numeric_only=True)
+
+          sorted_acc_df=acc_df.sort_values(by=min_acc_model,axis='index',ascending=True,)
+
+          def build_table_row(latex_table, cur_sentence_pair, model_to_show_as_model1):
+               df_reduced=df[df['sentence_pair']==cur_sentence_pair]
+
+               if trial_type == 'natural_controversial':
+                    sentence1 = df_reduced.sentence1.unique()[0]
+                    sentence2 = df_reduced.sentence2.unique()[0]
+                    model1=df_reduced.sentence1_model.unique()[0]
+                    model2=df_reduced.sentence2_model.unique()[0]
+                    p_s1_m1 = df_reduced[f'sentence1_{model1}_prob'].mean()
+                    p_s1_m2 = df_reduced[f'sentence1_{model2}_prob'].mean()
+                    p_s2_m1 = df_reduced[f'sentence2_{model1}_prob'].mean()
+                    p_s2_m2 = df_reduced[f'sentence2_{model2}_prob'].mean()
+                    s1_human_choices = str(int((df_reduced.rating<=3).sum()))
+                    s2_human_choices = str(int((df_reduced.rating>=4).sum()))
+
+                    if model1 != model_to_show_as_model1:
+                         model1, model2, p_s1_m1, p_s1_m2, p_s2_m1, p_s2_m2 = model2, model1, p_s1_m2, p_s1_m1, p_s2_m2, p_s2_m1
+
+                    # sentece 1
+                    cur_row = dict()
+                    cur_row['sentence']='$s_1$: ' + sentence1 + '.'
+                    cur_row['log probability (model 1)']=f'$\log p(s_1 | \\textrm{{{niceify(model1)}}}$)={p_s1_m1:.2f}'
+                    cur_row['log probability (model 2)']=f'$\log p(s_1 | \\textrm{{{niceify(model2)}}}$)={p_s1_m2:.2f}'
+                    cur_row['\# human choices'] = s1_human_choices
+                    latex_table = latex_table.append(cur_row, ignore_index=True)
+
+                    cur_row = dict()
+                    cur_row['sentence']='$s_2$: ' + sentence2 + '.'
+                    cur_row['log probability (model 1)']=f'$\log p(s_2 | \\textrm{{{niceify(model1)}}}$)={p_s2_m1:.2f}'
+                    cur_row['log probability (model 2)']=f'$\log p(s_2 | \\textrm{{{niceify(model2)}}}$)={p_s2_m2:.2f}'
+                    cur_row['\# human choices'] = s2_human_choices
+                    latex_table = latex_table.append(cur_row, ignore_index=True)
+
+               latex_table=latex_table[['sentence','log probability (model 1)','log probability (model 2)','\# human choices']]
+               return latex_table
+
+
+          for i_sentence in range(n_sentences_per_model):
+               # take one sentence of minimal accuracy
+               worst_acc = sorted_acc_df[min_acc_model].min()
+               cur_candidate_sentence_pairs = sorted_acc_df[sorted_acc_df[min_acc_model]==worst_acc]
+               print(min_acc_model,len(cur_candidate_sentence_pairs))
+               cur_sentence_pair = cur_candidate_sentence_pairs.sample(n=1).iloc[0].name
+               sorted_acc_df = sorted_acc_df.drop(cur_sentence_pair)
+
+               # add it to the table
+               latex_table = build_table_row(latex_table, cur_sentence_pair, model_to_show_as_model1 = min_acc_model)
+     with pd.option_context("max_colwidth", 1000): # https://stackoverflow.com/a/67419969
+          print(latex_table)
+          latex_code = latex_table.to_latex(header=True, index=False, escape=False)
+
+     # some tweaks
+     latex_code = latex_code.replace(r'\begin{tabular}{llll}',r'\begin{tabularx}{\textwidth}{lllc}')
+     latex_code = latex_code.replace(r'\end{tabular}',r'\end{tabularx}')
+
+     # add midrules to group sentence pairs
+     latex_lines = latex_code.split(r'\\')
+     for i in range(len(latex_lines)):
+          if i % 2 and i > 1 and i<(len(latex_lines)-1):
+               latex_lines[i] = r'\midrule'+ latex_lines[i]
+     latex_code = r'\\'.join(latex_lines)
+
+     pathlib.Path('tables').mkdir(parents=True,exist_ok=True)
+     with open(f'tables/{trial_type}.tex', "w") as tex_file:
+          tex_file.write(latex_code)
 
 def plot_main_results_figures(df, models=None, plot_metroplot=True, save_folder = None, measure='binarized_accuracy', initial_panel_letter_index=0):
      if models is None:
@@ -1530,7 +1610,7 @@ if __name__ == '__main__':
      # build_all_html_files(df)
 
      # # # uncomment to plot main result figures
-     figs=plot_main_results_figures(df, save_folder = 'figures/binarized_acc',measure='binarized_accuracy')
+     # figs=plot_main_results_figures(df, save_folder = 'figures/binarized_acc',measure='binarized_accuracy')
 
      # # warning - this is a slow one to run (an hour or so)
      # figs=plot_main_results_figures(df, measure='RAE_signed_spearman',save_folder = 'figures/RAE_signed_spearman', initial_panel_letter_index=[0,0,1])
@@ -1561,4 +1641,7 @@ if __name__ == '__main__':
 
      # model_by_model_agreement_heatmap(df,save_folder='figures/heatmaps', trial_type = 'randomly_sampled_natural')
 
-     plt.show()
+
+     # plt.show()
+
+     generate_worst_sentence_pairs_table(df)
