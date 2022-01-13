@@ -941,16 +941,14 @@ def catch_trial_report(df):
      print('distribution of correct catch trials (subjects):\n',subject_specific_correct_catch_trials.value_counts())
 
 
-def generate_worst_sentence_pairs_table(df, models=None, n_sentences_per_model=1):
+def generate_worst_sentence_pairs_table(df, trial_type  = 'natural_controversial', targeting=None, models=None, n_sentences_per_model=1):
      if models is None:
           models = get_models(df)
      latex_table = pd.DataFrame()
 
-
-     trial_type  = 'natural_controversial'
      for min_acc_model in models:
 
-          df_filtered = filter_trials(df, targeted_model = min_acc_model, trial_type=trial_type)
+          df_filtered = filter_trials(df, targeted_model = min_acc_model, trial_type=trial_type, targeting=targeting)
 
           acc_df = calc_binarized_accuracy(df_filtered, drop_model_prob=False).groupby('sentence_pair').mean(numeric_only=True)
 
@@ -959,35 +957,71 @@ def generate_worst_sentence_pairs_table(df, models=None, n_sentences_per_model=1
           def build_table_row(latex_table, cur_sentence_pair, model_to_show_as_model1):
                df_reduced=df[df['sentence_pair']==cur_sentence_pair]
 
+               sentence1 = df_reduced.sentence1.unique()[0]
+               sentence2 = df_reduced.sentence2.unique()[0]
+               model1=df_reduced.sentence1_model.unique()[0]
+               model2=df_reduced.sentence2_model.unique()[0]
+               p_s1_m1 = df_reduced[f'sentence1_{model1}_prob'].mean()
+               p_s1_m2 = df_reduced[f'sentence1_{model2}_prob'].mean()
+               p_s2_m1 = df_reduced[f'sentence2_{model1}_prob'].mean()
+               p_s2_m2 = df_reduced[f'sentence2_{model2}_prob'].mean()
+               s1_human_choices = str(int((df_reduced.rating<=3).sum()))
+               s2_human_choices = str(int((df_reduced.rating>=4).sum()))
+               s1_type = df_reduced.sentence1_type.unique()
+               s2_type = df_reduced.sentence2_type.unique()
+
+               if model1 != model_to_show_as_model1:
+                    model1, model2, p_s1_m1, p_s1_m2, p_s2_m1, p_s2_m2 = model2, model1, p_s1_m2, p_s1_m1, p_s2_m2, p_s2_m1
+
+               # flip sentences so the first sentence is always the one the humans chose
+               if s2_human_choices > s1_human_choices:
+                    sentence1, sentence2, s1_human_choices, s2_human_choices = sentence2, sentence1, s2_human_choices, s1_human_choices
+                    p_s1_m1, p_s1_m2, p_s2_m1, p_s2_m2 = p_s2_m1, p_s2_m2, p_s1_m1, p_s1_m2
+                    s1_type, s2_type = s2_type, s1_type
+
                if trial_type == 'natural_controversial':
-                    sentence1 = df_reduced.sentence1.unique()[0]
-                    sentence2 = df_reduced.sentence2.unique()[0]
-                    model1=df_reduced.sentence1_model.unique()[0]
-                    model2=df_reduced.sentence2_model.unique()[0]
-                    p_s1_m1 = df_reduced[f'sentence1_{model1}_prob'].mean()
-                    p_s1_m2 = df_reduced[f'sentence1_{model2}_prob'].mean()
-                    p_s2_m1 = df_reduced[f'sentence2_{model1}_prob'].mean()
-                    p_s2_m2 = df_reduced[f'sentence2_{model2}_prob'].mean()
-                    s1_human_choices = str(int((df_reduced.rating<=3).sum()))
-                    s2_human_choices = str(int((df_reduced.rating>=4).sum()))
+                    s1_notation, s2_notation =  'n_1', 'n_2'
+               elif trial_type == 'synthetic_vs_synthetic':
+                    s1_notation, s2_notation =  's_1', 's_2'
+               elif trial_type == 'natural_vs_synthetic':
+                    # make sure the natural sentence is presented as the first sentence
+                    if (s1_type == 'S') and (s2_type == 'N'):
+                         s1_notation, s2_notation =  's', 'n'
+                    else:
+                         assert (s1_type== 'N') and (s2_type == 'S')
+                         s1_notation, s2_notation =  'n', 's'
 
-                    if model1 != model_to_show_as_model1:
-                         model1, model2, p_s1_m1, p_s1_m2, p_s2_m1, p_s2_m2 = model2, model1, p_s1_m2, p_s1_m1, p_s2_m2, p_s2_m1
+               # sentence 1
+               cur_row = dict()
+               cur_row['sentence']=f'${s1_notation}$: {sentence1}.'
+               cur_row['log probability (model 1)']=f'$\log p({s1_notation} | \\textrm{{{niceify(model1)}}})=$\\num{{{p_s1_m1:.2f}}}'
+               cur_row['log probability (model 2)']=f'$\log p({s1_notation} | \\textrm{{{niceify(model2)}}})=$\\num{{{p_s1_m2:.2f}}}'
+               cur_row['\# human choices'] = f'\\num{{{s1_human_choices}}}'
 
-                    # sentece 1
-                    cur_row = dict()
-                    cur_row['sentence']='$s_1$: ' + sentence1 + '.'
-                    cur_row['log probability (model 1)']=f'$\log p(s_1 | \\textrm{{{niceify(model1)}}}$)={p_s1_m1:.2f}'
-                    cur_row['log probability (model 2)']=f'$\log p(s_1 | \\textrm{{{niceify(model2)}}}$)={p_s1_m2:.2f}'
-                    cur_row['\# human choices'] = s1_human_choices
-                    latex_table = latex_table.append(cur_row, ignore_index=True)
+               def make_bold_num(s):
+                    return s.replace(r'\num{',r'\textbf{\num{') + r'}'
 
-                    cur_row = dict()
-                    cur_row['sentence']='$s_2$: ' + sentence2 + '.'
-                    cur_row['log probability (model 1)']=f'$\log p(s_2 | \\textrm{{{niceify(model1)}}}$)={p_s2_m1:.2f}'
-                    cur_row['log probability (model 2)']=f'$\log p(s_2 | \\textrm{{{niceify(model2)}}}$)={p_s2_m2:.2f}'
-                    cur_row['\# human choices'] = s2_human_choices
-                    latex_table = latex_table.append(cur_row, ignore_index=True)
+               if p_s1_m1 > p_s2_m1: # make numbers bold
+                    cur_row['log probability (model 1)']=make_bold_num(cur_row['log probability (model 1)'])
+               if p_s1_m2 > p_s2_m2:
+                    cur_row['log probability (model 2)']=make_bold_num(cur_row['log probability (model 2)'])
+               if s1_human_choices > s2_human_choices:
+                    cur_row['\# human choices']=make_bold_num(cur_row['\# human choices'])
+               latex_table = latex_table.append(cur_row, ignore_index=True)
+
+               # sentence 2
+               cur_row = dict()
+               cur_row['sentence']=f'${s2_notation}$: {sentence2}.'
+               cur_row['log probability (model 1)']=f'$\log p({s2_notation} | \\textrm{{{niceify(model1)}}})=$\\num{{{p_s2_m1:.2f}}}'
+               if p_s2_m1 > p_s1_m1: # make numbers bold
+                    cur_row['log probability (model 1)']=make_bold_num(cur_row['log probability (model 1)'])
+               cur_row['log probability (model 2)']=f'$\log p({s2_notation} | \\textrm{{{niceify(model2)}}})=$\\num{{{p_s2_m2:.2f}}}'
+               if p_s2_m2 > p_s1_m2: # make numbers bold
+                    cur_row['log probability (model 2)']=make_bold_num(cur_row['log probability (model 2)'])
+               cur_row['\# human choices'] = f'\\num{{{s2_human_choices}}}'
+               # if s2_human_choices > s1_human_choices:
+               #      cur_row['\# human choices']=make_bold_num(cur_row['\# human choices'])
+               latex_table = latex_table.append(cur_row, ignore_index=True)
 
                latex_table=latex_table[['sentence','log probability (model 1)','log probability (model 2)','\# human choices']]
                return latex_table
@@ -1007,9 +1041,16 @@ def generate_worst_sentence_pairs_table(df, models=None, n_sentences_per_model=1
           print(latex_table)
           latex_code = latex_table.to_latex(header=True, index=False, escape=False)
 
-     # some tweaks
+     # some tweaks:
+
+     # tabularx
      latex_code = latex_code.replace(r'\begin{tabular}{llll}',r'\begin{tabularx}{\textwidth}{lllc}')
      latex_code = latex_code.replace(r'\end{tabular}',r'\end{tabularx}')
+
+     # align s and n sentences (this applies to s vs n trials)
+     if trial_type == 'natural_vs_synthetic':
+          latex_code = latex_code.replace(r'$s$: ',r'\makebox[0pt][l]{$s$: }\hphantom{$n$: }')
+          latex_code = latex_code.replace(r'p(s |',r'p(\mathmakebox[0pt][l]{s}\hphantom{n} |')
 
      # add midrules to group sentence pairs
      latex_lines = latex_code.split(r'\\')
@@ -1019,7 +1060,10 @@ def generate_worst_sentence_pairs_table(df, models=None, n_sentences_per_model=1
      latex_code = r'\\'.join(latex_lines)
 
      pathlib.Path('tables').mkdir(parents=True,exist_ok=True)
-     with open(f'tables/{trial_type}.tex', "w") as tex_file:
+     tex_fname = f'tables/{trial_type}.tex'
+     if targeting is not None:
+          tex_fname = tex_fname.replace('.tex','_'+ targeting + '.tex')
+     with open(tex_fname, "w") as tex_file:
           tex_file.write(latex_code)
 
 def plot_main_results_figures(df, models=None, plot_metroplot=True, save_folder = None, measure='binarized_accuracy', initial_panel_letter_index=0):
@@ -1644,4 +1688,7 @@ if __name__ == '__main__':
 
      # plt.show()
 
-     generate_worst_sentence_pairs_table(df)
+     generate_worst_sentence_pairs_table(df, trial_type  = 'natural_controversial', n_sentences_per_model=1)
+     generate_worst_sentence_pairs_table(df, trial_type  = 'synthetic_vs_synthetic', n_sentences_per_model=1)
+     generate_worst_sentence_pairs_table(df, trial_type  = 'natural_vs_synthetic', n_sentences_per_model=1, targeting='accept')
+     generate_worst_sentence_pairs_table(df, trial_type  = 'natural_vs_synthetic', n_sentences_per_model=1)
