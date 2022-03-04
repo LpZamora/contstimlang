@@ -1611,10 +1611,7 @@ def model_by_model_agreement_heatmap(df, models=None, save_folder=None, trial_ty
      else:
           plt.show()
 
-if __name__ == '__main__':
-# %% data preprocessing
-     results_csv = 'behavioral_results/contstim_Aug2021_n100_results.csv'
-
+def data_preprocessing(results_csv = 'behavioral_results/contstim_Aug2021_n100_results.csv'):
      aligned_results_csv = results_csv.replace('.csv','_aligned.csv')
      aligned_results_csv_with_loso = results_csv.replace('.csv','_aligned_with_loso.csv')
      try:
@@ -1648,7 +1645,16 @@ if __name__ == '__main__':
           df=add_leave_one_subject_predictions(df)
           df.to_csv(aligned_results_csv_with_loso)
 
+     return df
+def visual_abstract(df):
+     pass
 
+if __name__ == '__main__':
+
+     df = data_preprocessing()     
+
+     visual_abstract()
+     
 # %% Binarized accuracy measurements
      # uncomment this next line to generate html result tables
      # build_all_html_files(df)
@@ -1688,7 +1694,8 @@ if __name__ == '__main__':
 
      # plt.show()
 
-     generate_worst_sentence_pairs_table(df, trial_type  = 'natural_controversial', n_sentences_per_model=1)
-     generate_worst_sentence_pairs_table(df, trial_type  = 'synthetic_vs_synthetic', n_sentences_per_model=1)
-     generate_worst_sentence_pairs_table(df, trial_type  = 'natural_vs_synthetic', n_sentences_per_model=1, targeting='accept')
-     generate_worst_sentence_pairs_table(df, trial_type  = 'natural_vs_synthetic', n_sentences_per_model=1)
+     # generating tables:
+     # generate_worst_sentence_pairs_table(df, trial_type  = 'natural_controversial', n_sentences_per_model=1)
+     # generate_worst_sentence_pairs_table(df, trial_type  = 'synthetic_vs_synthetic', n_sentences_per_model=1)
+     # generate_worst_sentence_pairs_table(df, trial_type  = 'natural_vs_synthetic', n_sentences_per_model=1, targeting='accept')
+     # generate_worst_sentence_pairs_table(df, trial_type  = 'natural_vs_synthetic', n_sentences_per_model=1)
