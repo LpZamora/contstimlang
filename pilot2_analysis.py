@@ -22,7 +22,8 @@ from matplotlib.lines import Line2D
 import matplotlib
 import seaborn as sns
 from matplotlib.gridspec import GridSpec
-
+import matplotlib.patheffects as PathEffects
+import matplotlib.patches as mpatches
 from scipy.spatial.distance import cosine
 from metroplot import metroplot
 
@@ -1646,15 +1647,91 @@ def data_preprocessing(results_csv = 'behavioral_results/contstim_Aug2021_n100_r
           df.to_csv(aligned_results_csv_with_loso)
 
      return df
-def visual_abstract(df):
-     pass
+def visual_abstract(df, model1 = 'electra', model2 = 'gpt2', s1='Diddy has a wealth of experience with grappling',s2='Nothing has a world of excitement and joys', n='Luke has a ton of experience with winning'):
+
+     matplotlib.rcParams.update({'font.size': 10})
+     matplotlib.rcParams.update({'font.family':'sans-serif'})
+     matplotlib.rcParams.update({'font.sans-serif':'Arial'})
+
+     m1_log_prob = np.load(f'natural_sentence_probabilities/sents_reddit_natural_June2021_filtered_probs_{model1}.npy')
+     m2_log_prob = np.load(f'natural_sentence_probabilities/sents_reddit_natural_June2021_filtered_probs_{model2}.npy')
+
+     # m1_log_prob=scipy.stats.rankdata(m1_log_prob)
+     # m1_log_prob=m1_log_prob/m1_log_prob.max()
+     # m2_log_prob=scipy.stats.rankdata(m2_log_prob)
+     # m2_log_prob=m2_log_prob/m2_log_prob.max()
+
+     n_levels=6
+     thresh = 0.05
+
+     fig = plt.figure(figsize=(5,5))
+     # sns.kdeplot(x = m1_log_prob[:5000], y=m2_log_prob[:5000], color='k',fill=True, common_grid=True, levels=n_levels, thresh=thresh, cmap='Blues')
+     plt.scatter(x = m1_log_prob[:1000], y=m2_log_prob[:1000], color='b',alpha=0.1, s=3)
+     ax = plt.gca()
+
+     ax.set_aspect('equal')
+
+     plt.xlabel(niceify(model1)+'\n'+'$log\,p(sentence)$')
+     plt.ylabel(niceify(model2)+'\n'+'$log\,p(sentence)$')
+
+     def get_sentence_prob(df,sentence,model):
+          df2=df[df['sentence1']==sentence]
+          if len(df2)>0:
+               return df2[f'sentence1_{model}_prob'].mean()
+          df2=df[df['sentence2']==sentence]
+          if len(df2)>0:
+               return df2[f'sentence2_{model}_prob'].mean()
+          return None
+
+     log_p_s1_model1 = get_sentence_prob(df,s1,model1)
+     log_p_s1_model2 = get_sentence_prob(df,s1,model2)
+     log_p_s2_model1 = get_sentence_prob(df,s2,model1)
+     log_p_s2_model2 = get_sentence_prob(df,s2,model2)
+     log_p_n_model1 = get_sentence_prob(df,n,model1)
+     log_p_n_model2 = get_sentence_prob(df,n,model2)
+
+     delta_m1 = log_p_s2_model1-log_p_s1_model1
+     delta_m2 = log_p_s1_model1-log_p_s2_model1
+     space_factor = 1/5
+     plt.xlim([log_p_s1_model1-delta_m1*space_factor,log_p_s2_model1+delta_m1*space_factor])
+     plt.ylim([log_p_s2_model2-delta_m1*space_factor,log_p_s1_model2+delta_m1*space_factor])
+
+     ax.plot(log_p_s1_model1,log_p_s1_model2,markersize=6,markerfacecolor='r',markeredgecolor='k',zorder=1000,marker='o')
+     ax.plot(log_p_s2_model1,log_p_s2_model2,markersize=6,markerfacecolor='r',markeredgecolor='k',zorder=1000,marker='o')
+     ax.plot(log_p_n_model1,log_p_n_model2,markersize=6,markerfacecolor='b',markeredgecolor='k',zorder=1000,marker='o')
+
+     arrow_style = mpatches.ArrowStyle.Fancy(head_length=1.0, head_width=1.0, tail_width=.4)
+     arrow = mpatches.FancyArrowPatch((log_p_n_model1, log_p_n_model2), (log_p_s2_model1, log_p_s2_model2),
+                                 mutation_scale=7,facecolor='k',edgecolor='k',arrowstyle=arrow_style,  shrinkA=6, shrinkB=6)
+     ax.add_patch(arrow)
+     arrow = mpatches.FancyArrowPatch((log_p_n_model1, log_p_n_model2), (log_p_s1_model1, log_p_s1_model2),
+                                 mutation_scale=7,facecolor='k',edgecolor='k',arrowstyle=arrow_style,  shrinkA=6, shrinkB=6)
+     ax.add_patch(arrow)
+
+     path_effects = [PathEffects.withStroke(linewidth=3, foreground='w')]
+     ax.annotate(text=s1+'.',xy=(log_p_s1_model1,log_p_s1_model2),horizontalalignment='left',va='bottom', xytext=(-3,4),textcoords='offset points', path_effects=path_effects,fontsize=10)
+     ax.annotate(text=s2+'.',xy=(log_p_s2_model1,log_p_s2_model2),horizontalalignment='left',va='center_baseline', xytext=(6,0),textcoords='offset points',path_effects=path_effects,fontsize=10)
+     ax.annotate(text=n+'.',xy=(log_p_n_model1,log_p_n_model2),horizontalalignment='left',va='center_baseline', xytext=(6,0),textcoords='offset points',path_effects=path_effects,fontsize=10)
+     # plt.gca().text(log_p_s1_model1,log_p_s1_model2,s1+'.',horizontalalignment='center',va='center')
+     # plt.gca().text(log_p_s2_model1,log_p_s2_model2,s2+'.',va='center')
+     # plt.gca().text(log_p_n_model1,log_p_n_model2,n+'.',va='center')
+     print(model1,log_p_s1_model1,model2,log_p_s1_model2,s1)
+     print(model1,log_p_s2_model1,model2,log_p_s2_model2,s2)
+     print(model1,log_p_n_model1,model2,log_p_n_model2,n)
+
+     ax.spines['right'].set_visible(False)
+     ax.spines['top'].set_visible(False)
+
+     fig.tight_layout()
+     plt.savefig(os.path.join('figures',f'visual_abstract_{n}.pdf'),bbox_inches='tight')
+
 
 if __name__ == '__main__':
 
-     df = data_preprocessing()     
+     df = data_preprocessing()
+     visual_abstract(df,model1='gpt2',model2='bert',s2='That is the narrative we have been sold',s1='This is the week you have been dying', n='This is the lie you have been sold')
+     visual_abstract(df,model1='gpt2',model2='electra',s2='Diddy has a wealth of experience with grappling',s1='Nothing has a world of excitement and joys', n='Luke has a ton of experience with winning')
 
-     visual_abstract()
-     
 # %% Binarized accuracy measurements
      # uncomment this next line to generate html result tables
      # build_all_html_files(df)
