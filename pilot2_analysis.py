@@ -1647,7 +1647,7 @@ def data_preprocessing(results_csv = 'behavioral_results/contstim_Aug2021_n100_r
           df.to_csv(aligned_results_csv_with_loso)
 
      return df
-def visual_abstract(df, model1 = 'electra', model2 = 'gpt2', s1='Diddy has a wealth of experience with grappling',s2='Nothing has a world of excitement and joys', n='Luke has a ton of experience with winning'):
+def visual_abstract(df, model1 = 'electra', model2 = 'gpt2', s1='Diddy has a wealth of experience with grappling',s2='Nothing has a world of excitement and joys', n='Luke has a ton of experience with winning', percentile_mode=False, tick_label_fontsize=8, axes_label_fontsize = 8):
 
      matplotlib.rcParams.update({'font.size': 10})
      matplotlib.rcParams.update({'font.family':'sans-serif'})
@@ -1660,19 +1660,35 @@ def visual_abstract(df, model1 = 'electra', model2 = 'gpt2', s1='Diddy has a wea
      # m1_log_prob=m1_log_prob/m1_log_prob.max()
      # m2_log_prob=scipy.stats.rankdata(m2_log_prob)
      # m2_log_prob=m2_log_prob/m2_log_prob.max()
+     def rank_p_vec(p_vec):
+          p_vec=pd.Series(p_vec).rank(method='dense')
+          p_vec=p_vec/p_vec.max()*100.0
+          return np.asarray(p_vec)
 
-     n_levels=6
-     thresh = 0.05
+     def rank_p_scalar(p_vec, p):
+          return np.mean(p>=p_vec)*100.0
 
-     fig = plt.figure(figsize=(5,5))
+
+     # n_levels=6
+     # thresh = 0.05
      # sns.kdeplot(x = m1_log_prob[:5000], y=m2_log_prob[:5000], color='k',fill=True, common_grid=True, levels=n_levels, thresh=thresh, cmap='Blues')
-     plt.scatter(x = m1_log_prob[:1000], y=m2_log_prob[:1000], color='b',alpha=0.1, s=3)
+
+     if percentile_mode:
+          fig = plt.figure(figsize=(4,4))
+          plt.scatter(x = rank_p_vec(m1_log_prob)[:1000], y=rank_p_vec(m2_log_prob)[:1000], color='b',alpha=0.1, s=3)
+     else:
+          fig = plt.figure(figsize=(5,5))
+          plt.scatter(x = m1_log_prob[:1000], y=m2_log_prob[:1000], color='b',alpha=0.1, s=3)
      ax = plt.gca()
 
      ax.set_aspect('equal')
 
-     plt.xlabel(niceify(model1)+'\n'+'$log\,p(sentence)$')
-     plt.ylabel(niceify(model2)+'\n'+'$log\,p(sentence)$')
+     if percentile_mode:
+          plt.xlabel(niceify(model1)+'\n'+'p(sentence) percentile', fontdict={'fontsize':axes_label_fontsize})
+          plt.ylabel(niceify(model2)+'\n'+'p(sentence) percentile', fontdict={'fontsize':axes_label_fontsize})
+     else:
+          plt.xlabel(niceify(model1)+'\n'+'$log\,p(sentence)$', fontdict={'fontsize':axes_label_fontsize})
+          plt.ylabel(niceify(model2)+'\n'+'$log\,p(sentence)$', fontdict={'fontsize':axes_label_fontsize})
 
      def get_sentence_prob(df,sentence,model):
           df2=df[df['sentence1']==sentence]
@@ -1690,11 +1706,13 @@ def visual_abstract(df, model1 = 'electra', model2 = 'gpt2', s1='Diddy has a wea
      log_p_n_model1 = get_sentence_prob(df,n,model1)
      log_p_n_model2 = get_sentence_prob(df,n,model2)
 
-     delta_m1 = log_p_s2_model1-log_p_s1_model1
-     delta_m2 = log_p_s1_model1-log_p_s2_model1
-     space_factor = 1/5
-     plt.xlim([log_p_s1_model1-delta_m1*space_factor,log_p_s2_model1+delta_m1*space_factor])
-     plt.ylim([log_p_s2_model2-delta_m1*space_factor,log_p_s1_model2+delta_m1*space_factor])
+     if percentile_mode:
+          log_p_s1_model1 = rank_p_scalar(m1_log_prob,log_p_s1_model1)
+          log_p_s1_model2 = rank_p_scalar(m2_log_prob,log_p_s1_model2)
+          log_p_s2_model1 = rank_p_scalar(m1_log_prob,log_p_s2_model1)
+          log_p_s2_model2 = rank_p_scalar(m2_log_prob,log_p_s2_model2)
+          log_p_n_model1 = rank_p_scalar(m1_log_prob,log_p_n_model1)
+          log_p_n_model2 = rank_p_scalar(m2_log_prob,log_p_n_model2)
 
      ax.plot(log_p_s1_model1,log_p_s1_model2,markersize=6,markerfacecolor='r',markeredgecolor='k',zorder=1000,marker='o')
      ax.plot(log_p_s2_model1,log_p_s2_model2,markersize=6,markerfacecolor='r',markeredgecolor='k',zorder=1000,marker='o')
@@ -1709,9 +1727,9 @@ def visual_abstract(df, model1 = 'electra', model2 = 'gpt2', s1='Diddy has a wea
      ax.add_patch(arrow)
 
      path_effects = [PathEffects.withStroke(linewidth=3, foreground='w')]
-     ax.annotate(text=s1+'.',xy=(log_p_s1_model1,log_p_s1_model2),horizontalalignment='left',va='bottom', xytext=(-3,4),textcoords='offset points', path_effects=path_effects,fontsize=10)
-     ax.annotate(text=s2+'.',xy=(log_p_s2_model1,log_p_s2_model2),horizontalalignment='left',va='center_baseline', xytext=(6,0),textcoords='offset points',path_effects=path_effects,fontsize=10)
-     ax.annotate(text=n+'.',xy=(log_p_n_model1,log_p_n_model2),horizontalalignment='left',va='center_baseline', xytext=(6,0),textcoords='offset points',path_effects=path_effects,fontsize=10)
+     ax.annotate(text=s1+'.',xy=(log_p_s1_model1,log_p_s1_model2),horizontalalignment='left',va='bottom', xytext=(-3,4),textcoords='offset points', path_effects=path_effects,fontsize=8)
+     ax.annotate(text=s2+'.',xy=(log_p_s2_model1,log_p_s2_model2),horizontalalignment='left',va='center_baseline', xytext=(6,0),textcoords='offset points',path_effects=path_effects,fontsize=8)
+     ax.annotate(text=n+'.',xy=(log_p_n_model1,log_p_n_model2),horizontalalignment='left',va='center_baseline', xytext=(6,0),textcoords='offset points',path_effects=path_effects,fontsize=8)
      # plt.gca().text(log_p_s1_model1,log_p_s1_model2,s1+'.',horizontalalignment='center',va='center')
      # plt.gca().text(log_p_s2_model1,log_p_s2_model2,s2+'.',va='center')
      # plt.gca().text(log_p_n_model1,log_p_n_model2,n+'.',va='center')
@@ -1722,16 +1740,38 @@ def visual_abstract(df, model1 = 'electra', model2 = 'gpt2', s1='Diddy has a wea
      ax.spines['right'].set_visible(False)
      ax.spines['top'].set_visible(False)
 
-     fig.tight_layout()
-     plt.savefig(os.path.join('figures',f'visual_abstract_{n}.pdf'),bbox_inches='tight')
+     delta_m1 = log_p_s2_model1-log_p_s1_model1
+     delta_m2 = log_p_s1_model2-log_p_s2_model2
+     if percentile_mode:
+          space_factor = 1/2
+          plt.xlim([0,100])
+          plt.ylim([0,100])
+     else:
+          delta_m1 = log_p_s2_model1-log_p_s1_model1
+          delta_m2 = log_p_s1_model2-log_p_s2_model2
+          space_factor = 1/2
+          plt.xlim([log_p_s1_model1-delta_m1*space_factor,log_p_s2_model1+delta_m1*space_factor])
+          plt.ylim([log_p_s2_model2-delta_m1*space_factor,log_p_s1_model2+delta_m2*space_factor])
 
+     ax.tick_params(axis='both', which='major', labelsize=tick_label_fontsize)
+     ax.tick_params(axis='both', which='minor', labelsize=tick_label_fontsize)
+
+     fig.tight_layout()
+     if percentile_mode:
+          suffix = '_percentile'
+     else:
+          suffix = '_logprob'
+     plt.savefig(os.path.join('figures','visual_abstract',f'visual_abstract_{n}{suffix}.pdf'),bbox_inches='tight', pad_inches=0.01)
 
 if __name__ == '__main__':
 
      df = data_preprocessing()
      visual_abstract(df,model1='gpt2',model2='bert',s2='That is the narrative we have been sold',s1='This is the week you have been dying', n='This is the lie you have been sold')
      visual_abstract(df,model1='gpt2',model2='electra',s2='Diddy has a wealth of experience with grappling',s1='Nothing has a world of excitement and joys', n='Luke has a ton of experience with winning')
-
+     visual_abstract(df,model1='gpt2',model2='bert',s2='That is the narrative we have been sold',s1='This is the week you have been dying', n='This is the lie you have been sold',percentile_mode=True)
+     visual_abstract(df,model1='gpt2',model2='electra',s2='Diddy has a wealth of experience with grappling',s1='Nothing has a world of excitement and joys', n='Luke has a ton of experience with winning',percentile_mode=True)
+     visual_abstract(df,model1='roberta',model2='trigram',s1='You have to realize is that noise again',s2='I wait to see how it shakes out', n='I need to see how this played out',percentile_mode=True)
+     visual_abstract(df,model1='roberta',model2='trigram',s1='You have to realize is that noise again',s2='I wait to see how it shakes out', n='I need to see how this played out',percentile_mode=False)
 # %% Binarized accuracy measurements
      # uncomment this next line to generate html result tables
      # build_all_html_files(df)
