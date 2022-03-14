@@ -7,7 +7,7 @@ import math
 import copy
 import os, pathlib
 import string
-
+import inspect
 from contextlib import contextmanager
 
 import numpy as np
@@ -795,7 +795,7 @@ def model_specific_performace_dot_plot(df, models, ylabel='% accuracy',title=Non
      matplotlib.rcParams.update({'font.sans-serif':'Arial'})
 
      if ax is None:
-          plt.figure(figsize=(4.5,2.5))
+          plt.figure(figsize=(4.5,2.4))
           ax=plt.gca()
      else:
           plt.sca(ax)
@@ -1477,6 +1477,38 @@ def model_by_model_N_vs_S_heatmap(df, models=None, save_folder=None):
      else:
           plt.show()
 
+     # a variant of the same figure, using a different label and colormap
+
+     fig = plt.figure(figsize=(fig_w,fig_h))
+     fig.set_size_inches(fig_w, fig_h)
+
+     gs0=GridSpec(ncols=len(widths_in_inches), nrows=len(heights_in_inches), figure=fig, width_ratios=widths_in_inches,height_ratios=heights_in_inches, hspace=0, wspace=0,top=1,bottom=0,left=0,right=1)
+
+     heatmap_ax = fig.add_subplot(gs0[vertical_elements.index('heatmaps'),horizontal_elements.index('heatmaps')])
+     cbar_ax = fig.add_subplot(gs0[vertical_elements.index('colorbar'),horizontal_elements.index('heatmaps')])
+
+     sns.heatmap(1-heatmap, mask=mask, xticklabels=niceify(models), yticklabels=niceify(models),
+                 annot=True, fmt='.2f', cmap='PiYG', vmin=0, vmax=1, center=0.5, square=True, linewidth=1.0,
+                 ax = heatmap_ax, cbar_ax=cbar_ax, cbar_kws={'orientation':'horizontal','ticks':[0,0.25,0.5,0.75,1.0]},
+                 annot_kws={'fontsize':6})
+     heatmap_ax.xaxis.set_ticks_position('top')
+     heatmap_ax.tick_params('x', labelrotation=90)
+     heatmap_ax.tick_params(axis='both', which='major', labelsize=8)
+     heatmap_ax.tick_params(axis='both', which='minor', labelsize=8)
+     cbar_ax.tick_params(axis='both', which='major', labelsize=8)
+     cbar_ax.tick_params(axis='both', which='minor', labelsize=8)
+     cbar_ax.set_xlabel('humans choice aligned with model 1 \n(proportion of trials)',fontdict={'fontsize':axes_label_fontsize})
+     heatmap_ax.set_ylabel('models assigned as $m_{accept}$',fontdict={'fontsize':axes_label_fontsize})
+     heatmap_ax.set_xlabel('models assigned as $m_{reject}$',fontdict={'fontsize':axes_label_fontsize})
+     heatmap_ax.xaxis.set_label_position('top')
+
+     print(f"figure size: {fig_w},{fig_h} inches")
+
+     if save_folder is not None:
+               pathlib.Path(save_folder).mkdir(parents=True,exist_ok=True)
+               fig.savefig(os.path.join(save_folder,'natural_vs_synthetic_human_preference_matrix_variant.pdf'), dpi=600)
+     else:
+          plt.show()
 def model_by_model_consistency_heatmap(df, models=None, save_folder=None, trial_type = None):
      if models is None:
           models = get_models(df)
@@ -1647,7 +1679,8 @@ def data_preprocessing(results_csv = 'behavioral_results/contstim_Aug2021_n100_r
           df.to_csv(aligned_results_csv_with_loso)
 
      return df
-def visual_abstract(df, model1 = 'electra', model2 = 'gpt2', s1='Diddy has a wealth of experience with grappling',s2='Nothing has a world of excitement and joys', n='Luke has a ton of experience with winning', percentile_mode=False, tick_label_fontsize=8, axes_label_fontsize = 8):
+
+def optimization_illustration(df, model1 = 'electra', model2 = 'gpt2', s1='Diddy has a wealth of experience with grappling',s2='Nothing has a world of excitement and joys', n='Luke has a ton of experience with winning', percentile_mode=False, tick_label_fontsize=8, axes_label_fontsize = 8, panel_letter = None):
 
      matplotlib.rcParams.update({'font.size': 10})
      matplotlib.rcParams.update({'font.family':'sans-serif'})
@@ -1668,17 +1701,12 @@ def visual_abstract(df, model1 = 'electra', model2 = 'gpt2', s1='Diddy has a wea
      def rank_p_scalar(p_vec, p):
           return np.mean(p>=p_vec)*100.0
 
-
-     # n_levels=6
-     # thresh = 0.05
-     # sns.kdeplot(x = m1_log_prob[:5000], y=m2_log_prob[:5000], color='k',fill=True, common_grid=True, levels=n_levels, thresh=thresh, cmap='Blues')
-
      if percentile_mode:
-          fig = plt.figure(figsize=(4,4))
-          plt.scatter(x = rank_p_vec(m1_log_prob)[:1000], y=rank_p_vec(m2_log_prob)[:1000], color='b',alpha=0.1, s=3)
+          fig = plt.figure(figsize=(3.25,2.5))
+          plt.scatter(x = rank_p_vec(m1_log_prob)[:500], y=rank_p_vec(m2_log_prob)[:500], color=natural_sentence_color, s=5, edgecolors='k', linewidths=0.25)
      else:
           fig = plt.figure(figsize=(5,5))
-          plt.scatter(x = m1_log_prob[:1000], y=m2_log_prob[:1000], color='b',alpha=0.1, s=3)
+          plt.scatter(x = m1_log_prob[:500], y=m2_log_prob[:500], color=natural_sentence_color,s=5, linewidths=0.25)
      ax = plt.gca()
 
      ax.set_aspect('equal')
@@ -1706,6 +1734,24 @@ def visual_abstract(df, model1 = 'electra', model2 = 'gpt2', s1='Diddy has a wea
      log_p_n_model1 = get_sentence_prob(df,n,model1)
      log_p_n_model2 = get_sentence_prob(df,n,model2)
 
+     caption_text =  inspect.cleandoc(
+          f'''In this example, we start with the randomly sampled natural sentence
+          ``{n}''. If we adjust this sentence to minimize its probability according to
+          {niceify(model1)} (while keeping the sentence at least as likely as the natural
+          sentence according to {niceify(model2)}), we obtain the synthetic sentence
+          ``{s1}''. This adjustment decreases {niceify(model1)}'s log probability
+          (by {log_p_n_model1-log_p_s1_model1:.1f}),
+          but has little effect on {niceify(model2)}'s log probability (increasing it
+          by {log_p_s1_model2-log_p_n_model2:.1f}). By repeating this procedure while
+          switching the roles of the models, we generate
+          the synthetic sentence ``{s2}'', which decreases {niceify(model2)}'s log
+          probability (by {log_p_n_model2-log_p_s2_model2:.1f}), while slightly
+          increasing {niceify(model1)}'s (by {log_p_s2_model1-log_p_n_model1:.1f}).''').replace('\n',' ')
+
+     if panel_letter is not None:
+          caption_text = f'\\boldbf({panel_letter}) ' + caption_text
+     print(caption_text)
+
      if percentile_mode:
           log_p_s1_model1 = rank_p_scalar(m1_log_prob,log_p_s1_model1)
           log_p_s1_model2 = rank_p_scalar(m2_log_prob,log_p_s1_model2)
@@ -1714,28 +1760,40 @@ def visual_abstract(df, model1 = 'electra', model2 = 'gpt2', s1='Diddy has a wea
           log_p_n_model1 = rank_p_scalar(m1_log_prob,log_p_n_model1)
           log_p_n_model2 = rank_p_scalar(m2_log_prob,log_p_n_model2)
 
-     ax.plot(log_p_s1_model1,log_p_s1_model2,markersize=6,markerfacecolor='r',markeredgecolor='k',zorder=1000,marker='o')
-     ax.plot(log_p_s2_model1,log_p_s2_model2,markersize=6,markerfacecolor='r',markeredgecolor='k',zorder=1000,marker='o')
-     ax.plot(log_p_n_model1,log_p_n_model2,markersize=6,markerfacecolor='b',markeredgecolor='k',zorder=1000,marker='o')
+     ax.plot(log_p_s1_model1,log_p_s1_model2,markersize=6,markerfacecolor=synthetic_sentence_color,markeredgecolor='k',zorder=1000,marker='o')
+     ax.plot(log_p_s2_model1,log_p_s2_model2,markersize=6,markerfacecolor=synthetic_sentence_color,markeredgecolor='k',zorder=1000,marker='o')
+     ax.plot(log_p_n_model1,log_p_n_model2,markersize=6,markerfacecolor=natural_sentence_color,markeredgecolor='k',zorder=1000,marker='o')
 
-     arrow_style = mpatches.ArrowStyle.Fancy(head_length=1.0, head_width=1.0, tail_width=.4)
+     arrow_style = mpatches.ArrowStyle.Simple() #(head_length=1.0, head_width=1.0, tail_width=.4)
      arrow = mpatches.FancyArrowPatch((log_p_n_model1, log_p_n_model2), (log_p_s2_model1, log_p_s2_model2),
-                                 mutation_scale=7,facecolor='k',edgecolor='k',arrowstyle=arrow_style,  shrinkA=6, shrinkB=6)
+                                 mutation_scale=10,facecolor='k',edgecolor='k',arrowstyle=arrow_style,  shrinkA=6, shrinkB=6, linewidth=0.5)
      ax.add_patch(arrow)
      arrow = mpatches.FancyArrowPatch((log_p_n_model1, log_p_n_model2), (log_p_s1_model1, log_p_s1_model2),
-                                 mutation_scale=7,facecolor='k',edgecolor='k',arrowstyle=arrow_style,  shrinkA=6, shrinkB=6)
+                                 mutation_scale=10,facecolor='k',edgecolor='k',arrowstyle=arrow_style,  shrinkA=6, shrinkB=6, linewidth=0.5)
      ax.add_patch(arrow)
 
-     path_effects = [PathEffects.withStroke(linewidth=3, foreground='w')]
-     ax.annotate(text=s1+'.',xy=(log_p_s1_model1,log_p_s1_model2),horizontalalignment='left',va='bottom', xytext=(-3,4),textcoords='offset points', path_effects=path_effects,fontsize=8)
-     ax.annotate(text=s2+'.',xy=(log_p_s2_model1,log_p_s2_model2),horizontalalignment='left',va='center_baseline', xytext=(6,0),textcoords='offset points',path_effects=path_effects,fontsize=8)
-     ax.annotate(text=n+'.',xy=(log_p_n_model1,log_p_n_model2),horizontalalignment='left',va='center_baseline', xytext=(6,0),textcoords='offset points',path_effects=path_effects,fontsize=8)
-     # plt.gca().text(log_p_s1_model1,log_p_s1_model2,s1+'.',horizontalalignment='center',va='center')
-     # plt.gca().text(log_p_s2_model1,log_p_s2_model2,s2+'.',va='center')
-     # plt.gca().text(log_p_n_model1,log_p_n_model2,n+'.',va='center')
-     print(model1,log_p_s1_model1,model2,log_p_s1_model2,s1)
-     print(model1,log_p_s2_model1,model2,log_p_s2_model2,s2)
-     print(model1,log_p_n_model1,model2,log_p_n_model2,n)
+     def break_lines(s):
+          words = s.split(' ')
+          n_char = [len(word) for word in words]
+          second_line_word_index = np.flatnonzero((np.cumsum(n_char)/np.sum(n_char))>=0.5)[0]
+          s = ''
+          for i_word, word in enumerate(words):
+               s+=word
+               if i_word < (len(words)-1):
+                    if i_word == second_line_word_index:
+                         s+='\n'
+                    else:
+                         s+=' '
+          return s
+
+     path_effects = [] #[PathEffects.withStroke(linewidth=1, foreground='w')]
+     ax.annotate(text=break_lines(s1)+'.',xy=(log_p_s1_model1,log_p_s1_model2),horizontalalignment='left',va='bottom', xytext=(-3,4),textcoords='offset points', path_effects=path_effects,fontsize=7,fontfamily='sans-serif', bbox=dict(facecolor='white', edgecolor='white', boxstyle='round', pad=0.05))
+     ax.annotate(text=break_lines(s2)+'.',xy=(log_p_s2_model1,log_p_s2_model2),horizontalalignment='left',va='top', xytext=(6,3),textcoords='offset points',path_effects=path_effects,fontsize=7,fontfamily='sans-serif')
+     ax.annotate(text=break_lines(n)+'.',xy=(log_p_n_model1,log_p_n_model2),horizontalalignment='left',va='top', xytext=(6,3),textcoords='offset points',path_effects=path_effects,fontsize=7,fontfamily='sans-serif', bbox=dict(facecolor='white', edgecolor='white', boxstyle='round', pad=0.05))
+
+     # print(model1,log_p_s1_model1,model2,log_p_s1_model2,s1)
+     # print(model1,log_p_s2_model1,model2,log_p_s2_model2,s2)
+     # print(model1,log_p_n_model1,model2,log_p_n_model2,n)
 
      ax.spines['right'].set_visible(False)
      ax.spines['top'].set_visible(False)
@@ -1743,7 +1801,6 @@ def visual_abstract(df, model1 = 'electra', model2 = 'gpt2', s1='Diddy has a wea
      delta_m1 = log_p_s2_model1-log_p_s1_model1
      delta_m2 = log_p_s1_model2-log_p_s2_model2
      if percentile_mode:
-          space_factor = 1/2
           plt.xlim([0,100])
           plt.ylim([0,100])
      else:
@@ -1756,23 +1813,30 @@ def visual_abstract(df, model1 = 'electra', model2 = 'gpt2', s1='Diddy has a wea
      ax.tick_params(axis='both', which='major', labelsize=tick_label_fontsize)
      ax.tick_params(axis='both', which='minor', labelsize=tick_label_fontsize)
 
-     fig.tight_layout()
      if percentile_mode:
           suffix = '_percentile'
      else:
           suffix = '_logprob'
-     plt.savefig(os.path.join('figures','visual_abstract',f'visual_abstract_{n}{suffix}.pdf'),bbox_inches='tight', pad_inches=0.01)
+     plt.subplots_adjust(left=0.175, right=0.69, top=1.0, bottom=0.1)
+
+     if panel_letter is not None:
+          plt.figtext(x=0, y=1,
+                         s=panel_letter, verticalalignment='top',
+                         fontdict={'fontsize':panel_letter_fontsize,'weight':'bold'}
+                         )
+     pathlib.Path('figures/optimization_illustration').mkdir(exist_ok=True, parents=True)
+     plt.savefig(os.path.join('figures','optimization_illustration',f'optimization_illustration_{n}{suffix}.pdf'))
 
 if __name__ == '__main__':
 
      df = data_preprocessing()
-     visual_abstract(df,model1='gpt2',model2='bert',s2='That is the narrative we have been sold',s1='This is the week you have been dying', n='This is the lie you have been sold')
-     visual_abstract(df,model1='gpt2',model2='electra',s2='Diddy has a wealth of experience with grappling',s1='Nothing has a world of excitement and joys', n='Luke has a ton of experience with winning')
-     visual_abstract(df,model1='gpt2',model2='bert',s2='That is the narrative we have been sold',s1='This is the week you have been dying', n='This is the lie you have been sold',percentile_mode=True)
-     visual_abstract(df,model1='gpt2',model2='electra',s2='Diddy has a wealth of experience with grappling',s1='Nothing has a world of excitement and joys', n='Luke has a ton of experience with winning',percentile_mode=True)
-     visual_abstract(df,model1='roberta',model2='trigram',s1='You have to realize is that noise again',s2='I wait to see how it shakes out', n='I need to see how this played out',percentile_mode=True)
-     visual_abstract(df,model1='roberta',model2='trigram',s1='You have to realize is that noise again',s2='I wait to see how it shakes out', n='I need to see how this played out',percentile_mode=False)
-# %% Binarized accuracy measurements
+#      visual_abstract(df,model1='gpt2',model2='bert',s2='That is the narrative we have been sold',s1='This is the week you have been dying', n='This is the lie you have been sold')
+     # visual_abstract(df,model1='gpt2',model2='electra',s2='Diddy has a wealth of experience with grappling',s1='Nothing has a world of excitement and joys', n='Luke has a ton of experience with winning')
+#      visual_abstract(df,model1='gpt2',model2='bert',s2='That is the narrative we have been sold',s1='This is the week you have been dying', n='This is the lie you have been sold',percentile_mode=True)
+     optimization_illustration(df,model1='gpt2',model2='electra',s2='Diddy has a wealth of experience with grappling',s1='Nothing has a world of excitement and joys', n='Luke has a ton of experience with winning',percentile_mode=True, panel_letter='a')
+     optimization_illustration(df,model1='roberta',model2='trigram',s1='You have to realize is that noise again',s2='I wait to see how it shakes out', n='I need to see how this played out',percentile_mode=True, panel_letter='b')
+#      visual_abstract(df,model1='roberta',model2='trigram',s1='You have to realize is that noise again',s2='I wait to see how it shakes out', n='I need to see how this played out',percentile_mode=False)
+# # %% Binarized accuracy measurements
      # uncomment this next line to generate html result tables
      # build_all_html_files(df)
 
