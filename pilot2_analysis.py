@@ -9,6 +9,7 @@ import os, pathlib
 import string
 import inspect
 from contextlib import contextmanager
+import textwrap
 
 import numpy as np
 import pandas as pd
@@ -1680,7 +1681,8 @@ def data_preprocessing(results_csv = 'behavioral_results/contstim_Aug2021_n100_r
 
      return df
 
-def optimization_illustration(df, model1 = 'electra', model2 = 'gpt2', s1='Diddy has a wealth of experience with grappling',s2='Nothing has a world of excitement and joys', n='Luke has a ton of experience with winning', percentile_mode=False, tick_label_fontsize=8, axes_label_fontsize = 8, panel_letter = None):
+def optimization_illustration(df, model1 = 'electra', model2 = 'gpt2', s1='Diddy has a wealth of experience with grappling',s2='Nothing has a world of excitement and joys', n='Luke has a ton of experience with winning', percentile_mode=False, tick_label_fontsize=8, axes_label_fontsize = 8, panel_letter = None,
+n_max_chars=None, s1_max_chars=None, s2_max_chars=None):
 
      matplotlib.rcParams.update({'font.size': 10})
      matplotlib.rcParams.update({'font.family':'sans-serif'})
@@ -1772,24 +1774,15 @@ def optimization_illustration(df, model1 = 'electra', model2 = 'gpt2', s1='Diddy
                                  mutation_scale=10,facecolor='k',edgecolor='k',arrowstyle=arrow_style,  shrinkA=6, shrinkB=6, linewidth=0.5)
      ax.add_patch(arrow)
 
-     def break_lines(s):
-          words = s.split(' ')
-          n_char = [len(word) for word in words]
-          second_line_word_index = np.flatnonzero((np.cumsum(n_char)/np.sum(n_char))>=0.5)[0]
-          s = ''
-          for i_word, word in enumerate(words):
-               s+=word
-               if i_word < (len(words)-1):
-                    if i_word == second_line_word_index:
-                         s+='\n'
-                    else:
-                         s+=' '
-          return s
-
+     def break_lines(s, max_chars):
+          if max_chars is None:
+               return s
+          else:
+               return textwrap.fill(s, width=max_chars, break_long_words=False, drop_whitespace=True, break_on_hyphens=False)
      path_effects = [] #[PathEffects.withStroke(linewidth=1, foreground='w')]
-     ax.annotate(text=break_lines(s1)+'.',xy=(log_p_s1_model1,log_p_s1_model2),horizontalalignment='left',va='bottom', xytext=(-3,4),textcoords='offset points', path_effects=path_effects,fontsize=7,fontfamily='sans-serif', bbox=dict(facecolor='white', edgecolor='white', boxstyle='round', pad=0.05))
-     ax.annotate(text=break_lines(s2)+'.',xy=(log_p_s2_model1,log_p_s2_model2),horizontalalignment='left',va='top', xytext=(6,3),textcoords='offset points',path_effects=path_effects,fontsize=7,fontfamily='sans-serif')
-     ax.annotate(text=break_lines(n)+'.',xy=(log_p_n_model1,log_p_n_model2),horizontalalignment='left',va='top', xytext=(6,3),textcoords='offset points',path_effects=path_effects,fontsize=7,fontfamily='sans-serif', bbox=dict(facecolor='white', edgecolor='white', boxstyle='round', pad=0.05))
+     ax.annotate(text=break_lines(s1,s1_max_chars)+'.',xy=(log_p_s1_model1,log_p_s1_model2),horizontalalignment='left',va='bottom', xytext=(-3,4),textcoords='offset points', path_effects=path_effects,fontsize=7,fontfamily='sans-serif', bbox=dict(facecolor='white', edgecolor='white', boxstyle='round', pad=0.05))
+     ax.annotate(text=break_lines(s2,s2_max_chars)+'.',xy=(log_p_s2_model1,log_p_s2_model2),horizontalalignment='left',va='top', xytext=(6,3),textcoords='offset points',path_effects=path_effects,fontsize=7,fontfamily='sans-serif')
+     ax.annotate(text=break_lines(n,n_max_chars)+'.',xy=(log_p_n_model1,log_p_n_model2),horizontalalignment='left',va='top', xytext=(6,3),textcoords='offset points',path_effects=path_effects,fontsize=7,fontfamily='sans-serif', bbox=dict(facecolor='white', edgecolor='white', boxstyle='round', pad=0.05))
 
      # print(model1,log_p_s1_model1,model2,log_p_s1_model2,s1)
      # print(model1,log_p_s2_model1,model2,log_p_s2_model2,s2)
@@ -1830,35 +1823,35 @@ def optimization_illustration(df, model1 = 'electra', model2 = 'gpt2', s1='Diddy
 if __name__ == '__main__':
 
      df = data_preprocessing()
-#      visual_abstract(df,model1='gpt2',model2='bert',s2='That is the narrative we have been sold',s1='This is the week you have been dying', n='This is the lie you have been sold')
-     # visual_abstract(df,model1='gpt2',model2='electra',s2='Diddy has a wealth of experience with grappling',s1='Nothing has a world of excitement and joys', n='Luke has a ton of experience with winning')
-#      visual_abstract(df,model1='gpt2',model2='bert',s2='That is the narrative we have been sold',s1='This is the week you have been dying', n='This is the lie you have been sold',percentile_mode=True)
-     optimization_illustration(df,model1='gpt2',model2='electra',s2='Diddy has a wealth of experience with grappling',s1='Nothing has a world of excitement and joys', n='Luke has a ton of experience with winning',percentile_mode=True, panel_letter='a')
-     optimization_illustration(df,model1='roberta',model2='trigram',s1='You have to realize is that noise again',s2='I wait to see how it shakes out', n='I need to see how this played out',percentile_mode=True, panel_letter='b')
-#      visual_abstract(df,model1='roberta',model2='trigram',s1='You have to realize is that noise again',s2='I wait to see how it shakes out', n='I need to see how this played out',percentile_mode=False)
+
+     # Figure 2
+     # optimization_illustration(df,model1='gpt2',model2='electra',s2='Diddy has a wealth of experience with grappling',s2_max_chars=32, s1='Nothing has a world of excitement and joys', s1_max_chars = 11, n='Luke has a ton of experience with winning', n_max_chars = 28, percentile_mode=True, panel_letter='a')
+     # optimization_illustration(df,model1='roberta',model2='trigram',s1='You have to realize is that noise again',s1_max_chars=19, s2='I wait to see how it shakes out', s2_max_chars=17, n='I need to see how this played out', n_max_chars=17, percentile_mode=True, panel_letter='b')
+
 # # %% Binarized accuracy measurements
      # uncomment this next line to generate html result tables
      # build_all_html_files(df)
 
      # # # uncomment to plot main result figures
      # figs=plot_main_results_figures(df, save_folder = 'figures/binarized_acc',measure='binarized_accuracy')
+     # #plt.show()
 
      # # warning - this is a slow one to run (an hour or so)
      # figs=plot_main_results_figures(df, measure='RAE_signed_spearman',save_folder = 'figures/RAE_signed_spearman', initial_panel_letter_index=[0,0,1])
      # #plt.show()
 
-     # deprecated
-     # figs=plot_main_results_figures(df, save_folder = 'figures/SomersD',measure='SomersD')
-     # figs=plot_main_results_figures(df, save_folder = 'figures/Flexible_SomersD',measure='flexible_SomersD')
+     # Figure S3
+     # model_by_model_agreement_heatmap(df,save_folder='figures/heatmaps', trial_type = 'randomly_sampled_natural')
      # plt.show()
 
-     # for trial_type in ['natural_vs_synthetic','natural_controversial','synthetic_vs_synthetic']:
+     # uncomment to plot model by model accuracy heatmaps (Figure S4)
+     # for trial_type in ['natural_controversial','synthetic_vs_synthetic']:
      #      model_by_model_consistency_heatmap(df,trial_type = trial_type, save_folder = 'figures/heatmaps')
 
-     # # uncomment to plot n_vs_s heatmap
+     # # uncomment to plot n_vs_s heatmap (Figure S5)
      # model_by_model_N_vs_S_heatmap(df,save_folder='figures/heatmaps')
 
-     # individual sentence probability scatter plots
+     # individual sentence probability scatter plots (left-hand panels in Figures 1 and 3)
      # x_model='gpt2'
      # y_model='roberta'
      # # sentence_pair_scatter_plot(df, x_model=x_model, y_model=y_model, trial_type='randomly_sampled_natural', targeting_1=None, targeting_2=None, targeted_model_1=None,targeted_model_2=None)
@@ -1869,14 +1862,13 @@ if __name__ == '__main__':
      # plt.savefig(f'figures/sentence_scatterplots/natural_vs_synthetic_{x_model}_reject_vs_{y_model}_accept.pdf')
      # sentence_pair_scatter_plot(df, x_model=x_model, y_model=y_model, trial_type='synthetic_vs_synthetic', targeting_1=None, targeting_2=None, targeted_model_1=x_model,targeted_model_2=y_model)
      # plt.savefig(f'figures/sentence_scatterplots/synthetic_vs_synthetic_{x_model}_vs_{y_model}.pdf')
-
-     # model_by_model_agreement_heatmap(df,save_folder='figures/heatmaps', trial_type = 'randomly_sampled_natural')
-
-
-     # plt.show()
-
-     # generating tables:
+     
+     # Tables 1-3:
      # generate_worst_sentence_pairs_table(df, trial_type  = 'natural_controversial', n_sentences_per_model=1)
      # generate_worst_sentence_pairs_table(df, trial_type  = 'synthetic_vs_synthetic', n_sentences_per_model=1)
      # generate_worst_sentence_pairs_table(df, trial_type  = 'natural_vs_synthetic', n_sentences_per_model=1, targeting='accept')
-     # generate_worst_sentence_pairs_table(df, trial_type  = 'natural_vs_synthetic', n_sentences_per_model=1)
+
+     # deprecated
+     # figs=plot_main_results_figures(df, save_folder = 'figures/SomersD',measure='SomersD')
+     # figs=plot_main_results_figures(df, save_folder = 'figures/Flexible_SomersD',measure='flexible_SomersD')
+     # plt.show()
