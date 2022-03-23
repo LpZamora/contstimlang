@@ -1412,23 +1412,36 @@ def model_by_model_N_vs_S_heatmap(df, models=None, save_folder=None):
      heatmap = np.empty((n_models,n_models))
      heatmap[:] = np.nan
 
-     for i_row, synthetic_sentence_preferring_model in enumerate(models):
-          for i_col, natural_sentence_preferring_model in enumerate(models):
-               if natural_sentence_preferring_model == synthetic_sentence_preferring_model:
+     for i_row, m_accept in enumerate(models): # synthetic sentence preferring model
+          for i_col, m_reject in enumerate(models): # natural sentence preferring model
+               if m_reject == m_accept:
                     continue
 
                # filter trials
-               df2 = filter_trials(df, targeted_model = synthetic_sentence_preferring_model,targeting='accept',trial_type='natural_vs_synthetic')
-               df3 = filter_trials(df2, targeted_model = natural_sentence_preferring_model, targeting='reject',trial_type='natural_vs_synthetic')
+               df2 = filter_trials(df, targeted_model = m_accept,targeting='accept',trial_type='natural_vs_synthetic')
+               df3 = filter_trials(df2, targeted_model = m_reject, targeting='reject',trial_type='natural_vs_synthetic')
 
-               df3['subject_preferred_natural']=(
-                                                  (df3['sentence1_type']=='N') & (df3['rating']<=3) |
-                                                  (df3['sentence2_type']=='N') & (df3['rating']>=4)
-                                                )
-
+               n_aligned_with_m_accept=0
+               n_aligned_with_m_reject=0
+               for i_trial, trial in df3.iterrows():
+                    if ((trial[f'sentence1_{m_accept}_prob'] < trial[f'sentence2_{m_accept}_prob']) and
+                        (trial[f'sentence1_{m_reject}_prob'] > trial[f'sentence2_{m_reject}_prob'])):
+                        # m_accept preferred sentence 2, m_reject preferred sentence 1
+                         if trial['rating']>=4: # subject preferred sentence 2 (aligned with m_accept)
+                              n_aligned_with_m_accept+=1
+                         elif trial['rating']<=3: # subject preferred sentence 1 (aligned with model2)
+                              n_aligned_with_m_reject+=1
+                    elif ((trial[f'sentence1_{m_accept}_prob'] > trial[f'sentence2_{m_accept}_prob']) and
+                          (trial[f'sentence1_{m_reject}_prob'] < trial[f'sentence2_{m_reject}_prob'])):
+                         # m_accept preferred sentence 1, m_reject preferred sentence 2
+                         if trial['rating']>=4: # subject preferred sentence 2 (aligned with m_reject)
+                              n_aligned_with_m_reject+=1
+                         elif trial['rating']<=3: # subject preferred sentence 1 (aligned with m_accept)
+                              n_aligned_with_m_accept+=1
+                    else:
+                         raise ValueError
                # average human judgements
-               proportion_natural_preferred = df3['subject_preferred_natural'].mean()
-               heatmap[i_row,i_col] = proportion_natural_preferred
+               heatmap[i_row,i_col] = n_aligned_with_m_accept/(n_aligned_with_m_accept+n_aligned_with_m_reject)
 
      axes_label_fontsize=10
 
@@ -1456,7 +1469,7 @@ def model_by_model_N_vs_S_heatmap(df, models=None, save_folder=None):
      cbar_ax = fig.add_subplot(gs0[vertical_elements.index('colorbar'),horizontal_elements.index('heatmaps')])
 
      sns.heatmap(heatmap, mask=mask, xticklabels=niceify(models), yticklabels=niceify(models),
-                 annot=True, fmt='.2f', cmap='bwr', vmin=0, vmax=1, center=0.5, square=True, linewidth=1.0,
+                 annot=True, fmt='.2f', cmap='PiYG', vmin=0, vmax=1, center=0.5, square=True, linewidth=1.0,
                  ax = heatmap_ax, cbar_ax=cbar_ax, cbar_kws={'orientation':'horizontal','ticks':[0,0.25,0.5,0.75,1.0]},
                  annot_kws={'fontsize':6})
      heatmap_ax.xaxis.set_ticks_position('top')
@@ -1465,7 +1478,7 @@ def model_by_model_N_vs_S_heatmap(df, models=None, save_folder=None):
      heatmap_ax.tick_params(axis='both', which='minor', labelsize=8)
      cbar_ax.tick_params(axis='both', which='major', labelsize=8)
      cbar_ax.tick_params(axis='both', which='minor', labelsize=8)
-     cbar_ax.set_xlabel('humans preference of natural sentences\n(proportion of trials)',fontdict={'fontsize':axes_label_fontsize})
+     cbar_ax.set_xlabel('humans choice aligned with $m_{accept}$\n(proportion of trials)',fontdict={'fontsize':axes_label_fontsize})
      heatmap_ax.set_ylabel('models assigned as $m_{accept}$',fontdict={'fontsize':axes_label_fontsize})
      heatmap_ax.set_xlabel('models assigned as $m_{reject}$',fontdict={'fontsize':axes_label_fontsize})
      heatmap_ax.xaxis.set_label_position('top')
@@ -1477,39 +1490,7 @@ def model_by_model_N_vs_S_heatmap(df, models=None, save_folder=None):
                fig.savefig(os.path.join(save_folder,'natural_vs_synthetic_human_preference_matrix.pdf'), dpi=600)
      else:
           plt.show()
-
-     # a variant of the same figure, using a different label and colormap
-
-     fig = plt.figure(figsize=(fig_w,fig_h))
-     fig.set_size_inches(fig_w, fig_h)
-
-     gs0=GridSpec(ncols=len(widths_in_inches), nrows=len(heights_in_inches), figure=fig, width_ratios=widths_in_inches,height_ratios=heights_in_inches, hspace=0, wspace=0,top=1,bottom=0,left=0,right=1)
-
-     heatmap_ax = fig.add_subplot(gs0[vertical_elements.index('heatmaps'),horizontal_elements.index('heatmaps')])
-     cbar_ax = fig.add_subplot(gs0[vertical_elements.index('colorbar'),horizontal_elements.index('heatmaps')])
-
-     sns.heatmap(1-heatmap, mask=mask, xticklabels=niceify(models), yticklabels=niceify(models),
-                 annot=True, fmt='.2f', cmap='PiYG', vmin=0, vmax=1, center=0.5, square=True, linewidth=1.0,
-                 ax = heatmap_ax, cbar_ax=cbar_ax, cbar_kws={'orientation':'horizontal','ticks':[0,0.25,0.5,0.75,1.0]},
-                 annot_kws={'fontsize':6})
-     heatmap_ax.xaxis.set_ticks_position('top')
-     heatmap_ax.tick_params('x', labelrotation=90)
-     heatmap_ax.tick_params(axis='both', which='major', labelsize=8)
-     heatmap_ax.tick_params(axis='both', which='minor', labelsize=8)
-     cbar_ax.tick_params(axis='both', which='major', labelsize=8)
-     cbar_ax.tick_params(axis='both', which='minor', labelsize=8)
-     cbar_ax.set_xlabel('humans choice aligned with model 1 \n(proportion of trials)',fontdict={'fontsize':axes_label_fontsize})
-     heatmap_ax.set_ylabel('models assigned as $m_{accept}$',fontdict={'fontsize':axes_label_fontsize})
-     heatmap_ax.set_xlabel('models assigned as $m_{reject}$',fontdict={'fontsize':axes_label_fontsize})
-     heatmap_ax.xaxis.set_label_position('top')
-
-     print(f"figure size: {fig_w},{fig_h} inches")
-
-     if save_folder is not None:
-               pathlib.Path(save_folder).mkdir(parents=True,exist_ok=True)
-               fig.savefig(os.path.join(save_folder,'natural_vs_synthetic_human_preference_matrix_variant.pdf'), dpi=600)
-     else:
-          plt.show()
+     
 def model_by_model_consistency_heatmap(df, models=None, save_folder=None, trial_type = None):
      if models is None:
           models = get_models(df)
@@ -1828,10 +1809,8 @@ if __name__ == '__main__':
      # optimization_illustration(df,model1='gpt2',model2='electra',s2='Diddy has a wealth of experience with grappling',s2_max_chars=32, s1='Nothing has a world of excitement and joys', s1_max_chars = 11, n='Luke has a ton of experience with winning', n_max_chars = 28, percentile_mode=True, panel_letter='a')
      # optimization_illustration(df,model1='roberta',model2='trigram',s1='You have to realize is that noise again',s1_max_chars=19, s2='I wait to see how it shakes out', s2_max_chars=17, n='I need to see how this played out', n_max_chars=17, percentile_mode=True, panel_letter='b')
 
-# # %% Binarized accuracy measurements
-     # uncomment this next line to generate html result tables
-     # build_all_html_files(df)
-
+     # # %% Binarized accuracy measurements
+     
      # # # uncomment to plot main result figures
      # figs=plot_main_results_figures(df, save_folder = 'figures/binarized_acc',measure='binarized_accuracy')
      # #plt.show()
@@ -1848,8 +1827,8 @@ if __name__ == '__main__':
      # for trial_type in ['natural_controversial','synthetic_vs_synthetic']:
      #      model_by_model_consistency_heatmap(df,trial_type = trial_type, save_folder = 'figures/heatmaps')
 
-     # # uncomment to plot n_vs_s heatmap (Figure S5)
-     # model_by_model_N_vs_S_heatmap(df,save_folder='figures/heatmaps')
+     # uncomment to plot n_vs_s heatmap (Figure S5)
+     model_by_model_N_vs_S_heatmap(df,save_folder='figures/heatmaps')
 
      # individual sentence probability scatter plots (left-hand panels in Figures 1 and 3)
      # x_model='gpt2'
@@ -1867,8 +1846,13 @@ if __name__ == '__main__':
      # generate_worst_sentence_pairs_table(df, trial_type  = 'natural_controversial', n_sentences_per_model=1)
      # generate_worst_sentence_pairs_table(df, trial_type  = 'synthetic_vs_synthetic', n_sentences_per_model=1)
      # generate_worst_sentence_pairs_table(df, trial_type  = 'natural_vs_synthetic', n_sentences_per_model=1, targeting='accept')
+     
+     # uncomment this next line to generate detailed html result tables
+     # build_all_html_files(df)
 
-     # deprecated
+     # deprecated analyses
      # figs=plot_main_results_figures(df, save_folder = 'figures/SomersD',measure='SomersD')
      # figs=plot_main_results_figures(df, save_folder = 'figures/Flexible_SomersD',measure='flexible_SomersD')
      # plt.show()
+
+
