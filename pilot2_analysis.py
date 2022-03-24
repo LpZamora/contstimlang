@@ -25,10 +25,9 @@ import seaborn as sns
 from matplotlib.gridspec import GridSpec
 import matplotlib.patheffects as PathEffects
 import matplotlib.patches as mpatches
-from scipy.spatial.distance import cosine
 from metroplot import metroplot
 
-
+from signed_rank_cosine_similarity import calc_signed_rank_cosine_similarity_analytical_RAE, calc_expected_normalized_RAE_signed_rank_response_pattern, calc_semi_signed_rank_cosine_similarity_analytical_RAE
 
 # filename definitions
 natural_controversial_sentences_fname = 'sents_reddit_natural_June2021_selected.csv'
@@ -424,54 +423,86 @@ def calc_binarized_accuracy(df, drop_model_prob = True):
      df2['NC_UB']=(df2['majority_vote_NC_UB']==human_chose_sent2).astype(float)
      return df2
 
-def rank_with_random_tie_breaking(x):
-          my_vec = pd.Series(x)
-          return np.asarray(my_vec.sample(frac=1).rank(method='first').reindex_like(my_vec))
+def get_normalized_mean_RAE_signed_ranked_response(df, subject_group, excluded_subject=None):
+     """ for a given subject group, calculate the expected normalized RAE signed-rank responses for each subject,
+         and then average across subjects.
 
-def _calc_RAE_signed_spearman(a,b, n_samples=100):
-     """ Calculate non-centered Spearman's rho, expectancy over random tie breaking"""
-     assert len(a) == len(b)
+         the response pattern is returned as a new normalized_expected_RAE_signed_rank_response_pattern
 
-     def calc_signed_rank(x):
-          return np.sign(x)*rank_with_random_tie_breaking(np.abs(x))
-
-     result = []
-     for i_sample in range(n_samples):
-          a_signed_ranks = calc_signed_rank(a)
-          b_signed_ranks = calc_signed_rank(b)
-          result.append(1-cosine(a_signed_ranks,b_signed_ranks))
-     return np.mean(result)
-
-def RAE_signed_spearman(df):
-     """ ordinal correlation between log p(s1|m) - log p(s2|m) and human ranks
+         (used for noise ceiling bounds)
      """
 
-     models = get_models(df)
-     subjects =  df['subject'].unique()
+     df_subject_group = df[df['subject_group']==subject_group]
+     assert len(df_subject_group)>0
 
+     if excluded_subject is not None:
+          df_subject_group = df_subject_group[df_subject_group['subject']!=excluded_subject]
+
+     if not 'zero_centered_rating' in df_subject_group.columns:
+          df_subject_group['zero_centered_rating']=df_subject_group['rating']-3.5
+
+     def add_expected_normalized_RAE_signed_rank_response_pattern(df):
+          x = df['zero_centered_rating']
+          r = calc_expected_normalized_RAE_signed_rank_response_pattern(x)
+          df2=df.copy()
+          df2['normalized_expected_RAE_signed_rank_response_pattern']=r
+          return df2
+
+     df_subject_group = df_subject_group.groupby('subject').apply(add_expected_normalized_RAE_signed_rank_response_pattern)
+
+     # now reduce subjects
+     df_subject_group = df_subject_group.groupby(['sentence_pair'],dropna=True).mean()
+     df_subject_group = df_subject_group.drop(
+          columns=set(df_subject_group.columns)-{'normalized_expected_RAE_signed_rank_response_pattern'})
+     return df_subject_group
+
+def RAE_signed_rank_cosine_similarity(df):
+     """ ordinal correlation between log (p(s1|m)/p(s2|m)) and human ranks """
+
+     df = df.copy()
+     df['zero_centered_rating']=df['rating']-3.5
+
+     models = get_models(df)
+
+     subjects =  df['subject'].unique()
      results=[]
 
      for subject in tqdm(subjects):
           df_subject = df[df['subject']==subject]
+          subject_group = df_subject['subject_group'].unique().item()
 
           cur_result={}
           cur_result['subject']=subject
-          cur_result['subject_group']=df_subject['subject_group'].unique().item()
-          zero_centered_human_rating = df_subject['rating']-3.5
+          cur_result['subject_group']=subject_group
 
+          # calculate human-model correlations
           for model in models:
                model_log_prob_diff = df_subject['sentence2_'+model + '_prob'] - df_subject['sentence1_'+model + '_prob']
-               cur_result[model]=_calc_RAE_signed_spearman(model_log_prob_diff,zero_centered_human_rating)
+               cur_result[model]=calc_signed_rank_cosine_similarity_analytical_RAE(model_log_prob_diff,df_subject['zero_centered_rating'])
 
-          # now for the noise ceiling:
-          # lower bound - use the other nine subjects' mean response
-          zero_centered_leave_1_subject_out = df_subject['mean_rating_NC_LB']-3.5
+          # and now for the noise ceiling bounds:
+          def calculate_lower_bound_on_RAE_signed_rank_cosine_similarity_noise_ceiling(df, df_subject, subject, subject_group):
+               df_subject = pd.concat(
+                    [df_subject.set_index('sentence_pair'),
+                    get_normalized_mean_RAE_signed_ranked_response(df, subject_group,excluded_subject=subject)],
+                    axis=1)
+               return calc_signed_rank_cosine_similarity_analytical_RAE(
+                    df_subject['zero_centered_rating'],
+                    df_subject['normalized_expected_RAE_signed_rank_response_pattern'])
+          cur_result['NC_LB'] = calculate_lower_bound_on_RAE_signed_rank_cosine_similarity_noise_ceiling(df, df_subject, subject, subject_group)
 
-          cur_result['NC_LB'] = _calc_RAE_signed_spearman(zero_centered_leave_1_subject_out,zero_centered_human_rating)
-          cur_result['NC_UB'] = 1.0
+          def calculate_upper_bound_on_RAE_signed_rank_cosine_similarity_noise_ceiling(df, df_subject, subject_group):
+               df_subject = pd.concat(
+                    [df_subject.set_index('sentence_pair'),
+                    get_normalized_mean_RAE_signed_ranked_response(df, subject_group)],
+                    axis=1)
+               return calc_semi_signed_rank_cosine_similarity_analytical_RAE(
+                    df_subject['zero_centered_rating'],
+                    df_subject['normalized_expected_RAE_signed_rank_response_pattern']
+               )
+          cur_result['NC_UB'] = calculate_upper_bound_on_RAE_signed_rank_cosine_similarity_noise_ceiling(df, df_subject, subject_group)
 
           results.append(cur_result)
-
      return pd.DataFrame(results)
 
 def calc_somersD(df):
@@ -1084,28 +1115,26 @@ def plot_main_results_figures(df, models=None, plot_metroplot=True, save_folder 
      elif measure == 'flexible_SomersD':
           chance_level=0
           reduction_fun=calc_flexible_somersD
-     elif measure == 'RAE_signed_spearman':
+     elif measure == 'RAE_signed_rank_cosine_similarity':
           chance_level=0
-          reduction_fun=RAE_signed_spearman
+          reduction_fun=RAE_signed_rank_cosine_similarity
      else:
           raise ValueError
 
      # define figure structure
      panel_cfg  = [
-          # {'title':'natural vs. shuffled',                             'only_targeted_trials':False,     'trial_type':'natural_vs_shuffled',         'targeting':None,},
-          {'title':'Randomly sampled natural-sentence pairs',          'only_targeted_trials':False,     'trial_type':'randomly_sampled_natural',    'targeting':None,},
-          {'title':'Controversial natural-sentence pairs',             'only_targeted_trials':True,      'trial_type':'natural_controversial',       'targeting':None,},
-          {'title':'Synthetic controversial sentence pairs',                     'only_targeted_trials':True,      'trial_type':'synthetic_vs_synthetic',      'targeting':None,},
-          {'title':'Synthetic vs. natural sentences',      'only_targeted_trials':True,      'trial_type':'natural_vs_synthetic',        'targeting':'accept',},
-          # {'title':'Synthetic vs. natural sentences (both)',      'only_targeted_trials':True,      'trial_type':'natural_vs_synthetic',        'targeting':None},
-          {'title':None,      'only_targeted_trials':False,     'trial_type':None,                          'targeting':None,},
-          {'title':None,      'only_targeted_trials':True,      'trial_type':'natural_vs_synthetic',        'targeting':'reject'},
+          {'title':'Randomly sampled natural-sentence pairs',    'only_targeted_trials':False,     'trial_type':'randomly_sampled_natural',    'targeting':None,},
+          {'title':'Controversial natural-sentence pairs',       'only_targeted_trials':True,      'trial_type':'natural_controversial',       'targeting':None,},
+          {'title':'Synthetic controversial sentence pairs',     'only_targeted_trials':True,      'trial_type':'synthetic_vs_synthetic',      'targeting':None,},
+          {'title':'Synthetic vs. natural sentences',            'only_targeted_trials':True,      'trial_type':'natural_vs_synthetic',        'targeting':'accept',},
+          {'title':None,                                         'only_targeted_trials':False,     'trial_type':None,                          'targeting':None,},
+          {'title':None,                                         'only_targeted_trials':True,      'trial_type':'natural_vs_synthetic',        'targeting':'reject'},
      ]
 
      figure_plans = [
           {'panels':[0,1], 'fname':f'natural_and_natural_controversial_{measure}.pdf', 'include_scatter_plot_col':True, 'include_panel_letters':True},
           {'panels':[2,3], 'fname':f'synthetic_{measure}.pdf', 'include_scatter_plot_col':True, 'include_panel_letters':True, 'include_scatter_plot_legend':True},
-          {'panels':[4],   'fname':f'all_trials_{measure}.pdf', 'include_scatter_plot_col':False, 'include_panel_letters':True},
+          {'panels':[4],   'fname':f'all_trials_{measure}.pdf', 'include_scatter_plot_col':False, 'include_panel_letters':False},
           {'panels':[5], 'fname':f'synthetic_vs_natural_reject_{measure}.pdf', 'include_scatter_plot_col':False, 'include_panel_letters':False},
      ]
 
@@ -1113,7 +1142,7 @@ def plot_main_results_figures(df, models=None, plot_metroplot=True, save_folder 
           'binarized_accuracy':'human-choice prediction accuracy',
           'SomersD':"ordinal correlation between human ratings and models'\nsentence pair probability log-ratio (Somers' D)",
           'flexible_SomersD':"modified Somers' D between human ratings and models'\nsentence probabilities",
-          'RAE_signed_spearman':"ordinal correlation between human ratings and models'\nsentence pair probability log-ratio (signed-rank cosine similarity)"
+          'RAE_signed_rank_cosine_similarity':"ordinal correlation between human ratings and models'\nsentence pair probability log-ratio (signed-rank cosine similarity)"
      }[measure]
 
      # all of the following measures are in inches
@@ -1490,7 +1519,7 @@ def model_by_model_N_vs_S_heatmap(df, models=None, save_folder=None):
                fig.savefig(os.path.join(save_folder,'natural_vs_synthetic_human_preference_matrix.pdf'), dpi=600)
      else:
           plt.show()
-     
+
 def model_by_model_consistency_heatmap(df, models=None, save_folder=None, trial_type = None):
      if models is None:
           models = get_models(df)
@@ -1810,14 +1839,14 @@ if __name__ == '__main__':
      # optimization_illustration(df,model1='roberta',model2='trigram',s1='You have to realize is that noise again',s1_max_chars=19, s2='I wait to see how it shakes out', s2_max_chars=17, n='I need to see how this played out', n_max_chars=17, percentile_mode=True, panel_letter='b')
 
      # # %% Binarized accuracy measurements
-     
+
      # # # uncomment to plot main result figures
      # figs=plot_main_results_figures(df, save_folder = 'figures/binarized_acc',measure='binarized_accuracy')
      # #plt.show()
 
      # # warning - this is a slow one to run (an hour or so)
-     # figs=plot_main_results_figures(df, measure='RAE_signed_spearman',save_folder = 'figures/RAE_signed_spearman', initial_panel_letter_index=[0,0,1])
-     # #plt.show()
+     figs=plot_main_results_figures(df, measure='RAE_signed_rank_cosine_similarity',save_folder = 'figures/RAE_signed_rank_cosine_similarity_analytical_new_LB')
+     plt.show()
 
      # Figure S3
      # model_by_model_agreement_heatmap(df,save_folder='figures/heatmaps', trial_type = 'randomly_sampled_natural')
@@ -1828,7 +1857,7 @@ if __name__ == '__main__':
      #      model_by_model_consistency_heatmap(df,trial_type = trial_type, save_folder = 'figures/heatmaps')
 
      # uncomment to plot n_vs_s heatmap (Figure S5)
-     model_by_model_N_vs_S_heatmap(df,save_folder='figures/heatmaps')
+     # model_by_model_N_vs_S_heatmap(df,save_folder='figures/heatmaps')
 
      # individual sentence probability scatter plots (left-hand panels in Figures 1 and 3)
      # x_model='gpt2'
@@ -1841,12 +1870,12 @@ if __name__ == '__main__':
      # plt.savefig(f'figures/sentence_scatterplots/natural_vs_synthetic_{x_model}_reject_vs_{y_model}_accept.pdf')
      # sentence_pair_scatter_plot(df, x_model=x_model, y_model=y_model, trial_type='synthetic_vs_synthetic', targeting_1=None, targeting_2=None, targeted_model_1=x_model,targeted_model_2=y_model)
      # plt.savefig(f'figures/sentence_scatterplots/synthetic_vs_synthetic_{x_model}_vs_{y_model}.pdf')
-     
+
      # Tables 1-3:
      # generate_worst_sentence_pairs_table(df, trial_type  = 'natural_controversial', n_sentences_per_model=1)
      # generate_worst_sentence_pairs_table(df, trial_type  = 'synthetic_vs_synthetic', n_sentences_per_model=1)
      # generate_worst_sentence_pairs_table(df, trial_type  = 'natural_vs_synthetic', n_sentences_per_model=1, targeting='accept')
-     
+
      # uncomment this next line to generate detailed html result tables
      # build_all_html_files(df)
 
@@ -1854,5 +1883,3 @@ if __name__ == '__main__':
      # figs=plot_main_results_figures(df, save_folder = 'figures/SomersD',measure='SomersD')
      # figs=plot_main_results_figures(df, save_folder = 'figures/Flexible_SomersD',measure='flexible_SomersD')
      # plt.show()
-
-
