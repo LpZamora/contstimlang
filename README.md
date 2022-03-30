@@ -17,17 +17,18 @@ CUDA Version: 10.2
 
 -> bash download_models.sh (This will download the following models from google drive: BIGRAM, TRIGRAM, RNN, LSTM, BILSTM. The transformer models will automatically download when the generation script is run.)
 
-# how to generate controversial stimuli
+# how to generate a controversial synthetic sentence pair
 
 Use the file **make_contstim** to generate controversial sentence pairs. There are two versions of this file – a python notebook and a python script. Both should work. There are three arguments that need to be hardcoded at the top of the scripts: model1, model2, and squashing_threshold.
 
-# models 
+# how to generate an entire set of synthetic controversial sentence pairs
+Run synthesize_controversial_pairs_batch_job.py. This file can be run in parallel by multiple nodes/workers. Each sentence pair can take a few minutes, so multiple nodes would be needed for completing a large sentence pair set in a reasonable time.
+
+# currently included models 
 
 GPT2
 
 BERT
-
-BERT_WHOLE_WORD
 
 ROBERTA
 
@@ -44,3 +45,5 @@ RNN
 TRIGRAM
 
 BIGRAM
+
+BERT_WHOLE_WORD (not evaluated in the paper)
