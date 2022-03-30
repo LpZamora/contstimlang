@@ -37,7 +37,7 @@ from vocabulary import vocab_low, vocab_cap
 
 def get_word2id_dict():
     with open(
-        os.path.join("resources", "model_checkpoints", "neuralnet_word2id_dict.pkl"),
+        os.path.join("model_checkpoints", "neuralnet_word2id_dict.pkl"),
         "rb",
     ) as file:
         word2id = pickle.load(file)
@@ -113,12 +113,13 @@ class model_factory:
             self.is_word_prob_exact = False
 
         elif name == "bilstm":
-            self.model=torch.load('contstim_bilstm.pt').to('cuda:'+str(gpu_id))
-            # self.model = RNNLM_bilstm().load_state_dict(
-            #     torch.load(
-            #         os.path.join("model_checkpoints", "bilstm_state_dict.pt")
-            #     ).to("cuda:" + str(gpu_id))
-            # )
+            self.model = RNNLM_bilstm(
+                vocab_size=94608, embed_size=256, hidden_size=256, num_layers=1
+            )
+            self.model.load_state_dict(
+                torch.load(os.path.join("model_checkpoints", "bilstm_state_dict.pt"))
+            )
+            self.model = self.model.to("cuda:" + str(gpu_id))
             self.word2id = word2id
             self.id2word = id2word
             self.embed_size = 256
@@ -128,7 +129,13 @@ class model_factory:
             self.is_word_prob_exact = False
 
         elif name == "lstm":
-            self.model = torch.load("contstim_lstm.pt").to("cuda:" + str(gpu_id))
+            self.model = RNNLM(
+                vocab_size=94607, embed_size=256, hidden_size=512, num_layers=1
+            )
+            self.model.load_state_dict(
+                torch.load(os.path.join("model_checkpoints", "lstm_state_dict.pt"))
+            )
+            self.model = self.model.to("cuda:" + str(gpu_id))
             self.word2id = word2id
             self.id2word = id2word
             self.embed_size = 256
@@ -138,7 +145,13 @@ class model_factory:
             self.is_word_prob_exact = False
 
         elif name == "rnn":
-            self.model = torch.load("contstim_rnn.pt").to("cuda:" + str(gpu_id))
+            self.model = RNNModel(
+                vocab_size=94607, embed_size=256, hidden_size=512, num_layers=1
+            )
+            self.model.load_state_dict(
+                torch.load(os.path.join("model_checkpoints", "rnn_state_dict.pt"))
+            )
+            self.model = self.model.to("cuda:" + str(gpu_id))
             self.word2id = word2id
             self.id2word = id2word
             self.embed_size = 256
@@ -148,11 +161,15 @@ class model_factory:
             self.is_word_prob_exact = True
 
         elif name == "trigram":
-            self.model = KneserNey.load("trigram.model")
+            self.model = KneserNey.load(
+                os.path.join("model_checkpoints", "trigram.model")
+            )
             self.is_word_prob_exact = True
 
         elif name == "bigram":
-            self.model = KneserNey.load("bigram.model")
+            self.model = KneserNey.load(
+                os.path.join("model_checkpoints", "bigram.model")
+            )
             self.is_word_prob_exact = True
         else:
             raise ValueError
