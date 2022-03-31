@@ -1,4 +1,3 @@
-# %%
 from collections import OrderedDict
 import random
 import re
@@ -48,7 +47,6 @@ model_order = [
 ]
 
 # define model colors
-
 # color pallete from colorbrewer2 : https://colorbrewer2.org/?type=qualitative&scheme=Paired&n=9#type=qualitative&scheme=Accent&n=3
 model_palette = {
     "gpt2": "#a6cee3",

@@ -19,10 +19,7 @@ from transformers import (
     ElectraForMaskedLM,
 )
 
-# these modules are implicitly imported by torch.load()
-from lstm_class import RNNLM
-from bilstm_class import RNNLM_bilstm
-from rnn_class import RNNModel
+from recurrent_NNs import RNNLM, RNNLM_bilstm, RNNModel
 
 from knlm import KneserNey
 
