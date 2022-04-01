@@ -6,19 +6,26 @@ import pickle
 
 import numpy as np
 import scipy.stats
+import pandas as pd
 import gurobipy as gb  # Gurobi requires installing a license first (there's a free academic license)
 from gurobipy import GRB
-import pandas as pd
+
 
 allow_only_prepositions_to_repeat = True
 
-npys = glob.glob(os.path.join("natural_sentence_probabilities", "*.npy"))
+npys = glob.glob(
+    os.path.join("resources", "precomputed_sentence_probabilities", "*.npy")
+)
 models = [s.split(".")[-2].split("_")[-1] for s in npys]
 n_models = len(models)
 
-txt_fname = "sents_reddit_natural_June2021_filtered.txt"
+txt_fname = os.path.join(
+    "resources",
+    "sentence_corpora",
+    "natural_sentences_for_natural_controversial_sentence_pair_selection.txt",
+)
 
-with open(os.path.join("natural_sentence_probabilities", txt_fname)) as f:
+with open(txt_fname) as f:
     sentences = f.readlines()
 sentences = [s.strip() for s in sentences]
 n_sentences = len(sentences)
@@ -37,7 +44,9 @@ ranked_log_prob = scipy.stats.rankdata(log_prob, axis=0, method="average") / len
 
 # %% throw sentences that are not controversial at all
 if allow_only_prepositions_to_repeat:
-    allowed_repeating_words = set(pickle.load(open("preps.pkl", "rb")))
+    allowed_repeating_words = set(
+        pickle.load(open(os.path.join("resources", "preps.pkl"), "rb"))
+    )
     keep_words_unique = True
 else:
     allowed_repeating_words = None
@@ -201,9 +210,10 @@ def select_sentences_Gurobi(
 
 
 # X=minmax_opt(sentences,models,ranked_log_prob)
+print("solving ILP problem (this takes some time...)")
 df = select_sentences_Gurobi(sentences, models, ranked_log_prob, mode="minsum")
 pd.set_option("display.max_rows", None, "display.max_columns", None)
 pd.set_option("display.width", 1000)
 print(df)
 
-df.to_csv(txt_fname.replace("_filtered.txt", "_selected.csv"))
+df.to_csv(txt_fname.replace("_.txt", "_selected.csv"))
