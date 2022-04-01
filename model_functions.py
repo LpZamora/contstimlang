@@ -18,10 +18,9 @@ from transformers import (
     ElectraTokenizer,
     ElectraForMaskedLM,
 )
+from knlm import KneserNey
 
 from recurrent_NNs import RNNLM, RNNLM_bilstm, RNNModel
-
-from knlm import KneserNey
 
 logsoftmax = torch.nn.LogSoftmax(dim=-1)
 
@@ -54,14 +53,23 @@ class model_factory:
     """Factory class for creating models"""
 
     def __init__(self, name, gpu_id):
+        """Initialize the model
+
+        args:
+            name: name of the model
+            gpu_id: integer id of the gpu to use (or None for cpu)
+        """
 
         self.name = name
-        self.gpu_id = gpu_id
+        if gpu_id is None:
+            self.device = torch.device("cpu")
+        else:
+            self.device = torch.device(f"cuda:{gpu_id}")
 
         if name == "bert":
             self.tokenizer = BertTokenizer.from_pretrained("bert-large-cased")
             self.model = BertForMaskedLM.from_pretrained("bert-large-cased").to(
-                "cuda:" + str(gpu_id)
+                self.device
             )
             self.is_word_prob_exact = False
 
@@ -69,20 +77,20 @@ class model_factory:
             self.tokenizer = BertTokenizer.from_pretrained("bert-large-cased")
             self.model = BertForMaskedLM.from_pretrained(
                 "bert-large-cased-whole-word-masking"
-            ).to("cuda:" + str(gpu_id))
+            ).to(self.device)
             self.is_word_prob_exact = False
 
         elif name == "roberta":
             self.tokenizer = RobertaTokenizer.from_pretrained("roberta-large")
             self.model = RobertaForMaskedLM.from_pretrained("roberta-large").to(
-                "cuda:" + str(gpu_id)
+                self.device
             )
             self.is_word_prob_exact = False
 
         elif name == "xlm":
             self.tokenizer = XLMTokenizer.from_pretrained("xlm-mlm-en-2048")
             self.model = XLMWithLMHeadModel.from_pretrained("xlm-mlm-en-2048").to(
-                "cuda:" + str(gpu_id)
+                self.device
             )
             self.is_word_prob_exact = False
 
@@ -92,21 +100,17 @@ class model_factory:
             )
             self.model = ElectraForMaskedLM.from_pretrained(
                 "google/electra-large-generator"
-            ).to("cuda:" + str(gpu_id))
+            ).to(self.device)
             self.is_word_prob_exact = False
 
         elif name == "gpt2":
             self.tokenizer = GPT2Tokenizer.from_pretrained("gpt2-xl")
-            self.model = GPT2LMHeadModel.from_pretrained("gpt2-xl").to(
-                "cuda:" + str(gpu_id)
-            )
+            self.model = GPT2LMHeadModel.from_pretrained("gpt2-xl").to(self.device)
             self.is_word_prob_exact = False
 
         elif name == "naive_gpt2":
             self.tokenizer = GPT2Tokenizer.from_pretrained("gpt2-xl")
-            self.model = GPT2LMHeadModel.from_pretrained("gpt2-xl").to(
-                "cuda:" + str(gpu_id)
-            )
+            self.model = GPT2LMHeadModel.from_pretrained("gpt2-xl").to(self.device)
             self.is_word_prob_exact = False
 
         elif name == "bilstm":
@@ -116,7 +120,7 @@ class model_factory:
             self.model.load_state_dict(
                 torch.load(os.path.join("model_checkpoints", "bilstm_state_dict.pt"))
             )
-            self.model = self.model.to("cuda:" + str(gpu_id))
+            self.model = self.model.to(self.device)
             self.word2id = word2id
             self.id2word = id2word
             self.embed_size = 256
@@ -132,7 +136,7 @@ class model_factory:
             self.model.load_state_dict(
                 torch.load(os.path.join("model_checkpoints", "lstm_state_dict.pt"))
             )
-            self.model = self.model.to("cuda:" + str(gpu_id))
+            self.model = self.model.to(self.device)
             self.word2id = word2id
             self.id2word = id2word
             self.embed_size = 256
@@ -148,7 +152,7 @@ class model_factory:
             self.model.load_state_dict(
                 torch.load(os.path.join("model_checkpoints", "rnn_state_dict.pt"))
             )
-            self.model = self.model.to("cuda:" + str(gpu_id))
+            self.model = self.model.to(self.device)
             self.word2id = word2id
             self.id2word = id2word
             self.embed_size = 256
@@ -511,8 +515,6 @@ def get_token_info(self):
 
 def bidirectional_transformer_sent_prob(self, sent):
 
-    gpu_id = self.gpu_id
-
     tokenizer = self.tokenizer
     model = self.model
 
@@ -521,7 +523,7 @@ def bidirectional_transformer_sent_prob(self, sent):
 
     word_tokens_per = tokenizer.encode(sent + ".")
     word_tokens_per[-2] = tokenizer.mask_token_id
-    in1 = torch.tensor(word_tokens_per).to("cuda:" + str(gpu_id)).unsqueeze(0)
+    in1 = torch.tensor(word_tokens_per).to(self.device).unsqueeze(0)
     with torch.no_grad():
         out = model(input_ids=in1)[0]
         out = out[:, -2, :]
@@ -659,7 +661,7 @@ def bidirectional_transformer_sent_prob(self, sent):
         for t in tokens_all
     ]
 
-    inputs = torch.tensor(tokens_all).to("cuda:" + str(gpu_id))
+    inputs = torch.tensor(tokens_all).to(self.device)
 
     batchsize = 500
 
@@ -706,7 +708,10 @@ def bidirectional_transformer_sent_prob(self, sent):
                 else:
                     soft = torch.cat((soft, soft1))
 
-                torch.cuda.empty_cache()
+                try:
+                    torch.cuda.empty_cache()
+                except:
+                    pass
 
         orders = list(itertools.permutations(word_inds, i))
 
@@ -767,8 +772,6 @@ def bidirectional_transformer_sent_prob(self, sent):
 
 def bidirectional_transformer_word_probs(self, words, wordi):
 
-    gpu_id = self.gpu_id
-
     tokenizer = self.tokenizer
     model = self.model
 
@@ -812,8 +815,8 @@ def bidirectional_transformer_word_probs(self, words, wordi):
 
     att_mask = [[1] * len(i) + [0] * (maxlen - len(i)) for i in inputs]
 
-    inputs = torch.tensor(inputs).to("cuda:" + str(gpu_id))
-    att_mask = torch.tensor(att_mask, dtype=torch.float32).to("cuda:" + str(gpu_id))
+    inputs = torch.tensor(inputs).to(self.device)
+    att_mask = torch.tensor(att_mask, dtype=torch.float32).to(self.device)
 
     batchsize = 500
 
@@ -863,8 +866,6 @@ def bidirectional_transformer_word_probs(self, words, wordi):
 
 def xlm_word_probs(self, words, wordi):
 
-    gpu_id = self.gpu_id
-
     tokenizer = self.tokenizer
     model = self.model
 
@@ -908,8 +909,8 @@ def xlm_word_probs(self, words, wordi):
 
     att_mask = [[0] * (maxlen - len(i)) + [1] * len(i) for i in inputs]
 
-    inputs = torch.tensor(inputs).to("cuda:" + str(gpu_id))
-    att_mask = torch.tensor(att_mask, dtype=torch.float32).to("cuda:" + str(gpu_id))
+    inputs = torch.tensor(inputs).to(self.device)
+    att_mask = torch.tensor(att_mask, dtype=torch.float32).to(self.device)
 
     batchsize = 500
 
@@ -971,8 +972,6 @@ def xlm_word_probs(self, words, wordi):
 
 def gpt2_sent_prob(self, sent):
 
-    gpu_id = self.gpu_id
-
     tokenizer = self.tokenizer
     model = self.model
 
@@ -982,7 +981,7 @@ def gpt2_sent_prob(self, sent):
     sent = ". " + sent + "."
 
     tokens = tokenizer.encode(sent)
-    inputs = torch.tensor(tokens).to("cuda:" + str(gpu_id))
+    inputs = torch.tensor(tokens).to(self.device)
 
     with torch.no_grad():
         out = model(inputs)
@@ -1015,8 +1014,6 @@ def gpt2_sent_prob(self, sent):
 
 def gpt2_word_probs(self, words, wordi):
 
-    gpu_id = self.gpu_id
-
     tokenizer = self.tokenizer
     model = self.model
 
@@ -1041,7 +1038,7 @@ def gpt2_word_probs(self, words, wordi):
     lp = 0
     while 0 == 0:
         in1 = tok1
-        in1 = torch.tensor(in1).to("cuda:" + str(gpu_id))
+        in1 = torch.tensor(in1).to(self.device)
 
         with torch.no_grad():
             out1 = model(in1)[0]
@@ -1096,10 +1093,8 @@ def gpt2_word_probs(self, words, wordi):
 
         att_mask1 = att_mask[batchsize * i : batchsize * (i + 1)]
 
-        inputs2 = torch.tensor(inputs1).to("cuda:" + str(gpu_id))
-        att_mask1 = torch.tensor(att_mask1, dtype=torch.float32).to(
-            "cuda:" + str(gpu_id)
-        )
+        inputs2 = torch.tensor(inputs1).to(self.device)
+        att_mask1 = torch.tensor(att_mask1, dtype=torch.float32).to(self.device)
 
         with torch.no_grad():
 
@@ -1107,14 +1102,14 @@ def gpt2_word_probs(self, words, wordi):
 
             out_suff_inds = torch.where(
                 torch.tensor(np.in1d(inputs1, suffs).reshape(inputs1.shape[0], -1)).to(
-                    "cuda:" + str(gpu_id)
+                    self.device
                 )
                 == True
             )
 
             out_start_inds = torch.where(
                 torch.tensor(np.in1d(inputs1, starts).reshape(inputs1.shape[0], -1)).to(
-                    "cuda:" + str(gpu_id)
+                    self.device
                 )
                 == True
             )
@@ -1153,8 +1148,6 @@ def gpt2_word_probs(self, words, wordi):
 
 def naive_gpt2_sent_prob(self, sent):
 
-    gpu_id = self.gpu_id
-
     tokenizer = self.tokenizer
     model = self.model
 
@@ -1164,7 +1157,7 @@ def naive_gpt2_sent_prob(self, sent):
     sent = ". " + sent + "."
 
     tokens = tokenizer.encode(sent)
-    inputs = torch.tensor(tokens).to("cuda:" + str(gpu_id))
+    inputs = torch.tensor(tokens).to(self.device)
 
     with torch.no_grad():
         out = model(inputs)
@@ -1188,8 +1181,6 @@ def naive_gpt2_sent_prob(self, sent):
 
 
 def naive_gpt2_word_probs(self, words, wordi):
-
-    gpu_id = self.gpu_id
 
     tokenizer = self.tokenizer
     model = self.model
@@ -1215,7 +1206,7 @@ def naive_gpt2_word_probs(self, words, wordi):
     lp = 0
     while 0 == 0:
         in1 = tok1
-        in1 = torch.tensor(in1).to("cuda:" + str(gpu_id))
+        in1 = torch.tensor(in1).to(self.device)
 
         with torch.no_grad():
             out1 = model(in1)[0]
@@ -1270,10 +1261,8 @@ def naive_gpt2_word_probs(self, words, wordi):
 
         att_mask1 = att_mask[batchsize * i : batchsize * (i + 1)]
 
-        inputs2 = torch.tensor(inputs1).to("cuda:" + str(gpu_id))
-        att_mask1 = torch.tensor(att_mask1, dtype=torch.float32).to(
-            "cuda:" + str(gpu_id)
-        )
+        inputs2 = torch.tensor(inputs1).to(self.device)
+        att_mask1 = torch.tensor(att_mask1, dtype=torch.float32).to(self.device)
 
         with torch.no_grad():
 
@@ -1304,8 +1293,6 @@ def naive_gpt2_word_probs(self, words, wordi):
 
 def bilstm_word_probs(self, words, wordi):
 
-    gpu_id = self.gpu_id
-
     model = self.model
 
     hidden_size = self.hidden_size
@@ -1319,15 +1306,15 @@ def bilstm_word_probs(self, words, wordi):
         vocab = vocab_cap
 
     states = (
-        torch.zeros(2, 1, hidden_size).to("cuda:" + str(gpu_id)),
-        torch.zeros(2, 1, hidden_size).to("cuda:" + str(gpu_id)),
+        torch.zeros(2, 1, hidden_size).to(self.device),
+        torch.zeros(2, 1, hidden_size).to(self.device),
     )
 
     ids = [word2id[w] for w in words] + [word2id["."]]
 
     ids[wordi] = word2id["[MASK]"]
 
-    ids = torch.tensor(ids).to("cuda:" + str(gpu_id)).unsqueeze(0)
+    ids = torch.tensor(ids).to(self.device).unsqueeze(0)
 
     out, states = model(ids, states, 0, [wordi])
 
@@ -1339,8 +1326,6 @@ def bilstm_word_probs(self, words, wordi):
 
 
 def bilstm_sent_prob(self, sent):
-
-    gpu_id = self.gpu_id
 
     model = self.model
 
@@ -1375,11 +1360,11 @@ def bilstm_sent_prob(self, sent):
 
         order_to_chain[key] = i
 
-    chains = torch.tensor(chains).to("cuda:" + str(gpu_id))
+    chains = torch.tensor(chains).to(self.device)
 
     states = (
-        torch.zeros(2, chains.shape[0], hidden_size).to("cuda:" + str(gpu_id)),
-        torch.zeros(2, chains.shape[0], hidden_size).to("cuda:" + str(gpu_id)),
+        torch.zeros(2, chains.shape[0], hidden_size).to(self.device),
+        torch.zeros(2, chains.shape[0], hidden_size).to(self.device),
     )
 
     out, states = model(chains, states, 0, np.arange(chains.shape[0] * chains.shape[1]))
@@ -1421,8 +1406,6 @@ def bilstm_sent_prob(self, sent):
 
 def lstm_word_probs(self, words, wordi):
 
-    gpu_id = self.gpu_id
-
     model = self.model
 
     hidden_size = self.hidden_size
@@ -1440,13 +1423,11 @@ def lstm_word_probs(self, words, wordi):
     words = ["."] + words + ["."]
 
     states = (
-        torch.zeros(num_layers, 1, hidden_size).to("cuda:" + str(gpu_id)),
-        torch.zeros(num_layers, 1, hidden_size).to("cuda:" + str(gpu_id)),
+        torch.zeros(num_layers, 1, hidden_size).to(self.device),
+        torch.zeros(num_layers, 1, hidden_size).to(self.device),
     )
 
-    inputs = (
-        torch.tensor([word2id[w] for w in words]).to("cuda:" + str(gpu_id)).unsqueeze(0)
-    )
+    inputs = torch.tensor([word2id[w] for w in words]).to(self.device).unsqueeze(0)
     outputs, states = model(inputs, states, 0)
     soft = logsoftmax(outputs).cpu().data.numpy()
 
@@ -1460,8 +1441,8 @@ def lstm_word_probs(self, words, wordi):
     for wi, w in enumerate(top_words):
 
         states = (
-            torch.zeros(num_layers, 1, hidden_size).to("cuda:" + str(gpu_id)),
-            torch.zeros(num_layers, 1, hidden_size).to("cuda:" + str(gpu_id)),
+            torch.zeros(num_layers, 1, hidden_size).to(self.device),
+            torch.zeros(num_layers, 1, hidden_size).to(self.device),
         )
 
         words[wordi] = w
@@ -1476,8 +1457,6 @@ def lstm_word_probs(self, words, wordi):
 
 def lstm_sent_prob(self, sent):
 
-    gpu_id = self.gpu_id
-
     model = self.model
 
     hidden_size = self.hidden_size
@@ -1486,15 +1465,13 @@ def lstm_sent_prob(self, sent):
     num_layers = self.num_layers
 
     states = (
-        torch.zeros(num_layers, 1, hidden_size).to("cuda:" + str(gpu_id)),
-        torch.zeros(num_layers, 1, hidden_size).to("cuda:" + str(gpu_id)),
+        torch.zeros(num_layers, 1, hidden_size).to(self.device),
+        torch.zeros(num_layers, 1, hidden_size).to(self.device),
     )
 
     words = ["."] + sent.split() + ["."]
 
-    inputs = (
-        torch.tensor([word2id[w] for w in words]).to("cuda:" + str(gpu_id)).unsqueeze(0)
-    )
+    inputs = torch.tensor([word2id[w] for w in words]).to(self.device).unsqueeze(0)
 
     outputs, states = model(inputs, states, 0)
 
@@ -1507,8 +1484,6 @@ def lstm_sent_prob(self, sent):
 
 def rnn_sent_prob(self, sent):
 
-    gpu_id = self.gpu_id
-
     model = self.model
 
     hidden_size = self.hidden_size
@@ -1517,17 +1492,15 @@ def rnn_sent_prob(self, sent):
     num_layers = self.num_layers
 
     states = (
-        torch.zeros(num_layers, 1, hidden_size).to("cuda:" + str(gpu_id)),
-        torch.zeros(num_layers, 1, hidden_size).to("cuda:" + str(gpu_id)),
+        torch.zeros(num_layers, 1, hidden_size).to(self.device),
+        torch.zeros(num_layers, 1, hidden_size).to(self.device),
     )
 
     words = ["."] + sent.split() + ["."]
 
-    inputs = (
-        torch.tensor([word2id[w] for w in words]).to("cuda:" + str(gpu_id)).unsqueeze(0)
-    )
+    inputs = torch.tensor([word2id[w] for w in words]).to(self.device).unsqueeze(0)
 
-    h0 = torch.zeros(num_layers, 1, hidden_size).to("cuda:" + str(gpu_id))
+    h0 = torch.zeros(num_layers, 1, hidden_size).to(self.device)
 
     outputs, states = model(inputs, h0)
 
@@ -1539,8 +1512,6 @@ def rnn_sent_prob(self, sent):
 
 
 def rnn_word_probs(self, words, wordi):
-
-    gpu_id = self.gpu_id
 
     model = self.model
 
@@ -1558,11 +1529,9 @@ def rnn_word_probs(self, words, wordi):
 
     words = ["."] + words + ["."]
 
-    h0 = torch.zeros(num_layers, 1, hidden_size).to("cuda:" + str(gpu_id))
+    h0 = torch.zeros(num_layers, 1, hidden_size).to(self.device)
 
-    inputs = (
-        torch.tensor([word2id[w] for w in words]).to("cuda:" + str(gpu_id)).unsqueeze(0)
-    )
+    inputs = torch.tensor([word2id[w] for w in words]).to(self.device).unsqueeze(0)
     outputs, states = model(inputs, h0)
     soft = logsoftmax(outputs).cpu().data.numpy()[0]
 
@@ -1576,21 +1545,13 @@ def rnn_word_probs(self, words, wordi):
     for wi, w in enumerate(top_words):
 
         states = (
-            torch.zeros(num_layers, 1, hidden_size).to("cuda:" + str(gpu_id)),
-            torch.zeros(num_layers, 1, hidden_size).to("cuda:" + str(gpu_id)),
+            torch.zeros(num_layers, 1, hidden_size).to(self.device),
+            torch.zeros(num_layers, 1, hidden_size).to(self.device),
         )
 
         words[wordi] = w
 
         prob = rnn_sent_prob(self, " ".join(words[1:-1]))
-
-        #         inputs = torch.tensor([word2id[w] for w in words]).to('cuda:'+str(gpu_id)).unsqueeze(0)
-
-        #         outputs, states = model(inputs, h0)
-
-        #         soft=torch.softmax(outputs,-1).cpu().data.numpy()[0]
-
-        #         prob=float(np.prod([float(soft[wordi-1+x,word2id[w1]]) for x,w1 in enumerate(words[wordi:])]))
 
         probs.append(prob)
 
