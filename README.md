@@ -37,7 +37,7 @@ Each compute node should have 2 GPUs.
 # How to generate an entire set of natural controversial sentence pairs
 First, install [GUROBI](https://duckduckgo.com). The free academic license is sufficient.
 
-Then, run ``.
+Then, run `select_natural_controversial_pairs.py`.
 
 The code takes about an hour on a modern workstation and may require high RAM (tested on a 128GB machine).
 
