@@ -18,9 +18,7 @@ CUDA Version: 10.2
 ```python download_checkpoints.py```
 (This will download the checkpoints for the following models from Zenodo: BIGRAM, TRIGRAM, RNN, LSTM, BILSTM. The transformer models will be automatically downloaded when the sentence generation code is first run.)
 
-if you don't use Anaconda, replace `conda env create --name contstimlang --file contstimlang` with 
-
-```pip install requirements.txt```
+if you don't use Anaconda, replace `conda env create --name contstimlang --file contstimlang` with ```pip install requirements.txt```
 
 # How to generate a single controversial synthetic sentence pair
 Use the file `make_contstim` to generate controversial sentence pairs. There are two versions of this file – a python notebook and a python script. Both should work. There are three arguments that need to be hardcoded at the top of the scripts: model1, model2, and squashing_threshold.
