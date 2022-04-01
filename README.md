@@ -42,4 +42,6 @@ Then, run ``.
 The code takes about an hour on a modern workstation and may require high RAM (tested on a 128GB machine).
 
 # Currently included models 
-GPT2, BERT, ROBERTA, ELECTRA, XLM, BILSTM, LSTM, RNN, TRIGRAM, BIGRAM, BERT_WHOLE_WORD (not evaluated in the paper)
+GPT2, BERT, ROBERTA, ELECTRA, XLM, LSTM, RNN, TRIGRAM, BIGRAM
+
+BILSTM, BERT_WHOLE_WORD (not evaluated in the paper)
