@@ -3,9 +3,7 @@ Code for generating controversial sentence pairs, supporting material for **"Tes
 
 # Environment setup
 
-Python 3.7.6
-
-CUDA Version: 10.2
+Tested under Python 3.7.6, Torch 1.3.1, and 2.9.0 (but might work also with later versions).
 
 # How to install (Anaconda, recommended)
 
@@ -22,15 +20,21 @@ if you don't use Anaconda, replace `conda env create --name contstimlang --file 
 
 # How to generate a single controversial synthetic sentence pair
 Use the file `synthesize_one_controversial_sentence_pair` to generate controversial sentence pairs. For a quick example, run
-```python synthesize_one_controversial_sentence_pair.py --model_accept bigram --model_reject trigram --initial_sentence "Life’s preference for symmetry is like a new law of nature"'''
 
-This generates a synthetic sentence whose probability according to the 3-gram is lower than the probability of the natural sentence, but is as likely accordsing to the 2-gram. To invert model roles, run:
+```python synthesize_one_controversial_sentence_pair.py --model_accept bigram --model_reject trigram --initial_sentence "Life’s preference for symmetry is like a new law of nature"```
+
+This generates a synthetic sentence whose probability according to the 3-gram is lower than the probability of the natural sentence, but is as likely according to the 2-gram model.
+
+To invert model roles, run:
+
 ```python synthesize_one_controversial_sentence_pair.py --model_accept trigram --model_reject bigram --initial_sentence "Life’s preference for symmetry is like a new law of nature"```
 
 Next, we can compare the trigram with GPT-2 (this requires a GPU)
+
 ```python synthesize_one_controversial_sentence_pair.py --model_accept trigram --model_reject gpt2 --initial_sentence "Life’s preference for symmetry is like a new law of nature"```
 
 To compare BERT and GPT-2, run 
+
 ```python synthesize_one_controversial_sentence_pair.py --model_accept bert --model_reject gpt2 --initial_sentence "Life’s preference for symmetry is like a new law of nature"```
 and grab a cup of coffee. This may require two GPUs.
 
@@ -39,8 +43,7 @@ Type `python synthesize_one_controversial_sentence_pair.py -help` for more info.
 # How to generate an entire set of synthetic controversial sentence pairs
 Run `batch_synthesize_controversial_pairs.py`. This file is designed to be run in parallel by multiple nodes/workers.
 
-We include this code as a reference, but it cannot be practically used without an HPC environment since the generation of each sentence pair can take a few minutes.
-Each compute node should have 2 GPUs.
+To generate a set of sentence as big as we used in the preprint, you would need an HPC environment since the generation of each sentence pair can take a few minutes (depending on the model). Each compute node should have 2 GPUs.
 
 # How to generate an entire set of natural controversial sentence pairs
 First, install [GUROBI](https://duckduckgo.com). The free academic license is sufficient.
