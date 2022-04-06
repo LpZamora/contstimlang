@@ -1,6 +1,5 @@
 # %% Setup and load data
-import glob, os
-from operator import itruediv
+import glob, os, pathlib
 import itertools
 import pickle
 import argparse
@@ -20,22 +19,20 @@ default_txt_fname = os.path.join(
     "natural_sentences_for_natural_controversial_sentence_pair_selection.txt",
 )
 
-argparser = argparse.ArgumentParser()
-argparser.add_argument("--natural_sentences_file", type=str, default=default_txt_fname)
-argparser.add_argument(
+parser = argparse.ArgumentParser()
+parser.add_argument("--natural_sentences_file", type=str, default=default_txt_fname)
+parser.add_argument(
     "--output_file",
     type=str,
     default=default_txt_fname.replace(".txt", "_selected.csv"),
 )
-argparser.add_argument(
+parser.add_argument(
     "--precomputed_sentence_probabilities_folder",
     type=str,
     default="resources/precomputed_sentence_probabilities",
 )
-argparser.add_argument(
-    "--allow_only_prepositions_to_repeat", type=strbool, default=True
-)
-args = argparser.parse_args()
+parser.add_argument("--allow_only_prepositions_to_repeat", type=strbool, default=True)
+args = parser.parse_args()
 
 npys = glob.glob(os.path.join(args.precomputed_sentence_probabilities_folder, "*.npy"))
 
@@ -237,5 +234,8 @@ pd.set_option("display.max_rows", None, "display.max_columns", None)
 pd.set_option("display.width", 1000)
 print(df)
 
+target_folder = pathlib.Path(os.path.dirname(args.output_file)).mkdir(
+    parents=True, exist_ok=True
+)
 df.to_csv(args.output_file)
 print("saved selected files in", args.output_file)
