@@ -2554,13 +2554,13 @@ def model_by_model_agreement_heatmap(
 
 
 def data_preprocessing(
-    results_csv="behavioral_results/contstim_Aug2021_n100_results.csv",
+    results_csv="behavioral_results/contstim_Aug2021_n100_results_anon.csv",
 ):
     """preprocess data from the behavioral results csv file"""
 
-    aligned_results_csv = results_csv.replace(".csv", "_aligned.csv")
+    aligned_results_csv = results_csv.replace("_anon.csv","_aligned_anon.csv")
     aligned_results_csv_with_loso = results_csv.replace(
-        ".csv", "_aligned_with_loso.csv"
+        "_anon.csv", "_aligned_with_loso_anon.csv"
     )
     try:  # try to load an already preprocessed file
         df = pd.read_csv(aligned_results_csv_with_loso)
@@ -2580,21 +2580,24 @@ def data_preprocessing(
             .reset_index()
         )
 
-        # anonymize subject IDs
-        IDs, df["subject"] = np.unique(
-            df["Participant Private ID"], return_inverse=True
-        )
-        df = df.drop(columns=["Participant Private ID"])
+        # anonymize subject IDs, if not already anonymized
+        if "Participant Private ID" in df.columns:
+            IDs, df["subject"] = np.unique(
+                df["Participant Private ID"], return_inverse=True
+            )
+            df = df.drop(columns=["Participant Private ID"])
+
+            df.to_csv(aligned_results_csv)
+            pd.DataFrame(IDs).to_csv(
+                aligned_results_csv.replace(".csv", "_subject_ID_list.csv")
+            )
+        else:
+            assert "subject" in df.columns, "subject column not found"
 
         # write down subject groups (each 10 subject group had the same trials)
         df["subject_group"] = [
             int(re.findall("set (\d+)_.", s)[0]) for s in df["counterbalance-o1ql"]
         ]
-
-        df.to_csv(aligned_results_csv)
-        pd.DataFrame(IDs).to_csv(
-            aligned_results_csv.replace(".csv", "_subject_ID_list.csv")
-        )
 
         # add leave-one-out noise celing estimates
         df = add_leave_one_subject_predictions(df)
