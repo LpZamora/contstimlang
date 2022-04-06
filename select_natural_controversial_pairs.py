@@ -3,6 +3,8 @@ import glob, os
 from operator import itruediv
 import itertools
 import pickle
+import argparse
+from distutils.util import strtobool
 
 import numpy as np
 import scipy.stats
@@ -10,22 +12,44 @@ import pandas as pd
 import gurobipy as gb  # Gurobi requires installing a license first (there's a free academic license)
 from gurobipy import GRB
 
+strbool = lambda x: bool(strtobool(str(x)))
 
-allow_only_prepositions_to_repeat = True
-
-npys = glob.glob(
-    os.path.join("resources", "precomputed_sentence_probabilities", "*.npy")
-)
-models = [s.split(".")[-2].split("_")[-1] for s in npys]
-n_models = len(models)
-
-txt_fname = os.path.join(
+default_txt_fname = os.path.join(
     "resources",
     "sentence_corpora",
     "natural_sentences_for_natural_controversial_sentence_pair_selection.txt",
 )
 
-with open(txt_fname) as f:
+argparser = argparse.ArgumentParser()
+argparser.add_argument("--natural_sentences_file", type=str, default=default_txt_fname)
+argparser.add_argument(
+    "--output_file",
+    type=str,
+    default=default_txt_fname.replace(".txt", "_selected.csv"),
+)
+argparser.add_argument(
+    "--precomputed_sentence_probabilities_folder",
+    type=str,
+    default="resources/precomputed_sentence_probabilities",
+)
+argparser.add_argument(
+    "--allow_only_prepositions_to_repeat", type=strbool, default=True
+)
+args = argparser.parse_args()
+
+npys = glob.glob(os.path.join(args.precomputed_sentence_probabilities_folder, "*.npy"))
+
+models = [s.split(".")[-2].split("_")[-1] for s in npys]
+n_models = len(models)
+
+if n_models >= 1:
+    print(f"found files for {n_models} models:", models)
+else:
+    print(
+        "no precomputed sentence probability files found, run first get_natural_sent_probs.py for each model"
+    )
+
+with open(args.natural_sentences_file, "r") as f:
     sentences = f.readlines()
 sentences = [s.strip() for s in sentences]
 n_sentences = len(sentences)
@@ -43,7 +67,7 @@ ranked_log_prob = scipy.stats.rankdata(log_prob, axis=0, method="average") / len
 )
 
 # %% throw sentences that are not controversial at all
-if allow_only_prepositions_to_repeat:
+if args.allow_only_prepositions_to_repeat:
     allowed_repeating_words = set(
         pickle.load(open(os.path.join("resources", "preps.pkl"), "rb"))
     )
@@ -92,8 +116,6 @@ def prefilter_sentences(
             is_there_a_repetition = len(non_prep_words) > len(set(non_prep_words))
             if is_there_a_repetition:
                 mask[idx] = False
-                # print('rejected due to word repetition:',sentence)
-                # print(non_prep_words)
 
     return list(np.asarray(sentences)[mask]), ranked_log_prob[mask]
 
@@ -209,11 +231,11 @@ def select_sentences_Gurobi(
     return df
 
 
-# X=minmax_opt(sentences,models,ranked_log_prob)
 print("solving ILP problem (this takes some time...)")
 df = select_sentences_Gurobi(sentences, models, ranked_log_prob, mode="minsum")
 pd.set_option("display.max_rows", None, "display.max_columns", None)
 pd.set_option("display.width", 1000)
 print(df)
 
-df.to_csv(txt_fname.replace("_.txt", "_selected.csv"))
+df.to_csv(args.output_file)
+print("saved selected files in", args.output_file)
