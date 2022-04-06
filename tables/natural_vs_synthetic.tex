@@ -1,0 +1,24 @@
+\begin{tabularx}{\textwidth}{lllc}
+\toprule
+                                                        sentence &                             log probability (model 1) &                             log probability (model 2) &   \# human choices \\
+\midrule
+                   $n$: I always cover for him and make excuses. &             $\log p(n | \textrm{GPT-2})=$\num{-36.46} &  $\log p(n | \textrm{2-gram})=$\textbf{\num{-106.95}} &  \textbf{\num{10}} \\
+                     \makebox[0pt][l]{$s$: }\hphantom{$n$: }We either wish for it or ourselves do. &    $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{GPT-2})=$\textbf{\num{-36.15}} &           $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{2-gram})=$\num{-122.28} &            \num{0} \\\midrule
+                    $n$: Sorry for the wait getting back to you. &           $\log p(n | \textrm{RoBERTa})=$\num{-50.47} &  $\log p(n | \textrm{ELECTRA})=$\textbf{\num{-36.73}} &  \textbf{\num{10}} \\
+                    \makebox[0pt][l]{$s$: }\hphantom{$n$: }Click for the help sending this to you. &  $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{RoBERTa})=$\textbf{\num{-50.08}} &           $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{ELECTRA})=$\num{-45.08} &            \num{0} \\\midrule
+      \makebox[0pt][l]{$s$: }\hphantom{$n$: }He healed faster than any professional sports player. &           $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{ELECTRA})=$\num{-48.77} &     $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{BERT})=$\textbf{\num{-50.21}} &  \textbf{\num{10}} \\
+          $n$: He fell faster than a professional soccer player. &  $\log p(n | \textrm{ELECTRA})=$\textbf{\num{-38.37}} &              $\log p(n | \textrm{BERT})=$\num{-50.28} &            \num{0} \\\midrule
+             $n$: The rule this post violated is outlined below. &              $\log p(n | \textrm{BERT})=$\num{-60.17} &  $\log p(n | \textrm{2-gram})=$\textbf{\num{-122.36}} &  \textbf{\num{10}} \\
+ \makebox[0pt][l]{$s$: }\hphantom{$n$: }What ordinance this authority enforces is specified below. &     $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{BERT})=$\textbf{\num{-59.43}} &           $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{2-gram})=$\num{-142.68} &            \num{0} \\\midrule
+                   $n$: You can find way better deals than that. &               $\log p(n | \textrm{XLM})=$\num{-45.10} &  $\log p(n | \textrm{RoBERTa})=$\textbf{\num{-46.22}} &  \textbf{\num{10}} \\
+                      \makebox[0pt][l]{$s$: }\hphantom{$n$: }You can feed me more ridge like that. &      $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{XLM})=$\textbf{\num{-44.21}} &           $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{RoBERTa})=$\num{-65.16} &            \num{0} \\\midrule
+                 $n$: There was swelling of my lungs and lining. &              $\log p(n | \textrm{LSTM})=$\num{-47.62} &  $\log p(n | \textrm{RoBERTa})=$\textbf{\num{-61.35}} &  \textbf{\num{10}} \\
+                 \makebox[0pt][l]{$s$: }\hphantom{$n$: }There was heed of my chimneys and wrinkle. &     $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{LSTM})=$\textbf{\num{-46.05}} &           $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{RoBERTa})=$\num{-92.24} &            \num{0} \\\midrule
+             $n$: Having crit done solves most of your problems. &               $\log p(n | \textrm{RNN})=$\num{-69.22} &    $\log p(n | \textrm{GPT-2})=$\textbf{\num{-44.35}} &  \textbf{\num{10}} \\
+            \makebox[0pt][l]{$s$: }\hphantom{$n$: }High mashing choral swerved every of your only. &      $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{RNN})=$\textbf{\num{-69.02}} &            $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{GPT-2})=$\num{-102.36} &            \num{0} \\\midrule
+   $n$: Those additional details paint a very different picture. &            $\log p(n | \textrm{3-gram})=$\num{-98.61} &    $\log p(n | \textrm{GPT-2})=$\textbf{\num{-34.05}} &  \textbf{\num{10}} \\
+            \makebox[0pt][l]{$s$: }\hphantom{$n$: }Every endgame peeling paint a very nice people. &   $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{3-gram})=$\textbf{\num{-98.11}} &             $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{GPT-2})=$\num{-75.31} &            \num{0} \\\midrule
+                   $n$: Like when you removed my post and stuff. &           $\log p(n | \textrm{2-gram})=$\num{-113.38} &      $\log p(n | \textrm{XLM})=$\textbf{\num{-47.87}} &  \textbf{\num{10}} \\
+       \makebox[0pt][l]{$s$: }\hphantom{$n$: }Obviously if not restrain my highschool and whatnot. &  $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{2-gram})=$\textbf{\num{-113.06}} &               $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{XLM})=$\num{-82.50} &            \num{0} \\
+\bottomrule
+\end{tabularx}

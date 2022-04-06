@@ -1,0 +1,24 @@
+\begin{tabularx}{\textwidth}{lllc}
+\toprule
+                                                       sentence &                               log probability (model 1) &                               log probability (model 2) &   \# human choices \\
+\midrule
+              $n_1$: Rust is generally caused by salt and sand. &             $\log p(n_1 | \textrm{GPT-2})=$\num{-50.72} &  $\log p(n_1 | \textrm{ELECTRA})=$\textbf{\num{-38.54}} &  \textbf{\num{10}} \\
+                $n_2$: Where is Vernon Roche when you need him. &    $\log p(n_2 | \textrm{GPT-2})=$\textbf{\num{-32.26}} &           $\log p(n_2 | \textrm{ELECTRA})=$\num{-58.26} &            \num{0} \\\midrule
+ $n_1$: Excellent draw and an overall great smoking experience. &           $\log p(n_1 | \textrm{RoBERTa})=$\num{-67.78} &    $\log p(n_1 | \textrm{GPT-2})=$\textbf{\num{-36.76}} &  \textbf{\num{10}} \\
+               $n_2$: I should be higher and tied to inflation. &  $\log p(n_2 | \textrm{RoBERTa})=$\textbf{\num{-54.61}} &             $\log p(n_2 | \textrm{GPT-2})=$\num{-50.31} &            \num{0} \\\midrule
+                 $n_1$: Did you just collect data points on us. &           $\log p(n_1 | \textrm{ELECTRA})=$\num{-55.87} &  $\log p(n_1 | \textrm{2-gram})=$\textbf{\num{-107.56}} &  \textbf{\num{10}} \\
+                        $n_2$: I User To Be In The Living Room. &  $\log p(n_2 | \textrm{ELECTRA})=$\textbf{\num{-38.64}} &           $\log p(n_2 | \textrm{2-gram})=$\num{-134.75} &            \num{0} \\\midrule
+    $n_1$: I have everything organised on an excel spreadsheet. &              $\log p(n_1 | \textrm{BERT})=$\num{-75.78} &  $\log p(n_1 | \textrm{RoBERTa})=$\textbf{\num{-51.72}} &  \textbf{\num{10}} \\
+               $n_2$: I figured her being a prof was secondary. &     $\log p(n_2 | \textrm{BERT})=$\textbf{\num{-53.36}} &           $\log p(n_2 | \textrm{RoBERTa})=$\num{-68.80} &            \num{0} \\\midrule
+             $n_1$: But nothing changes for me with this stock. &               $\log p(n_1 | \textrm{XLM})=$\num{-64.85} &  $\log p(n_1 | \textrm{ELECTRA})=$\textbf{\num{-37.53}} &  \textbf{\num{10}} \\
+                      $n_2$: Or if it was a Denver double mint. &      $\log p(n_2 | \textrm{XLM})=$\textbf{\num{-45.81}} &           $\log p(n_2 | \textrm{ELECTRA})=$\num{-53.91} &            \num{0} \\\midrule
+          $n_1$: We have raised a Generation of Computer geeks. &              $\log p(n_1 | \textrm{LSTM})=$\num{-66.41} &  $\log p(n_1 | \textrm{ELECTRA})=$\textbf{\num{-36.57}} &  \textbf{\num{10}} \\
+                 $n_2$: I mean when the refs are being sketchy. &     $\log p(n_2 | \textrm{LSTM})=$\textbf{\num{-42.04}} &           $\log p(n_2 | \textrm{ELECTRA})=$\num{-52.28} &            \num{0} \\\midrule
+               $n_1$: This lady is slowly ruining her own life. &               $\log p(n_1 | \textrm{RNN})=$\num{-99.26} &     $\log p(n_1 | \textrm{LSTM})=$\textbf{\num{-40.44}} &  \textbf{\num{10}} \\
+               $n_2$: Person said they worked in a legal field. &      $\log p(n_2 | \textrm{RNN})=$\textbf{\num{-47.48}} &              $\log p(n_2 | \textrm{LSTM})=$\num{-57.07} &            \num{0} \\\midrule
+          $n_1$: Avoid titles that sound like polls or surveys. &           $\log p(n_1 | \textrm{3-gram})=$\num{-120.22} &    $\log p(n_1 | \textrm{GPT-2})=$\textbf{\num{-36.34}} &  \textbf{\num{10}} \\
+         $n_2$: Definitely the smile sliding on the first time. &   $\log p(n_2 | \textrm{3-gram})=$\textbf{\num{-91.35}} &             $\log p(n_2 | \textrm{GPT-2})=$\num{-54.80} &            \num{0} \\\midrule
+        $n_1$: These beautiful Memories are what keep us going. &           $\log p(n_1 | \textrm{2-gram})=$\num{-131.19} &  $\log p(n_1 | \textrm{ELECTRA})=$\textbf{\num{-34.40}} &  \textbf{\num{10}} \\
+             $n_2$: We have two months notice periods in India. &  $\log p(n_2 | \textrm{2-gram})=$\textbf{\num{-110.65}} &           $\log p(n_2 | \textrm{ELECTRA})=$\num{-56.43} &            \num{0} \\
+\bottomrule
+\end{tabularx}

@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+<table style="border: 1px solid black; border-spacing: 100px 100;border-collapse: separate; table-layout: fixed; width:100%">
+    <tr>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#f0f0f0">
+
+        minimize p(S1|RNN)
+        <br>
+        such that p(S1|GPT-2) ≥ p(N|GPT-2)
+        <p>
+        <b>N</b>atural sentence: <cite>“Jesse James has been solid when passed to”</cite><br>
+        <b>S</b>ynthetic <b>1</b>: <cite>“Min I has been inebriated when spoke with”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S1</th></tr></thead><tbody><tr><td>RNN</td><td>-627.2</td><td>-1014.2</td></tr><tr><td>GPT-2</td><td>-500.1</td><td>-498.7</td></tr><tr><td>human choices</td><td>8/10</td><td>2/10</td></tr></tbody></table>
+
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#d9d9d9">
+        minimize p(S2|GPT-2)
+        <br>
+        such that p(S2|RNN) ≥ p(N|RNN)
+        <p>
+        <b>N</b>atural sentence: <cite>“Jesse James has been solid when passed to”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“Rescuers were all been blamed within hospitalization across”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S2</th></tr></thead><tbody><tr><td>RNN</td><td>-627.2</td><td>-626.7</td></tr><tr><td>GPT-2</td><td>-500.1</td><td>-1054.4</td></tr><tr><td>human choices</td><td>5/10</td><td>5/10</td></tr></tbody></table>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#bdbdbd">
+        S1 vs S2
+        <br>
+        <br>
+        <p>
+        <b>S</b>ynthetic <b>1</b>: <cite>“Min I has been inebriated when spoke with”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“Rescuers were all been blamed within hospitalization across”</cite>
+        <table><thead><tr><th></th><th>S1</th><th>S2</th></tr></thead><tbody><tr><td>RNN</td><td>-1014.2</td><td>-626.7</td></tr><tr><td>GPT-2</td><td>-498.7</td><td>-1054.4</td></tr><tr><td>human choices</td><td>3/10</td><td>7/10</td></tr></tbody></table>
+    </table>
+<br>
+<table style="border: 1px solid black; border-spacing: 100px 100;border-collapse: separate; table-layout: fixed; width:100%">
+    <tr>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#f0f0f0">
+
+        minimize p(S1|RNN)
+        <br>
+        such that p(S1|GPT-2) ≥ p(N|GPT-2)
+        <p>
+        <b>N</b>atural sentence: <cite>“As they sell their water rights to China”</cite><br>
+        <b>S</b>ynthetic <b>1</b>: <cite>“Afterward he ceded all domain rights to I”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S1</th></tr></thead><tbody><tr><td>RNN</td><td>-509.0</td><td>-778.7</td></tr><tr><td>GPT-2</td><td>-394.1</td><td>-383.2</td></tr><tr><td>human choices</td><td>10/10</td><td>0/10</td></tr></tbody></table>
+
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#d9d9d9">
+        minimize p(S2|GPT-2)
+        <br>
+        such that p(S2|RNN) ≥ p(N|RNN)
+        <p>
+        <b>N</b>atural sentence: <cite>“As they sell their water rights to China”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“By they decided varsity copies and to combat”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S2</th></tr></thead><tbody><tr><td>RNN</td><td>-509.0</td><td>-504.4</td></tr><tr><td>GPT-2</td><td>-394.1</td><td>-840.7</td></tr><tr><td>human choices</td><td>10/10</td><td>0/10</td></tr></tbody></table>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#bdbdbd">
+        S1 vs S2
+        <br>
+        <br>
+        <p>
+        <b>S</b>ynthetic <b>1</b>: <cite>“Afterward he ceded all domain rights to I”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“By they decided varsity copies and to combat”</cite>
+        <table><thead><tr><th></th><th>S1</th><th>S2</th></tr></thead><tbody><tr><td>RNN</td><td>-778.7</td><td>-504.4</td></tr><tr><td>GPT-2</td><td>-383.2</td><td>-840.7</td></tr><tr><td>human choices</td><td>5/10</td><td>5/10</td></tr></tbody></table>
+    </table>
+<br>
+<table style="border: 1px solid black; border-spacing: 100px 100;border-collapse: separate; table-layout: fixed; width:100%">
+    <tr>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#f0f0f0">
+
+        minimize p(S1|RNN)
+        <br>
+        such that p(S1|GPT-2) ≥ p(N|GPT-2)
+        <p>
+        <b>N</b>atural sentence: <cite>“You need contacts to know locations and enter”</cite><br>
+        <b>S</b>ynthetic <b>1</b>: <cite>“Cost must beacons and neutralize those you use”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S1</th></tr></thead><tbody><tr><td>RNN</td><td>-583.7</td><td>-4064.9</td></tr><tr><td>GPT-2</td><td>-514.9</td><td>-513.4</td></tr><tr><td>human choices</td><td>10/10</td><td>0/10</td></tr></tbody></table>
+
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#d9d9d9">
+        minimize p(S2|GPT-2)
+        <br>
+        such that p(S2|RNN) ≥ p(N|RNN)
+        <p>
+        <b>N</b>atural sentence: <cite>“You need contacts to know locations and enter”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“They laughed mules to one gearbox and fauna”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S2</th></tr></thead><tbody><tr><td>RNN</td><td>-583.7</td><td>-576.4</td></tr><tr><td>GPT-2</td><td>-514.9</td><td>-963.7</td></tr><tr><td>human choices</td><td>10/10</td><td>0/10</td></tr></tbody></table>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#bdbdbd">
+        S1 vs S2
+        <br>
+        <br>
+        <p>
+        <b>S</b>ynthetic <b>1</b>: <cite>“Cost must beacons and neutralize those you use”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“They laughed mules to one gearbox and fauna”</cite>
+        <table><thead><tr><th></th><th>S1</th><th>S2</th></tr></thead><tbody><tr><td>RNN</td><td>-4064.9</td><td>-576.4</td></tr><tr><td>GPT-2</td><td>-513.4</td><td>-963.7</td></tr><tr><td>human choices</td><td>8/10</td><td>2/10</td></tr></tbody></table>
+    </table>
+<br>
+<table style="border: 1px solid black; border-spacing: 100px 100;border-collapse: separate; table-layout: fixed; width:100%">
+    <tr>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#f0f0f0">
+
+        minimize p(S1|RNN)
+        <br>
+        such that p(S1|GPT-2) ≥ p(N|GPT-2)
+        <p>
+        <b>N</b>atural sentence: <cite>“This message is automatically added to every post”</cite><br>
+        <b>S</b>ynthetic <b>1</b>: <cite>“This field is automatically added to each response”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S1</th></tr></thead><tbody><tr><td>RNN</td><td>-475.1</td><td>-561.9</td></tr><tr><td>GPT-2</td><td>-313.6</td><td>-308.4</td></tr><tr><td>human choices</td><td>8/10</td><td>2/10</td></tr></tbody></table>
+
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#d9d9d9">
+        minimize p(S2|GPT-2)
+        <br>
+        such that p(S2|RNN) ≥ p(N|RNN)
+        <p>
+        <b>N</b>atural sentence: <cite>“This message is automatically added to every post”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“This agreement is among only one every bit”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S2</th></tr></thead><tbody><tr><td>RNN</td><td>-475.1</td><td>-473.2</td></tr><tr><td>GPT-2</td><td>-313.6</td><td>-786.0</td></tr><tr><td>human choices</td><td>10/10</td><td>0/10</td></tr></tbody></table>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#bdbdbd">
+        S1 vs S2
+        <br>
+        <br>
+        <p>
+        <b>S</b>ynthetic <b>1</b>: <cite>“This field is automatically added to each response”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“This agreement is among only one every bit”</cite>
+        <table><thead><tr><th></th><th>S1</th><th>S2</th></tr></thead><tbody><tr><td>RNN</td><td>-561.9</td><td>-473.2</td></tr><tr><td>GPT-2</td><td>-308.4</td><td>-786.0</td></tr><tr><td>human choices</td><td>10/10</td><td>0/10</td></tr></tbody></table>
+    </table>
+<br>
+<table style="border: 1px solid black; border-spacing: 100px 100;border-collapse: separate; table-layout: fixed; width:100%">
+    <tr>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#f0f0f0">
+
+        minimize p(S1|RNN)
+        <br>
+        such that p(S1|GPT-2) ≥ p(N|GPT-2)
+        <p>
+        <b>N</b>atural sentence: <cite>“They believe they have a right to steal”</cite><br>
+        <b>S</b>ynthetic <b>1</b>: <cite>“They think they have a right to picket”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S1</th></tr></thead><tbody><tr><td>RNN</td><td>-377.2</td><td>-444.1</td></tr><tr><td>GPT-2</td><td>-275.4</td><td>-273.1</td></tr><tr><td>human choices</td><td>7/10</td><td>3/10</td></tr></tbody></table>
+
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#d9d9d9">
+        minimize p(S2|GPT-2)
+        <br>
+        such that p(S2|RNN) ≥ p(N|RNN)
+        <p>
+        <b>N</b>atural sentence: <cite>“They believe they have a right to steal”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“Such did you have a guy to better”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S2</th></tr></thead><tbody><tr><td>RNN</td><td>-377.2</td><td>-369.6</td></tr><tr><td>GPT-2</td><td>-275.4</td><td>-586.8</td></tr><tr><td>human choices</td><td>10/10</td><td>0/10</td></tr></tbody></table>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#bdbdbd">
+        S1 vs S2
+        <br>
+        <br>
+        <p>
+        <b>S</b>ynthetic <b>1</b>: <cite>“They think they have a right to picket”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“Such did you have a guy to better”</cite>
+        <table><thead><tr><th></th><th>S1</th><th>S2</th></tr></thead><tbody><tr><td>RNN</td><td>-444.1</td><td>-369.6</td></tr><tr><td>GPT-2</td><td>-273.1</td><td>-586.8</td></tr><tr><td>human choices</td><td>10/10</td><td>0/10</td></tr></tbody></table>
+    </table>
+<br>
+<table style="border: 1px solid black; border-spacing: 100px 100;border-collapse: separate; table-layout: fixed; width:100%">
+    <tr>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#f0f0f0">
+
+        minimize p(S1|RNN)
+        <br>
+        such that p(S1|GPT-2) ≥ p(N|GPT-2)
+        <p>
+        <b>N</b>atural sentence: <cite>“Read this letter and you will understand everything”</cite><br>
+        <b>S</b>ynthetic <b>1</b>: <cite>“Read both pages and you will understand why”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S1</th></tr></thead><tbody><tr><td>RNN</td><td>-429.4</td><td>-575.8</td></tr><tr><td>GPT-2</td><td>-311.9</td><td>-309.2</td></tr><tr><td>human choices</td><td>6/10</td><td>4/10</td></tr></tbody></table>
+
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#d9d9d9">
+        minimize p(S2|GPT-2)
+        <br>
+        such that p(S2|RNN) ≥ p(N|RNN)
+        <p>
+        <b>N</b>atural sentence: <cite>“Read this letter and you will understand everything”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“Going a variety that they can think people”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S2</th></tr></thead><tbody><tr><td>RNN</td><td>-429.4</td><td>-428.5</td></tr><tr><td>GPT-2</td><td>-311.9</td><td>-655.8</td></tr><tr><td>human choices</td><td>10/10</td><td>0/10</td></tr></tbody></table>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#bdbdbd">
+        S1 vs S2
+        <br>
+        <br>
+        <p>
+        <b>S</b>ynthetic <b>1</b>: <cite>“Read both pages and you will understand why”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“Going a variety that they can think people”</cite>
+        <table><thead><tr><th></th><th>S1</th><th>S2</th></tr></thead><tbody><tr><td>RNN</td><td>-575.8</td><td>-428.5</td></tr><tr><td>GPT-2</td><td>-309.2</td><td>-655.8</td></tr><tr><td>human choices</td><td>10/10</td><td>0/10</td></tr></tbody></table>
+    </table>
+<br>
+<table style="border: 1px solid black; border-spacing: 100px 100;border-collapse: separate; table-layout: fixed; width:100%">
+    <tr>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#f0f0f0">
+
+        minimize p(S1|RNN)
+        <br>
+        such that p(S1|GPT-2) ≥ p(N|GPT-2)
+        <p>
+        <b>N</b>atural sentence: <cite>“Please correct this and submit your post again”</cite><br>
+        <b>S</b>ynthetic <b>1</b>: <cite>“Please verify spelling and submit your request again”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S1</th></tr></thead><tbody><tr><td>RNN</td><td>-546.2</td><td>-677.0</td></tr><tr><td>GPT-2</td><td>-346.1</td><td>-340.2</td></tr><tr><td>human choices</td><td>5/10</td><td>5/10</td></tr></tbody></table>
+
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#d9d9d9">
+        minimize p(S2|GPT-2)
+        <br>
+        such that p(S2|RNN) ≥ p(N|RNN)
+        <p>
+        <b>N</b>atural sentence: <cite>“Please correct this and submit your post again”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“Please contain all but feel your starting playing”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S2</th></tr></thead><tbody><tr><td>RNN</td><td>-546.2</td><td>-539.9</td></tr><tr><td>GPT-2</td><td>-346.1</td><td>-895.7</td></tr><tr><td>human choices</td><td>10/10</td><td>0/10</td></tr></tbody></table>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#bdbdbd">
+        S1 vs S2
+        <br>
+        <br>
+        <p>
+        <b>S</b>ynthetic <b>1</b>: <cite>“Please verify spelling and submit your request again”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“Please contain all but feel your starting playing”</cite>
+        <table><thead><tr><th></th><th>S1</th><th>S2</th></tr></thead><tbody><tr><td>RNN</td><td>-677.0</td><td>-539.9</td></tr><tr><td>GPT-2</td><td>-340.2</td><td>-895.7</td></tr><tr><td>human choices</td><td>10/10</td><td>0/10</td></tr></tbody></table>
+    </table>
+<br>
+<table style="border: 1px solid black; border-spacing: 100px 100;border-collapse: separate; table-layout: fixed; width:100%">
+    <tr>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#f0f0f0">
+
+        minimize p(S1|RNN)
+        <br>
+        such that p(S1|GPT-2) ≥ p(N|GPT-2)
+        <p>
+        <b>N</b>atural sentence: <cite>“Having crit done solves most of your problems”</cite><br>
+        <b>S</b>ynthetic <b>1</b>: <cite>“Having used amp solves none of these problems”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S1</th></tr></thead><tbody><tr><td>RNN</td><td>-692.2</td><td>-1109.3</td></tr><tr><td>GPT-2</td><td>-443.5</td><td>-441.5</td></tr><tr><td>human choices</td><td>4/10</td><td>6/10</td></tr></tbody></table>
+
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#d9d9d9">
+        minimize p(S2|GPT-2)
+        <br>
+        such that p(S2|RNN) ≥ p(N|RNN)
+        <p>
+        <b>N</b>atural sentence: <cite>“Having crit done solves most of your problems”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“High mashing choral swerved every of your only”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S2</th></tr></thead><tbody><tr><td>RNN</td><td>-692.2</td><td>-690.2</td></tr><tr><td>GPT-2</td><td>-443.5</td><td>-1023.6</td></tr><tr><td>human choices</td><td>10/10</td><td>0/10</td></tr></tbody></table>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#bdbdbd">
+        S1 vs S2
+        <br>
+        <br>
+        <p>
+        <b>S</b>ynthetic <b>1</b>: <cite>“Having used amp solves none of these problems”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“High mashing choral swerved every of your only”</cite>
+        <table><thead><tr><th></th><th>S1</th><th>S2</th></tr></thead><tbody><tr><td>RNN</td><td>-1109.3</td><td>-690.2</td></tr><tr><td>GPT-2</td><td>-441.5</td><td>-1023.6</td></tr><tr><td>human choices</td><td>10/10</td><td>0/10</td></tr></tbody></table>
+    </table>
+<br>
+<table style="border: 1px solid black; border-spacing: 100px 100;border-collapse: separate; table-layout: fixed; width:100%">
+    <tr>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#f0f0f0">
+
+        minimize p(S1|RNN)
+        <br>
+        such that p(S1|GPT-2) ≥ p(N|GPT-2)
+        <p>
+        <b>N</b>atural sentence: <cite>“It was the last time I ate out”</cite><br>
+        <b>S</b>ynthetic <b>1</b>: <cite>“It was the last time I ate there”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S1</th></tr></thead><tbody><tr><td>RNN</td><td>-320.9</td><td>-342.3</td></tr><tr><td>GPT-2</td><td>-252.6</td><td>-235.4</td></tr><tr><td>human choices</td><td>4/10</td><td>6/10</td></tr></tbody></table>
+
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#d9d9d9">
+        minimize p(S2|GPT-2)
+        <br>
+        such that p(S2|RNN) ≥ p(N|RNN)
+        <p>
+        <b>N</b>atural sentence: <cite>“It was the last time I ate out”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“What is the same time I grabbed up”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S2</th></tr></thead><tbody><tr><td>RNN</td><td>-320.9</td><td>-317.5</td></tr><tr><td>GPT-2</td><td>-252.6</td><td>-507.8</td></tr><tr><td>human choices</td><td>10/10</td><td>0/10</td></tr></tbody></table>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#bdbdbd">
+        S1 vs S2
+        <br>
+        <br>
+        <p>
+        <b>S</b>ynthetic <b>1</b>: <cite>“It was the last time I ate there”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“What is the same time I grabbed up”</cite>
+        <table><thead><tr><th></th><th>S1</th><th>S2</th></tr></thead><tbody><tr><td>RNN</td><td>-342.3</td><td>-317.5</td></tr><tr><td>GPT-2</td><td>-235.4</td><td>-507.8</td></tr><tr><td>human choices</td><td>10/10</td><td>0/10</td></tr></tbody></table>
+    </table>
+<br>
+<table style="border: 1px solid black; border-spacing: 100px 100;border-collapse: separate; table-layout: fixed; width:100%">
+    <tr>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#f0f0f0">
+
+        minimize p(S1|RNN)
+        <br>
+        such that p(S1|GPT-2) ≥ p(N|GPT-2)
+        <p>
+        <b>N</b>atural sentence: <cite>“Break up and work on yourself for awhile”</cite><br>
+        <b>S</b>ynthetic <b>1</b>: <cite>“Break away and concentrate on yourself for once”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S1</th></tr></thead><tbody><tr><td>RNN</td><td>-464.0</td><td>-550.1</td></tr><tr><td>GPT-2</td><td>-381.3</td><td>-375.0</td></tr><tr><td>human choices</td><td>2/10</td><td>8/10</td></tr></tbody></table>
+
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#d9d9d9">
+        minimize p(S2|GPT-2)
+        <br>
+        such that p(S2|RNN) ≥ p(N|RNN)
+        <p>
+        <b>N</b>atural sentence: <cite>“Break up and work on yourself for awhile”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“Soon that point around on account to keep”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S2</th></tr></thead><tbody><tr><td>RNN</td><td>-464.0</td><td>-463.1</td></tr><tr><td>GPT-2</td><td>-381.3</td><td>-711.5</td></tr><tr><td>human choices</td><td>10/10</td><td>0/10</td></tr></tbody></table>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#bdbdbd">
+        S1 vs S2
+        <br>
+        <br>
+        <p>
+        <b>S</b>ynthetic <b>1</b>: <cite>“Break away and concentrate on yourself for once”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“Soon that point around on account to keep”</cite>
+        <table><thead><tr><th></th><th>S1</th><th>S2</th></tr></thead><tbody><tr><td>RNN</td><td>-550.1</td><td>-463.1</td></tr><tr><td>GPT-2</td><td>-375.0</td><td>-711.5</td></tr><tr><td>human choices</td><td>10/10</td><td>0/10</td></tr></tbody></table>
+    </table>
+<br>
+
+</body>
+</head>

@@ -1,46 +1,62 @@
-# contstim
-code for generating controversial stimuli
+# contstimlang
+Code for generating controversial sentence pairs, supporting material for **"Testing the limits of natural language models for predicting human language judgments"**.
 
-# environment setup
+# Environment setup
 
-Python 3.7.6
+Tested under Python 3.7.6, Torch 1.3.1, and 2.9.0 (but might work also with later versions).
 
-CUDA Version: 10.2 
+# How to install (Anaconda, recommended)
 
-# how to install
+```git clone https://github.com/dpmlab/contstim.git```
 
--> git clone https://github.com/dpmlab/contstim.git
+```cd contstim```
 
--> cd contstim
+```conda env create --name contstimlang --file contstimlang```
 
--> pip install -r requirements.txt
+```python download_checkpoints.py```
+(This will download the checkpoints for the following models from Zenodo: BIGRAM, TRIGRAM, RNN, LSTM, BILSTM. The transformer models will be automatically downloaded when the sentence generation code is first run.)
 
--> bash download_models.sh (This will download the following models from google drive: BIGRAM, TRIGRAM, RNN, LSTM, BILSTM. The transformer models will automatically download when the generation script is run.)
+if you don't use Anaconda, replace `conda env create --name contstimlang --file contstimlang` with ```pip install requirements.txt```
 
-# how to generate controversial stimuli
+# How to generate a single controversial synthetic sentence pair
+Use the file `synthesize_one_controversial_sentence_pair` to generate controversial sentence pairs. For a quick example, run
 
-Use the file **make_contstim** to generate controversial sentence pairs. There are two versions of this file – a python notebook and a python script. Both should work. There are three arguments that need to be hardcoded at the top of the scripts: model1, model2, and squashing_threshold.
+```python synthesize_one_controversial_sentence_pair.py --model_accept bigram --model_reject trigram --initial_sentence "Life’s preference for symmetry is like a new law of nature"```
 
-# models 
+This generates a synthetic sentence whose probability according to the 3-gram is lower than the probability of the natural sentence, but is as likely according to the 2-gram model.
 
-GPT2
+To invert model roles, run:
 
-BERT
+```python synthesize_one_controversial_sentence_pair.py --model_accept trigram --model_reject bigram --initial_sentence "Life’s preference for symmetry is like a new law of nature"```
 
-BERT_WHOLE_WORD
+Next, we can compare the trigram with GPT-2 (this requires a GPU)
 
-ROBERTA
+```python synthesize_one_controversial_sentence_pair.py --model_accept trigram --model_reject gpt2 --initial_sentence "Life’s preference for symmetry is like a new law of nature"```
 
-ELECTRA
+To compare BERT and GPT-2, run 
 
-XLM
+```python synthesize_one_controversial_sentence_pair.py --model_accept bert --model_reject gpt2 --initial_sentence "Life’s preference for symmetry is like a new law of nature"```
+and grab a cup of coffee. Running this code might require two GPUs.
 
-BILSTM
+Type `python synthesize_one_controversial_sentence_pair.py -help` for more info. Note that the bi-directional models are slow to run due to the need to average probabilities across 
 
-LSTM
+# How to generate an entire set of synthetic controversial sentence pairs
+Run `batch_synthesize_controversial_pairs.py`. This file is designed to be run in parallel by multiple nodes/workers.
 
-RNN
+To generate a set of sentence as big as we used in the preprint, you would need an HPC environment since the generation of each sentence pair can take a few minutes (depending on the model). Each compute node should have 2 GPUs.
 
-TRIGRAM
+# How to generate an entire set of natural controversial sentence pairs
+First, install [GUROBI](https://duckduckgo.com). The free academic license is sufficient.
 
-BIGRAM
+Then, run `select_natural_controversial_pairs.py`.
+
+The code takes about an hour on a modern workstation and may require high RAM (tested on a 128GB machine).
+
+
+# How to reproduce the paper's figures
+Run the file `behav_exp_analysis.py`.
+
+# Currently included models
+GPT2, BERT, ROBERTA, ELECTRA, XLM, LSTM, RNN, TRIGRAM, BIGRAM
+
+BILSTM, BERT_WHOLE_WORD (not evaluated in the paper)

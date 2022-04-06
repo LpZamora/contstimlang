@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+<table style="border: 1px solid black; border-spacing: 100px 100;border-collapse: separate; table-layout: fixed; width:100%">
+    <tr>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#f0f0f0">
+
+        minimize p(S1|ELECTRA)
+        <br>
+        such that p(S1|RoBERTa) ≥ p(N|RoBERTa)
+        <p>
+        <b>N</b>atural sentence: <cite>“So go ahead and lie about your height”</cite><br>
+        <b>S</b>ynthetic <b>1</b>: <cite>“Users go to and underline in your browser”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S1</th></tr></thead><tbody><tr><td>ELECTRA</td><td>-384.1</td><td>-546.4</td></tr><tr><td>RoBERTa</td><td>-507.0</td><td>-504.3</td></tr><tr><td>human choices</td><td>10/10</td><td>0/10</td></tr></tbody></table>
+
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#d9d9d9">
+        minimize p(S2|RoBERTa)
+        <br>
+        such that p(S2|ELECTRA) ≥ p(N|ELECTRA)
+        <p>
+        <b>N</b>atural sentence: <cite>“So go ahead and lie about your height”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“So go back and learn from your faiths”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S2</th></tr></thead><tbody><tr><td>ELECTRA</td><td>-384.1</td><td>-383.2</td></tr><tr><td>RoBERTa</td><td>-507.0</td><td>-617.7</td></tr><tr><td>human choices</td><td>7/10</td><td>3/10</td></tr></tbody></table>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#bdbdbd">
+        S1 vs S2
+        <br>
+        <br>
+        <p>
+        <b>S</b>ynthetic <b>1</b>: <cite>“Users go to and underline in your browser”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“So go back and learn from your faiths”</cite>
+        <table><thead><tr><th></th><th>S1</th><th>S2</th></tr></thead><tbody><tr><td>ELECTRA</td><td>-546.4</td><td>-383.2</td></tr><tr><td>RoBERTa</td><td>-504.3</td><td>-617.7</td></tr><tr><td>human choices</td><td>1/10</td><td>9/10</td></tr></tbody></table>
+    </table>
+<br>
+<table style="border: 1px solid black; border-spacing: 100px 100;border-collapse: separate; table-layout: fixed; width:100%">
+    <tr>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#f0f0f0">
+
+        minimize p(S1|ELECTRA)
+        <br>
+        such that p(S1|RoBERTa) ≥ p(N|RoBERTa)
+        <p>
+        <b>N</b>atural sentence: <cite>“A new term needed creating for your type”</cite><br>
+        <b>S</b>ynthetic <b>1</b>: <cite>“Understanding search terms needed toad with your queries”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S1</th></tr></thead><tbody><tr><td>ELECTRA</td><td>-530.5</td><td>-784.2</td></tr><tr><td>RoBERTa</td><td>-668.5</td><td>-667.7</td></tr><tr><td>human choices</td><td>7/10</td><td>3/10</td></tr></tbody></table>
+
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#d9d9d9">
+        minimize p(S2|RoBERTa)
+        <br>
+        such that p(S2|ELECTRA) ≥ p(N|ELECTRA)
+        <p>
+        <b>N</b>atural sentence: <cite>“A new term needed creating for your type”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“A two Strand Gene coincidentally is one example”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S2</th></tr></thead><tbody><tr><td>ELECTRA</td><td>-530.5</td><td>-528.2</td></tr><tr><td>RoBERTa</td><td>-668.5</td><td>-887.7</td></tr><tr><td>human choices</td><td>7/10</td><td>3/10</td></tr></tbody></table>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#bdbdbd">
+        S1 vs S2
+        <br>
+        <br>
+        <p>
+        <b>S</b>ynthetic <b>1</b>: <cite>“Understanding search terms needed toad with your queries”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“A two Strand Gene coincidentally is one example”</cite>
+        <table><thead><tr><th></th><th>S1</th><th>S2</th></tr></thead><tbody><tr><td>ELECTRA</td><td>-784.2</td><td>-528.2</td></tr><tr><td>RoBERTa</td><td>-667.7</td><td>-887.7</td></tr><tr><td>human choices</td><td>0/10</td><td>10/10</td></tr></tbody></table>
+    </table>
+<br>
+<table style="border: 1px solid black; border-spacing: 100px 100;border-collapse: separate; table-layout: fixed; width:100%">
+    <tr>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#f0f0f0">
+
+        minimize p(S1|ELECTRA)
+        <br>
+        such that p(S1|RoBERTa) ≥ p(N|RoBERTa)
+        <p>
+        <b>N</b>atural sentence: <cite>“The account is more than one day old”</cite><br>
+        <b>S</b>ynthetic <b>1</b>: <cite>“The syndication was less than one minute longer”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S1</th></tr></thead><tbody><tr><td>ELECTRA</td><td>-330.6</td><td>-453.1</td></tr><tr><td>RoBERTa</td><td>-553.3</td><td>-552.2</td></tr><tr><td>human choices</td><td>10/10</td><td>0/10</td></tr></tbody></table>
+
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#d9d9d9">
+        minimize p(S2|RoBERTa)
+        <br>
+        such that p(S2|ELECTRA) ≥ p(N|ELECTRA)
+        <p>
+        <b>N</b>atural sentence: <cite>“The account is more than one day old”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“Our youngest is more than one months old”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S2</th></tr></thead><tbody><tr><td>ELECTRA</td><td>-330.6</td><td>-318.7</td></tr><tr><td>RoBERTa</td><td>-553.3</td><td>-660.3</td></tr><tr><td>human choices</td><td>8/10</td><td>2/10</td></tr></tbody></table>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#bdbdbd">
+        S1 vs S2
+        <br>
+        <br>
+        <p>
+        <b>S</b>ynthetic <b>1</b>: <cite>“The syndication was less than one minute longer”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“Our youngest is more than one months old”</cite>
+        <table><thead><tr><th></th><th>S1</th><th>S2</th></tr></thead><tbody><tr><td>ELECTRA</td><td>-453.1</td><td>-318.7</td></tr><tr><td>RoBERTa</td><td>-552.2</td><td>-660.3</td></tr><tr><td>human choices</td><td>2/10</td><td>8/10</td></tr></tbody></table>
+    </table>
+<br>
+<table style="border: 1px solid black; border-spacing: 100px 100;border-collapse: separate; table-layout: fixed; width:100%">
+    <tr>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#f0f0f0">
+
+        minimize p(S1|ELECTRA)
+        <br>
+        such that p(S1|RoBERTa) ≥ p(N|RoBERTa)
+        <p>
+        <b>N</b>atural sentence: <cite>“Sorry for the wait getting back to you”</cite><br>
+        <b>S</b>ynthetic <b>1</b>: <cite>“Click for the help sending this to you”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S1</th></tr></thead><tbody><tr><td>ELECTRA</td><td>-367.3</td><td>-450.8</td></tr><tr><td>RoBERTa</td><td>-504.7</td><td>-500.8</td></tr><tr><td>human choices</td><td>10/10</td><td>0/10</td></tr></tbody></table>
+
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#d9d9d9">
+        minimize p(S2|RoBERTa)
+        <br>
+        such that p(S2|ELECTRA) ≥ p(N|ELECTRA)
+        <p>
+        <b>N</b>atural sentence: <cite>“Sorry for the wait getting back to you”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“Sorry for the bastards going back to us”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S2</th></tr></thead><tbody><tr><td>ELECTRA</td><td>-367.3</td><td>-365.6</td></tr><tr><td>RoBERTa</td><td>-504.7</td><td>-590.1</td></tr><tr><td>human choices</td><td>8/10</td><td>2/10</td></tr></tbody></table>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#bdbdbd">
+        S1 vs S2
+        <br>
+        <br>
+        <p>
+        <b>S</b>ynthetic <b>1</b>: <cite>“Click for the help sending this to you”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“Sorry for the bastards going back to us”</cite>
+        <table><thead><tr><th></th><th>S1</th><th>S2</th></tr></thead><tbody><tr><td>ELECTRA</td><td>-450.8</td><td>-365.6</td></tr><tr><td>RoBERTa</td><td>-500.8</td><td>-590.1</td></tr><tr><td>human choices</td><td>3/10</td><td>7/10</td></tr></tbody></table>
+    </table>
+<br>
+<table style="border: 1px solid black; border-spacing: 100px 100;border-collapse: separate; table-layout: fixed; width:100%">
+    <tr>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#f0f0f0">
+
+        minimize p(S1|ELECTRA)
+        <br>
+        such that p(S1|RoBERTa) ≥ p(N|RoBERTa)
+        <p>
+        <b>N</b>atural sentence: <cite>“I probably should have used a better picture”</cite><br>
+        <b>S</b>ynthetic <b>1</b>: <cite>“You I should have used a smaller font”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S1</th></tr></thead><tbody><tr><td>ELECTRA</td><td>-313.5</td><td>-438.0</td></tr><tr><td>RoBERTa</td><td>-451.9</td><td>-439.7</td></tr><tr><td>human choices</td><td>10/10</td><td>0/10</td></tr></tbody></table>
+
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#d9d9d9">
+        minimize p(S2|RoBERTa)
+        <br>
+        such that p(S2|ELECTRA) ≥ p(N|ELECTRA)
+        <p>
+        <b>N</b>atural sentence: <cite>“I probably should have used a better picture”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“I really could have liked a better word”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S2</th></tr></thead><tbody><tr><td>ELECTRA</td><td>-313.5</td><td>-309.8</td></tr><tr><td>RoBERTa</td><td>-451.9</td><td>-529.9</td></tr><tr><td>human choices</td><td>10/10</td><td>0/10</td></tr></tbody></table>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#bdbdbd">
+        S1 vs S2
+        <br>
+        <br>
+        <p>
+        <b>S</b>ynthetic <b>1</b>: <cite>“You I should have used a smaller font”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“I really could have liked a better word”</cite>
+        <table><thead><tr><th></th><th>S1</th><th>S2</th></tr></thead><tbody><tr><td>ELECTRA</td><td>-438.0</td><td>-309.8</td></tr><tr><td>RoBERTa</td><td>-439.7</td><td>-529.9</td></tr><tr><td>human choices</td><td>1/10</td><td>9/10</td></tr></tbody></table>
+    </table>
+<br>
+<table style="border: 1px solid black; border-spacing: 100px 100;border-collapse: separate; table-layout: fixed; width:100%">
+    <tr>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#f0f0f0">
+
+        minimize p(S1|ELECTRA)
+        <br>
+        such that p(S1|RoBERTa) ≥ p(N|RoBERTa)
+        <p>
+        <b>N</b>atural sentence: <cite>“Plain leaf is much quieter and more subtle”</cite><br>
+        <b>S</b>ynthetic <b>1</b>: <cite>“Zealand curvature is much smoother and more organic”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S1</th></tr></thead><tbody><tr><td>ELECTRA</td><td>-489.2</td><td>-733.1</td></tr><tr><td>RoBERTa</td><td>-618.7</td><td>-615.8</td></tr><tr><td>human choices</td><td>7/10</td><td>3/10</td></tr></tbody></table>
+
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#d9d9d9">
+        minimize p(S2|RoBERTa)
+        <br>
+        such that p(S2|ELECTRA) ≥ p(N|ELECTRA)
+        <p>
+        <b>N</b>atural sentence: <cite>“Plain leaf is much quieter and more subtle”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“Champagne flutes became much quicker and more practical”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S2</th></tr></thead><tbody><tr><td>ELECTRA</td><td>-489.2</td><td>-475.2</td></tr><tr><td>RoBERTa</td><td>-618.7</td><td>-790.2</td></tr><tr><td>human choices</td><td>4/10</td><td>6/10</td></tr></tbody></table>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#bdbdbd">
+        S1 vs S2
+        <br>
+        <br>
+        <p>
+        <b>S</b>ynthetic <b>1</b>: <cite>“Zealand curvature is much smoother and more organic”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“Champagne flutes became much quicker and more practical”</cite>
+        <table><thead><tr><th></th><th>S1</th><th>S2</th></tr></thead><tbody><tr><td>ELECTRA</td><td>-733.1</td><td>-475.2</td></tr><tr><td>RoBERTa</td><td>-615.8</td><td>-790.2</td></tr><tr><td>human choices</td><td>5/10</td><td>5/10</td></tr></tbody></table>
+    </table>
+<br>
+<table style="border: 1px solid black; border-spacing: 100px 100;border-collapse: separate; table-layout: fixed; width:100%">
+    <tr>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#f0f0f0">
+
+        minimize p(S1|ELECTRA)
+        <br>
+        such that p(S1|RoBERTa) ≥ p(N|RoBERTa)
+        <p>
+        <b>N</b>atural sentence: <cite>“I thought that was mine for a second”</cite><br>
+        <b>S</b>ynthetic <b>1</b>: <cite>“I thought this was kidding for a second”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S1</th></tr></thead><tbody><tr><td>ELECTRA</td><td>-290.0</td><td>-321.4</td></tr><tr><td>RoBERTa</td><td>-481.4</td><td>-478.3</td></tr><tr><td>human choices</td><td>9/10</td><td>1/10</td></tr></tbody></table>
+
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#d9d9d9">
+        minimize p(S2|RoBERTa)
+        <br>
+        such that p(S2|ELECTRA) ≥ p(N|ELECTRA)
+        <p>
+        <b>N</b>atural sentence: <cite>“I thought that was mine for a second”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“I knew that was time for my day”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S2</th></tr></thead><tbody><tr><td>ELECTRA</td><td>-290.0</td><td>-277.9</td></tr><tr><td>RoBERTa</td><td>-481.4</td><td>-555.0</td></tr><tr><td>human choices</td><td>9/10</td><td>1/10</td></tr></tbody></table>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#bdbdbd">
+        S1 vs S2
+        <br>
+        <br>
+        <p>
+        <b>S</b>ynthetic <b>1</b>: <cite>“I thought this was kidding for a second”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“I knew that was time for my day”</cite>
+        <table><thead><tr><th></th><th>S1</th><th>S2</th></tr></thead><tbody><tr><td>ELECTRA</td><td>-321.4</td><td>-277.9</td></tr><tr><td>RoBERTa</td><td>-478.3</td><td>-555.0</td></tr><tr><td>human choices</td><td>3/10</td><td>7/10</td></tr></tbody></table>
+    </table>
+<br>
+<table style="border: 1px solid black; border-spacing: 100px 100;border-collapse: separate; table-layout: fixed; width:100%">
+    <tr>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#f0f0f0">
+
+        minimize p(S1|ELECTRA)
+        <br>
+        such that p(S1|RoBERTa) ≥ p(N|RoBERTa)
+        <p>
+        <b>N</b>atural sentence: <cite>“I use my French press for ice coffee”</cite><br>
+        <b>S</b>ynthetic <b>1</b>: <cite>“Edit to one espresso shot per medium coffee”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S1</th></tr></thead><tbody><tr><td>ELECTRA</td><td>-422.6</td><td>-654.7</td></tr><tr><td>RoBERTa</td><td>-602.3</td><td>-601.4</td></tr><tr><td>human choices</td><td>10/10</td><td>0/10</td></tr></tbody></table>
+
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#d9d9d9">
+        minimize p(S2|RoBERTa)
+        <br>
+        such that p(S2|ELECTRA) ≥ p(N|ELECTRA)
+        <p>
+        <b>N</b>atural sentence: <cite>“I use my French press for ice coffee”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“I purchased my galaxy Bell for christmas shopping”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S2</th></tr></thead><tbody><tr><td>ELECTRA</td><td>-422.6</td><td>-421.3</td></tr><tr><td>RoBERTa</td><td>-602.3</td><td>-762.0</td></tr><tr><td>human choices</td><td>9/10</td><td>1/10</td></tr></tbody></table>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#bdbdbd">
+        S1 vs S2
+        <br>
+        <br>
+        <p>
+        <b>S</b>ynthetic <b>1</b>: <cite>“Edit to one espresso shot per medium coffee”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“I purchased my galaxy Bell for christmas shopping”</cite>
+        <table><thead><tr><th></th><th>S1</th><th>S2</th></tr></thead><tbody><tr><td>ELECTRA</td><td>-654.7</td><td>-421.3</td></tr><tr><td>RoBERTa</td><td>-601.4</td><td>-762.0</td></tr><tr><td>human choices</td><td>5/10</td><td>5/10</td></tr></tbody></table>
+    </table>
+<br>
+<table style="border: 1px solid black; border-spacing: 100px 100;border-collapse: separate; table-layout: fixed; width:100%">
+    <tr>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#f0f0f0">
+
+        minimize p(S1|ELECTRA)
+        <br>
+        such that p(S1|RoBERTa) ≥ p(N|RoBERTa)
+        <p>
+        <b>N</b>atural sentence: <cite>“Send them lots of pictures from all angles”</cite><br>
+        <b>S</b>ynthetic <b>1</b>: <cite>“Report received hundreds of replies from you readers”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S1</th></tr></thead><tbody><tr><td>ELECTRA</td><td>-395.8</td><td>-559.9</td></tr><tr><td>RoBERTa</td><td>-539.8</td><td>-534.7</td></tr><tr><td>human choices</td><td>8/10</td><td>2/10</td></tr></tbody></table>
+
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#d9d9d9">
+        minimize p(S2|RoBERTa)
+        <br>
+        such that p(S2|ELECTRA) ≥ p(N|ELECTRA)
+        <p>
+        <b>N</b>atural sentence: <cite>“Send them lots of pictures from all angles”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“Send out loads of people from all angles”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S2</th></tr></thead><tbody><tr><td>ELECTRA</td><td>-395.8</td><td>-393.2</td></tr><tr><td>RoBERTa</td><td>-539.8</td><td>-644.0</td></tr><tr><td>human choices</td><td>9/10</td><td>1/10</td></tr></tbody></table>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#bdbdbd">
+        S1 vs S2
+        <br>
+        <br>
+        <p>
+        <b>S</b>ynthetic <b>1</b>: <cite>“Report received hundreds of replies from you readers”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“Send out loads of people from all angles”</cite>
+        <table><thead><tr><th></th><th>S1</th><th>S2</th></tr></thead><tbody><tr><td>ELECTRA</td><td>-559.9</td><td>-393.2</td></tr><tr><td>RoBERTa</td><td>-534.7</td><td>-644.0</td></tr><tr><td>human choices</td><td>9/10</td><td>1/10</td></tr></tbody></table>
+    </table>
+<br>
+<table style="border: 1px solid black; border-spacing: 100px 100;border-collapse: separate; table-layout: fixed; width:100%">
+    <tr>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#f0f0f0">
+
+        minimize p(S1|ELECTRA)
+        <br>
+        such that p(S1|RoBERTa) ≥ p(N|RoBERTa)
+        <p>
+        <b>N</b>atural sentence: <cite>“I have various techniques for dealing with it”</cite><br>
+        <b>S</b>ynthetic <b>1</b>: <cite>“I have five suggestions for dealing with anger”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S1</th></tr></thead><tbody><tr><td>ELECTRA</td><td>-322.5</td><td>-373.5</td></tr><tr><td>RoBERTa</td><td>-472.6</td><td>-469.5</td></tr><tr><td>human choices</td><td>3/10</td><td>7/10</td></tr></tbody></table>
+
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#d9d9d9">
+        minimize p(S2|RoBERTa)
+        <br>
+        such that p(S2|ELECTRA) ≥ p(N|ELECTRA)
+        <p>
+        <b>N</b>atural sentence: <cite>“I have various techniques for dealing with it”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“I have no specifics for working on it”</cite>
+        <table><thead><tr><th></th><th>N</th><th>S2</th></tr></thead><tbody><tr><td>ELECTRA</td><td>-322.5</td><td>-321.4</td></tr><tr><td>RoBERTa</td><td>-472.6</td><td>-527.2</td></tr><tr><td>human choices</td><td>9/10</td><td>1/10</td></tr></tbody></table>
+    <td style="padding: 10px 10px; width:33.33%" bgcolor="#bdbdbd">
+        S1 vs S2
+        <br>
+        <br>
+        <p>
+        <b>S</b>ynthetic <b>1</b>: <cite>“I have five suggestions for dealing with anger”</cite><br>
+        <b>S</b>ynthetic <b>2</b>: <cite>“I have no specifics for working on it”</cite>
+        <table><thead><tr><th></th><th>S1</th><th>S2</th></tr></thead><tbody><tr><td>ELECTRA</td><td>-373.5</td><td>-321.4</td></tr><tr><td>RoBERTa</td><td>-469.5</td><td>-527.2</td></tr><tr><td>human choices</td><td>7/10</td><td>3/10</td></tr></tbody></table>
+    </table>
+<br>
+
+</body>
+</head>
