@@ -2558,9 +2558,9 @@ def data_preprocessing(
 ):
     """preprocess data from the behavioral results csv file"""
 
-    aligned_results_csv = results_csv.replace("_anon.csv","_aligned_anon.csv")
+    aligned_results_csv = results_csv.replace(".csv","_aligned.csv")
     aligned_results_csv_with_loso = results_csv.replace(
-        "_anon.csv", "_aligned_with_loso_anon.csv"
+        ".csv", "_aligned_with_loso.csv"
     )
     try:  # try to load an already preprocessed file
         df = pd.read_csv(aligned_results_csv_with_loso)
