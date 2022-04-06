@@ -175,8 +175,8 @@ if __name__ == "__main__":
         "--initial_sentence",
         type=str,
         help="The initial sentence to use for sentence initalization. Use sentence case capitalization and no full stop (a period is added during model evaluation).",
-        default="You can eat the cake and see the light"
-            )
+        default="You can eat the cake and see the light",
+    )
     parser.add_argument(
         "--results_csv_fname",
         type=str,
