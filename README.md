@@ -36,7 +36,7 @@ Next, we can compare the trigram with GPT-2 (this requires a GPU)
 To compare BERT and GPT-2, run 
 
 ```python synthesize_one_controversial_sentence_pair.py --model_accept bert --model_reject gpt2 --initial_sentence "Life’s preference for symmetry is like a new law of nature"```
-and grab a cup of coffee. This may require two GPUs.
+and grab a cup of coffee. Running this code might require two GPUs.
 
 Type `python synthesize_one_controversial_sentence_pair.py -help` for more info. Note that the bi-directional models are slow to run due to the need to average probabilities across 
 
