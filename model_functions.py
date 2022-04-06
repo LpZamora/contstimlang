@@ -1058,10 +1058,6 @@ def gpt2_word_probs(self, words, wordi):
     ##########################
 
     inputs = []
-    vocab_to_input_inds = []
-    vocab_to_input_pred_vocs = []
-    vocab_to_input_pos = []
-
     vocab_tops = []
     vocab_tops_ind = []
 
@@ -1134,7 +1130,7 @@ def gpt2_word_probs(self, words, wordi):
                     [soft[v, n, inputs1[v][n + 1]] for n in range(0, numwords)]
                 )
 
-                prob = torch.sum(probs)  # .cpu().data.numpy())
+                prob = torch.sum(probs)
 
                 if i == 0 and v == 0:
                     vocab_probs = prob.unsqueeze(0)

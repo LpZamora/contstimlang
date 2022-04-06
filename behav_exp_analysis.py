@@ -2895,12 +2895,12 @@ if __name__ == "__main__":
     # #plt.show()
 
     # # warning - this is a slow one to run (an hour or so)
-    figs = plot_main_results_figures(
-        df,
-        measure="RAE_signed_rank_cosine_similarity",
-        save_folder="figures/RAE_signed_rank_cosine_similarity_analytical_new_LB",
-    )
-    plt.show()
+    # figs = plot_main_results_figures(
+    #     df,
+    #     measure="RAE_signed_rank_cosine_similarity",
+    #     save_folder="figures/RAE_signed_rank_cosine_similarity_analytical_new_LB",
+    # )
+    # plt.show()
 
     # Figure S3
     # model_by_model_agreement_heatmap(df,save_folder='figures/heatmaps', trial_type = 'randomly_sampled_natural')
