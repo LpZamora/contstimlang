@@ -13,10 +13,12 @@ Tested under Python 3.7.6, PyTorch 1.3.1, and 2.9.0 (but might work also with la
 
 ```conda env create -f environment.yml```
 
+```conda activate contstimlang```
+
 ```python download_checkpoints.py```
 (This will download the checkpoints for the following models from Zenodo: BIGRAM, TRIGRAM, RNN, LSTM, BILSTM. The transformer models will be automatically downloaded when the sentence generation code is first run.)
 
-if you don't use Anaconda, replace `conda env create --name contstimlang --file contstimlang` with ```pip install requirements.txt```
+if you don't use Anaconda, replace `conda env create --name contstimlang --file contstimlang` with ```pip install requirements.txt```, but you will have to deal with installing a PyTorch build that matches your installed cudatoolkit version.
 
 # How to generate a single controversial synthetic sentence pair
 Use the file `synthesize_one_controversial_sentence_pair` to generate controversial sentence pairs. For a quick example, run
