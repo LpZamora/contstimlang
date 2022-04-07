@@ -1,6 +1,10 @@
+""" given a set of synthesized sentences, select a subset for human testing """
+
 import os, glob
 import itertools
 import re
+import argparse
+import pathlib
 
 import numpy as np
 import pandas as pd
@@ -14,11 +18,31 @@ def move_cols_to_left(df, cols_to_move):
     return df[cols]
 
 
-synthesized_sentence_csv_folder = "synthesized_sentences/20210224_controverisal_sentence_pairs_heuristic_natural_init_allow_rep/8_word"
-output_csv_path = "synthesized_sentences/20210224_controverisal_sentence_pairs_heuristic_natural_init_allow_rep/8_word"
-n_sentence_triplets_for_consideration = 100
-n_sentence_triplets_for_human_testing = 10
-selection_method = "decile_balanced"  # 'decile_balanced' or 'best'
+default_path = os.path.join(
+    "synthesized_sentences",
+    "controverisal_sentence_pairs_natural_initialization",
+    "8_word",
+)
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--synthesized_sentence_csv_folder", type=str, default=default_path)
+parser.add_argument("--output_csv_path", type=str, default=default_path)
+parser.add_argument("--n_sentence_triplets_for_consideration", type=int, default=100)
+parser.add_argument("--n_sentence_triplets_for_human_testing", type=int, default=10)
+parser.add_argument(
+    "--selection_method",
+    type=str,
+    default="decile_balanced",
+    choices=["decile_balanced", "best"],
+)
+
+args = parser.parse_args()
+
+synthesized_sentence_csv_folder = args.synthesized_sentence_csv_folder
+output_csv_path = args.output_csv_path
+n_sentence_triplets_for_consideration = args.n_sentence_triplets_for_consideration
+n_sentence_triplets_for_human_testing = args.n_sentence_triplets_for_human_testing
+selection_method = args.selection_method
 
 
 def docplex_solve(
@@ -144,7 +168,7 @@ for csv in csvs:
     cur_df["m2"] = [model2] * len(cur_df)
     df_dict[(model1, model2)] = cur_df
 
-# processs each model pair ###########
+# processs each model pair #############################################################
 
 all_sentences = []
 selected_sentences = []
@@ -274,6 +298,7 @@ for model1, model2 in itertools.combinations(all_model_names, 2):
 all_sentences = pd.concat(all_sentences, axis=0)
 selected_sentences = pd.concat(selected_sentences, axis=0)
 
+pathlib.Path(output_csv_path).parent.mkdir(parents=True, exist_ok=True)
 all_sentences.to_csv(
     output_csv_path
     + "_"
