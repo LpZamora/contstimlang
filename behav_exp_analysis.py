@@ -676,138 +676,6 @@ def RAE_signed_rank_cosine_similarity(df):
     return pd.DataFrame(results)
 
 
-def calc_somersD(df):
-    """a simple ordinal correlation between log p(s1|m) - log p(s2|m) and human ranks"""
-
-    def _calc_somersD(model_log_prob_diff, human_rating):
-        """Calculate Somers' D ordinal correlation, assuming the model-to-human-rating mapping is symmetric for s1 vs. s2 and s2 vs. s1 trials"""
-        assert len(model_log_prob_diff) == len(human_rating)
-        # negative_mask = model_log_prob_diff<0
-        # model_log_prob_diff=np.where(negative_mask,-model_log_prob_diff,model_log_prob_diff)
-        # human_rating = np.where(negative_mask, 7-human_rating,human_rating) # rating mapping: 1-->6, 2-->3, 3-->4, ..., 6-->1
-
-        # model_log_prob_diff = np.concatenate([model_log_prob_diff,-model_log_prob_diff],axis=0)
-        # human_rating = np.concatenate([human_rating,7-human_rating],axis=0)
-
-        somersd_result = scipy.stats.somersd(y=model_log_prob_diff, x=human_rating)
-        ordinal_corr = somersd_result.statistic
-        return ordinal_corr
-
-    models = get_models(df)
-    subjects = df["subject"].unique()
-
-    results = []
-
-    for subject in subjects:
-        df_subject = df[df["subject"] == subject]
-        subject_rating = df_subject["rating"]
-
-        cur_result = {}
-        cur_result["subject"] = subject
-        cur_result["subject_group"] = df_subject["subject_group"].unique().item()
-
-        for model in models:
-            model_log_prob_diff = (
-                df_subject["sentence2_" + model + "_prob"]
-                - df_subject["sentence1_" + model + "_prob"]
-            )
-            cur_result[model] = _calc_somersD(model_log_prob_diff, subject_rating)
-
-        # now for the noise ceiling:
-        # lower bound - use the other nine subjects' mean response
-        leave_1_subject_out = df_subject["mean_rating_NC_LB"] - 3.5
-
-        cur_result["NC_LB"] = _calc_somersD(leave_1_subject_out, subject_rating)
-        cur_result["NC_UB"] = 1.0  # using non-informative bound, for now.
-
-        results.append(cur_result)
-
-    return pd.DataFrame(results)
-
-
-def calc_flexible_somersD(df):
-    """a simple ordinal correlation between log p(s1|m) - log p(s2|m) and human ranks"""
-
-    def _calc_flexible_somersD(
-        log_prob_s1_m, log_prob_s2_m, human_rating, leave_1_subject_out
-    ):
-        """Calculate Somers' D ordinal correlation, assuming the model-to-human-rating mapping is symmetric for s1 vs. s2 and s2 vs. s1 trials"""
-        assert len(log_prob_s1_m) == len(human_rating)
-        # negative_mask = log_prob_s2_m<log_prob_s1_m
-        # log_prob_s1_m_=np.where(negative_mask,log_prob_s2_m,log_prob_s1_m)
-        # log_prob_s2_m_=np.where(negative_mask,log_prob_s1_m,log_prob_s2_m)
-        # human_rating = np.where(negative_mask, 7-human_rating,human_rating) # rating mapping: 1-->6, 2-->3, 3-->4, ..., 6-->1
-
-        log_prob_s1_m_ = np.concatenate([log_prob_s1_m, log_prob_s2_m], axis=0)
-        log_prob_s2_m_ = np.concatenate([log_prob_s2_m, log_prob_s1_m], axis=0)
-        log_prob_s1_m = log_prob_s1_m_
-        log_prob_s2_m = log_prob_s2_m_
-        human_rating = np.concatenate([human_rating, 7 - human_rating], axis=0)
-        leave_1_subject_out = np.concatenate(
-            [leave_1_subject_out, 7 - leave_1_subject_out], axis=0
-        )
-        n_trials = len(log_prob_s1_m)
-
-        # log_prob_s1_m=log_prob_s1_m.to_numpy()
-        # log_prob_s2_m=log_prob_s2_m.to_numpy()
-        # human_rating=human_rating.to_numpy()
-        # leave_1_subject_out=leave_1_subject_out.to_numpy()
-
-        n_total = 0
-        n_incongruent_LB_NC = 0
-        n_incongruent = 0
-        for i_trial in range(n_trials):
-            for j_trial in range(n_trials):
-                if i_trial == j_trial:
-                    continue
-                if (log_prob_s2_m[j_trial] >= log_prob_s2_m[i_trial]) and (
-                    (log_prob_s1_m[j_trial] <= log_prob_s1_m[i_trial])
-                ):
-                    n_total += 1
-
-                    if human_rating[j_trial] < human_rating[i_trial]:
-                        n_incongruent += 1
-
-                    if (
-                        (leave_1_subject_out[i_trial] > leave_1_subject_out[j_trial])
-                        and (human_rating[i_trial] < human_rating[j_trial])
-                    ) or (
-                        (leave_1_subject_out[i_trial] < leave_1_subject_out[j_trial])
-                        and (human_rating[i_trial] > human_rating[j_trial])
-                    ):
-                        n_incongruent_LB_NC += 1
-
-        if n_total == 0:
-            n_total = 1
-        return 1 - n_incongruent / n_total, 1 - n_incongruent_LB_NC / n_total
-
-    models = get_models(df)
-    subjects = df["subject"].unique()
-
-    results = []
-
-    for subject in subjects:
-        df_subject = df[df["subject"] == subject]
-        subject_rating = df_subject["rating"]
-
-        cur_result = {}
-        cur_result["subject"] = subject
-        cur_result["subject_group"] = df_subject["subject_group"].unique().item()
-
-        for model in models:
-            log_prob_s1_m = df_subject["sentence1_" + model + "_prob"]
-            log_prob_s2_m = df_subject["sentence2_" + model + "_prob"]
-            leave_1_subject_out = df_subject["mean_rating_NC_LB"]
-            cur_result[model], cur_result["NC_LB_" + model] = _calc_flexible_somersD(
-                log_prob_s1_m, log_prob_s2_m, subject_rating, leave_1_subject_out
-            )
-            cur_result["NC_UB_" + model] = 1.0  # using non-informative bound, for now.
-
-        results.append(cur_result)
-
-    return pd.DataFrame(results)
-
-
 def build_all_html_files(df):
     models = get_models(df)
     for model1 in models:
@@ -1303,8 +1171,6 @@ def plot_one_main_results_panel(
     print(pairwise_sig)
 
     model_specific_NC = cur_panel_cfg["only_targeted_trials"]
-    if measure == "flexible_SomersD":
-        model_specific_NC = True
 
     model_specific_performace_dot_plot(
         reduced_df,
@@ -1577,12 +1443,6 @@ def plot_main_results_figures(
     if measure == "binarized_accuracy":
         reduction_fun = calc_binarized_accuracy
         chance_level = 0.5
-    elif measure == "SomersD":
-        reduction_fun = calc_somersD
-        chance_level = 0
-    elif measure == "flexible_SomersD":
-        chance_level = 0
-        reduction_fun = calc_flexible_somersD
     elif measure == "RAE_signed_rank_cosine_similarity":
         chance_level = 0
         reduction_fun = RAE_signed_rank_cosine_similarity
@@ -1665,8 +1525,6 @@ def plot_main_results_figures(
 
     dotplot_xaxis_label = {
         "binarized_accuracy": "human-choice prediction accuracy",
-        "SomersD": "ordinal correlation between human ratings and models'\nsentence pair probability log-ratio (Somers' D)",
-        "flexible_SomersD": "modified Somers' D between human ratings and models'\nsentence probabilities",
         "RAE_signed_rank_cosine_similarity": "ordinal correlation between human ratings and models'\nsentence pair probability log-ratio (signed-rank cosine similarity)",
     }[measure]
 
