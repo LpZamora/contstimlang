@@ -38,25 +38,27 @@ To compare BERT and GPT-2, run
 ```python synthesize_one_controversial_sentence_pair.py --model_accept bert --model_reject gpt2 --initial_sentence "Life’s preference for symmetry is like a new law of nature"```
 and grab a cup of coffee. Running this code might require two GPUs.
 
-Type `python synthesize_one_controversial_sentence_pair.py -help` for more info. Note that the bi-directional models are slow to run due to the need to average probabilities across 
+Type `python synthesize_one_controversial_sentence_pair.py -help` for more info. Note that the bi-directional models are slow to run due to the need to average probabilities across conditional probability chains
 
 # How to generate an entire set of synthetic controversial sentence pairs
-Run `batch_synthesize_controversial_pairs.py`. This file is designed to be run in parallel by multiple nodes/workers.
+Run `python batch_synthesize_controversial_pairs.py`. This file is designed to be run in parallel by multiple nodes/workers.
 
-To generate a set of sentence as big as we used in the preprint, you would need an HPC environment since the generation of each sentence pair can take a few minutes (depending on the model). Each compute node should have 2 GPUs.
+To generate a set of sentences as big as we used in the preprint, you would need an HPC environment since the generation of each sentence pair can take a few minutes (depending on the model). Each compute node should have 2 GPUs.
+
+Once you have generated a set of synthetic sentences, you can select an optimal subset for human testing using
+`python select_synthetic_controversial_sentences_for_behav_exp.py`. This code requires the installation of CPLEX (`conda install -c ibmdecisionoptimization cplex`).
 
 # How to generate an entire set of natural controversial sentence pairs
-First, install [GUROBI](https://duckduckgo.com). The free academic license is sufficient.
+First, install [GUROBI](https://www.gurobi.com/). The free academic license is sufficient.
 
-Then, run `select_natural_controversial_pairs.py`.
+Then, run `python select_natural_controversial_pairs.py`.
 
 The code takes about an hour on a modern workstation and may require high RAM (tested on a 128GB machine).
 
-
 # How to reproduce the paper's figures
-Run the file `behav_exp_analysis.py`.
+Run `python behav_exp_analysis.py`.
 
 # Currently included models
 GPT2, BERT, ROBERTA, ELECTRA, XLM, LSTM, RNN, TRIGRAM, BIGRAM
 
-BILSTM, BERT_WHOLE_WORD (not evaluated in the paper)
+implemented but not currently used: BILSTM, BERT_WHOLE_WORD
