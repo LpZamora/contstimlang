@@ -3,7 +3,7 @@ Code for generating controversial sentence pairs, supporting material for **"Tes
 
 # Environment setup
 
-Tested under Python 3.7.6, Torch 1.3.1, and 2.9.0 (but might work also with later versions).
+Tested under Python 3.7.6, PyTorch 1.3.1, and 2.9.0 (but might work also with later versions).
 
 # How to install (Anaconda, recommended)
 
