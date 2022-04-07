@@ -11,7 +11,7 @@ Tested under Python 3.7.6, Torch 1.3.1, and 2.9.0 (but might work also with late
 
 ```cd contstim```
 
-```conda env create --name contstimlang --file contstimlang```
+```conda env create -f environment.yml```
 
 ```python download_checkpoints.py```
 (This will download the checkpoints for the following models from Zenodo: BIGRAM, TRIGRAM, RNN, LSTM, BILSTM. The transformer models will be automatically downloaded when the sentence generation code is first run.)
@@ -46,7 +46,7 @@ Run `python batch_synthesize_controversial_pairs.py`. This file is designed to b
 To generate a set of sentences as big as we used in the preprint, you would need an HPC environment since the generation of each sentence pair can take a few minutes (depending on the model). Each compute node should have 2 GPUs.
 
 Once you have generated a set of synthetic sentences, you can select an optimal subset for human testing using
-`python select_synthetic_controversial_sentences_for_behav_exp.py`. This code requires the installation of CPLEX (`conda install -c ibmdecisionoptimization cplex`).
+`python select_synthetic_controversial_sentences_for_behav_exp.py`. This code requires the installation of CPLEX (`conda install -c ibmdecisionoptimization cplex=1.2`).
 
 # How to generate an entire set of natural controversial sentence pairs
 First, install [GUROBI](https://www.gurobi.com/). The free academic license is sufficient.
