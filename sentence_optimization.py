@@ -193,6 +193,46 @@ class cyclic_word_location_dispenser:
             return int(self.locations_list.pop(0))
 
 
+def update_history(
+    history, sentences, sentences_log_p=None, loss=None, model_names=None
+):
+    """update the history of sentence optimization
+    args:
+        history (pd.DataFrame) history of sentence optimization
+        sentences (list of strings)
+        sentences_log_p (numpy.array, optional) sentence_log_p[m,s] is the log-probabilitiy assigned to sentence s by model m.
+        loss (float), optional
+        model_names (list of strings, optional) used for column headers for sentence probabilities
+
+    return updated history
+    """
+
+    n_sentences = len(sentences)
+    new_row = pd.DataFrame()
+
+    for i_sentence, sentence in enumerate(sentences):
+        new_row[f"s{i_sentence}"] = [sentence]
+    if sentences_log_p is not None:
+        n_models = sentences_log_p.shape[0]
+        assert n_sentences == sentences_log_p.shape[1]
+        if model_names is not None:
+            assert n_models == len(model_names)
+        for i_model in range(n_models):
+            for i_sentence in range(n_sentences):
+                if model_names is not None:
+                    model_name = model_names[i_model]
+                else:
+                    model_name = f"m{i_model}"
+                new_row[f"p_s{i_sentence}_{model_name}"] = [
+                    sentences_log_p[i_model, i_sentence]
+                ]
+    if loss is not None:
+        new_row["loss"] = [float(loss)]
+
+    history = pd.concat([history, new_row], axis=0)
+    return history
+
+
 def optimize_sentence_set(
     n_sentences,
     models,
@@ -211,6 +251,8 @@ def optimize_sentence_set(
     keep_words_unique=False,
     allowed_repeating_words=None,
     monitoring_func=None,
+    save_history=False,
+    model_names=None,
     verbose=3,
 ):
     """Optimize a sentence set of n_sentences.
@@ -236,6 +278,8 @@ def optimize_sentence_set(
         keep_words_unique (bool) all words must be unique (within sentence)
         allowed_repeating_words (list) if keep_words_unique is True, these words are excluded from the uniqueness constrain. The words should be lower-case.
     # monitoring:
+        save_history (bool) if True, save the history of the optimization
+        model_names (list of strings) used to for history column headers
         monitoring_func (function) function for online user feedback. args: (sentences, sentences_log_p)
         verbose (int)
     """
@@ -294,8 +338,16 @@ def optimize_sentence_set(
         print("loss:", current_loss)
 
     termination_reason = ""
-    n_consequetive_failed_replacements = 0
 
+    if save_history:
+        history = pd.DataFrame()
+        history = update_history(
+            history,
+            sentences,
+            sentences_log_p=sentences_log_p,
+            model_names=model_names,
+            loss=current_loss,
+        )
     for step in range(max_steps):
 
         # check stopping conditions
@@ -542,6 +594,14 @@ def optimize_sentence_set(
                 sentences_log_p[:, i_sentence] = new_sent_log_p
                 found_replacement_for_at_least_one_sentence = True
 
+                if save_history:
+                    history = update_history(
+                        history,
+                        sentences,
+                        sentences_log_p=sentences_log_p,
+                        model_names=model_names,
+                        loss=current_loss,
+                    )
                 display_sentences_with_highlighted_word(sentences, i_sentence, wordi)
                 if monitoring_func is not None:
                     monitoring_func(sentences, sentences_log_p)
@@ -573,4 +633,6 @@ def optimize_sentence_set(
         "step": step,
         "termination_reason": termination_reason,
     }
+    if save_history:
+        results["history"] = history
     return results

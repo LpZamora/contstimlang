@@ -13,6 +13,7 @@ def synthesize_controversial_sentence_pair(
     model_reject,
     initial_sentence,
     results_csv_fname=None,
+    history_csv_fname=None,
     allow_only_prepositions_to_repeat=True,
     replacement_strategy="cyclic",
     verbose=3,
@@ -25,6 +26,7 @@ def synthesize_controversial_sentence_pair(
         all_model_names: list of strings, names of all models
         initial_sentence (str): the initial (natural) sentence to use for sentence initalization
         results_csv_fname: string, path to a file where the resulting sentence pair will be saved (it is appended to the file if it already exists)
+        history_csv_fname: string, path to a file where the optimization history of sentence pairs will be saved
         allow_only_prepositions_to_repeat: bool, if True, only prepositions can be repeated in the sentence
         replacement_strategy: string, one of "cyclic" (as in the preprint,) "exhaustive" (try all possible replacements)
         verbose: int, verbosity level.
@@ -113,6 +115,8 @@ def synthesize_controversial_sentence_pair(
     sent_len = len(initial_sentence.split())
     initial_sentences = [initial_sentence] * n_sentences
 
+    save_history = history_csv_fname is not None
+
     results = optimize_sentence_set(
         n_sentences,
         models=models,
@@ -126,6 +130,8 @@ def synthesize_controversial_sentence_pair(
         keep_words_unique=keep_words_unique,
         allowed_repeating_words=allowed_repeating_words,
         sentences_to_change=sentences_to_change,
+        save_history=save_history,
+        model_names=model_name_pair,
         verbose=verbose,
     )
 
@@ -141,6 +147,9 @@ def synthesize_controversial_sentence_pair(
         outputs = results["sentences"] + [results["loss"]] + list(sentences_log_p.flat)
         line = ",".join(map(str, outputs))
         exclusive_write_line(results_csv_fname, line)
+
+    if history_csv_fname is not None:
+        results["history"].to_csv(history_csv_fname)
 
 
 if __name__ == "__main__":
@@ -183,6 +192,12 @@ if __name__ == "__main__":
         help="The file to save the resulting sentence pair to. If the file already exists, the sentence pair is appended to the file.",
     )
 
+    parser.add_argument(
+        "--history_csv_fname",
+        type=str,
+        help="The file to save the optimization history to (optional).",
+    )
+
     args = parser.parse_args()
 
     synthesize_controversial_sentence_pair(
@@ -190,4 +205,5 @@ if __name__ == "__main__":
         model_reject=args.model_reject,
         initial_sentence=args.initial_sentence,
         results_csv_fname=args.results_csv_fname,
+        history_csv_fname=args.history_csv_fname,
     )
