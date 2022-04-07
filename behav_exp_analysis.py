@@ -107,6 +107,20 @@ def niceify(x):
         raise ValueError
 
 
+def _save_or_display_fig(save_folder, filename, fig, dpi=600):
+    if save_folder is not None:
+        pathlib.Path(save_folder).mkdir(parents=True, exist_ok=True)
+        fig.savefig(
+            os.path.join(save_folder, filename),
+            dpi=dpi,
+        )
+        print(
+            f"saved {save_folder}/{filename}', {fig.get_size_inches()[0]:.2f} x {fig.get_size_inches()[1]:.2f} inch."
+        )
+    else:
+        plt.show()
+
+
 def align_sentences(df):
     """To ease analysis, we align all trials so the order of sentences
     within each sentence pair is lexicographical rather than based on display position.
@@ -806,7 +820,6 @@ def build_all_html_files(df):
                 model1,
                 model2,
             )
-            print(".")
 
 
 def build_html_file(df, filepath, model1, model2):
@@ -825,7 +838,7 @@ def build_html_file(df, filepath, model1, model2):
     ind = (-triplet_level_accuracy).argsort()
     triplets = triplets.loc[ind]
 
-    with open("triplet_html_table_template.html", "r") as f:
+    with open(os.path.join("resources", "triplet_html_table_template.html"), "r") as f:
         template = f.read()
 
     html = '\
@@ -859,8 +872,10 @@ def build_html_file(df, filepath, model1, model2):
         html += "\n<br>\n"
     html += "\n</body>\n</head>\n"
 
+    pathlib.Path(os.path.dirname(filepath)).mkdir(parents=True, exist_ok=True)
     with open(filepath, "w") as f:
         template = f.write(html)
+    print(f"saved {filepath}")
 
 
 def organize_pairwise_data_into_triplets(df, model1, model2):
@@ -1545,6 +1560,7 @@ def generate_worst_sentence_pairs_table(
         tex_fname = tex_fname.replace(".tex", "_" + targeting + ".tex")
     with open(tex_fname, "w") as tex_file:
         tex_file.write(latex_code)
+    print(f"saved {tex_fname}")
 
 
 def plot_main_results_figures(
@@ -1554,6 +1570,7 @@ def plot_main_results_figures(
     save_folder=None,
     measure="binarized_accuracy",
     initial_panel_letter_index=0,
+    figure_set="1_and_3",
 ):
     if models is None:
         models = get_models(df)
@@ -1612,33 +1629,39 @@ def plot_main_results_figures(
         },
     ]
 
-    figure_plans = [
-        {
-            "panels": [0, 1],
-            "fname": f"natural_and_natural_controversial_{measure}.pdf",
-            "include_scatter_plot_col": True,
-            "include_panel_letters": True,
-        },
-        {
-            "panels": [2, 3],
-            "fname": f"synthetic_{measure}.pdf",
-            "include_scatter_plot_col": True,
-            "include_panel_letters": True,
-            "include_scatter_plot_legend": True,
-        },
-        {
-            "panels": [4],
-            "fname": f"all_trials_{measure}.pdf",
-            "include_scatter_plot_col": False,
-            "include_panel_letters": False,
-        },
-        {
-            "panels": [5],
-            "fname": f"synthetic_vs_natural_reject_{measure}.pdf",
-            "include_scatter_plot_col": False,
-            "include_panel_letters": False,
-        },
-    ]
+    if figure_set == "1_and_3":
+        figure_plans = [
+            {
+                "panels": [0, 1],
+                "fname": f"natural_and_natural_controversial_{measure}.pdf",
+                "include_scatter_plot_col": True,
+                "include_panel_letters": True,
+            },
+            {
+                "panels": [2, 3],
+                "fname": f"synthetic_{measure}.pdf",
+                "include_scatter_plot_col": True,
+                "include_panel_letters": True,
+                "include_scatter_plot_legend": True,
+            },
+            {
+                "panels": [5],
+                "fname": f"synthetic_vs_natural_reject_{measure}.pdf",
+                "include_scatter_plot_col": False,
+                "include_panel_letters": False,
+            },
+        ]
+    elif figure_set == "4":
+        figure_plans = [
+            {
+                "panels": [4],
+                "fname": f"all_trials_{measure}.pdf",
+                "include_scatter_plot_col": False,
+                "include_panel_letters": False,
+            },
+        ]
+    else:
+        raise ValueError
 
     dotplot_xaxis_label = {
         "binarized_accuracy": "human-choice prediction accuracy",
@@ -1936,10 +1959,10 @@ def plot_main_results_figures(
                     fontdict={"fontsize": panel_title_fontsize},
                 )
 
-        if save_folder is not None:
-            pathlib.Path(save_folder).mkdir(parents=True, exist_ok=True)
-            fig.savefig(os.path.join(save_folder, figure_plan["fname"]), dpi=600)
-            figs.append(fig)
+        _save_or_display_fig(
+            save_folder=save_folder, filename=figure_plan["fname"], fig=fig
+        )
+        figs.append(fig)
     return figs
 
 
@@ -2322,18 +2345,11 @@ def model_by_model_N_vs_S_heatmap(df, models=None, save_folder=None):
     )
     heatmap_ax.xaxis.set_label_position("top")
 
-    print(f"figure size: {fig_w},{fig_h} inches")
-
-    if save_folder is not None:
-        pathlib.Path(save_folder).mkdir(parents=True, exist_ok=True)
-        fig.savefig(
-            os.path.join(
-                save_folder, "natural_vs_synthetic_human_preference_matrix.pdf"
-            ),
-            dpi=600,
-        )
-    else:
-        plt.show()
+    _save_or_display_fig(
+        save_folder=save_folder,
+        filename="natural_vs_synthetic_human_preference_matrix.pdf",
+        fig=fig,
+    )
 
 
 def model_by_model_consistency_heatmap(
@@ -2395,6 +2411,89 @@ def model_by_model_consistency_heatmap(
             heatmap[i_row, i_col] = n_aligned_with_model1 / (
                 n_aligned_with_model1 + n_aligned_with_model2
             )
+    axes_label_fontsize = 10
+
+    # plot heatmap
+    matplotlib.rcParams.update({"font.size": 10})
+    matplotlib.rcParams.update({"font.family": "sans-serif"})
+    matplotlib.rcParams.update({"font.sans-serif": "Arial"})
+
+    mask = np.eye(n_models, n_models, dtype=bool)
+
+    widths_in_inches = [0.9, 1.8, 0.35]
+    horizontal_elements = ["left_margin", "heatmaps", "right_margin"]
+    heights_in_inches = [0.8, 1.8, 0.1, 0.15, 0.6]
+    vertical_elements = [
+        "top_margin",
+        "heatmaps",
+        "middle_margin",
+        "colorbar",
+        "bottom_margin",
+    ]
+
+    fig_w = np.sum(widths_in_inches)
+    fig_h = np.sum(heights_in_inches)
+    fig = plt.figure(figsize=(fig_w, fig_h))
+    fig.set_size_inches(fig_w, fig_h)
+
+    gs0 = GridSpec(
+        ncols=len(widths_in_inches),
+        nrows=len(heights_in_inches),
+        figure=fig,
+        width_ratios=widths_in_inches,
+        height_ratios=heights_in_inches,
+        hspace=0,
+        wspace=0,
+        top=1,
+        bottom=0,
+        left=0,
+        right=1,
+    )
+
+    heatmap_ax = fig.add_subplot(
+        gs0[vertical_elements.index("heatmaps"), horizontal_elements.index("heatmaps")]
+    )
+    cbar_ax = fig.add_subplot(
+        gs0[vertical_elements.index("colorbar"), horizontal_elements.index("heatmaps")]
+    )
+
+    sns.heatmap(
+        heatmap,
+        mask=mask,
+        xticklabels=niceify(models),
+        yticklabels=niceify(models),
+        annot=True,
+        fmt=".2f",
+        cmap="PiYG",
+        vmin=0,
+        vmax=1,
+        center=0.5,
+        square=True,
+        linewidth=1.0,
+        ax=heatmap_ax,
+        cbar_ax=cbar_ax,
+        cbar_kws={"orientation": "horizontal", "ticks": [0, 0.25, 0.5, 0.75, 1.0]},
+        annot_kws={"fontsize": 6},
+    )
+    heatmap_ax.xaxis.set_ticks_position("top")
+    heatmap_ax.tick_params("x", labelrotation=90)
+    heatmap_ax.tick_params(axis="both", which="major", labelsize=8)
+    heatmap_ax.tick_params(axis="both", which="minor", labelsize=8)
+    cbar_ax.tick_params(axis="both", which="major", labelsize=8)
+    cbar_ax.tick_params(axis="both", which="minor", labelsize=8)
+    cbar_ax.set_xlabel(
+        "humans choice aligned with model 1\n(proportion of trials)",
+        fontdict={"fontsize": axes_label_fontsize},
+    )
+    heatmap_ax.set_ylabel("model 1", fontdict={"fontsize": axes_label_fontsize})
+    heatmap_ax.set_xlabel("model 2", fontdict={"fontsize": axes_label_fontsize})
+    heatmap_ax.xaxis.set_label_position("top")
+
+    _save_or_display_fig(
+        save_folder=save_folder,
+        filename=f"{trial_type}_model_by_model_human_consistency_matrix.pdf",
+        fig=fig,
+    )
 
 
 def model_by_model_agreement_heatmap(
@@ -2539,18 +2638,11 @@ def model_by_model_agreement_heatmap(
     heatmap_ax.set_xlabel("model 2", fontdict={"fontsize": axes_label_fontsize})
     heatmap_ax.xaxis.set_label_position("top")
 
-    print(f"figure size: {fig_w},{fig_h} inches")
-
-    if save_folder is not None:
-        pathlib.Path(save_folder).mkdir(parents=True, exist_ok=True)
-        fig.savefig(
-            os.path.join(
-                save_folder, f"{trial_type}_model_by_model_agreement_matrix.pdf"
-            ),
-            dpi=600,
-        )
-    else:
-        plt.show()
+    _save_or_display_fig(
+        save_folder=save_folder,
+        filename=f"{trial_type}_model_by_model_agreement_matrix.pdf",
+        fig=fig,
+    )
 
 
 def data_preprocessing(
@@ -2558,7 +2650,7 @@ def data_preprocessing(
 ):
     """preprocess data from the behavioral results csv file"""
 
-    aligned_results_csv = results_csv.replace(".csv","_aligned.csv")
+    aligned_results_csv = results_csv.replace(".csv", "_aligned.csv")
     aligned_results_csv_with_loso = results_csv.replace(
         ".csv", "_aligned_with_loso.csv"
     )
@@ -2626,17 +2718,14 @@ def optimization_illustration(
     matplotlib.rcParams.update({"font.family": "sans-serif"})
     matplotlib.rcParams.update({"font.sans-serif": "Arial"})
 
-    m1_log_prob = np.load(
-        f"natural_sentence_probabilities/sents_reddit_natural_June2021_filtered_probs_{model1}.npy"
+    precomputed_sent_prob = os.path.join(
+        "resources",
+        "precomputed_sentence_probabilities",
+        "natural_sentences_for_natural_controversial_sentence_pair_selection_probs_{model}.npy",
     )
-    m2_log_prob = np.load(
-        f"natural_sentence_probabilities/sents_reddit_natural_June2021_filtered_probs_{model2}.npy"
-    )
+    m1_log_prob = np.load(precomputed_sent_prob.format(model=model1))
+    m2_log_prob = np.load(precomputed_sent_prob.format(model=model2))
 
-    # m1_log_prob=scipy.stats.rankdata(m1_log_prob)
-    # m1_log_prob=m1_log_prob/m1_log_prob.max()
-    # m2_log_prob=scipy.stats.rankdata(m2_log_prob)
-    # m2_log_prob=m2_log_prob/m2_log_prob.max()
     def rank_p_vec(p_vec):
         p_vec = pd.Series(p_vec).rank(method="dense")
         p_vec = p_vec / p_vec.max() * 100.0
@@ -2873,13 +2962,11 @@ def optimization_illustration(
             verticalalignment="top",
             fontdict={"fontsize": panel_letter_fontsize, "weight": "bold"},
         )
-    pathlib.Path("figures/optimization_illustration").mkdir(exist_ok=True, parents=True)
-    plt.savefig(
-        os.path.join(
-            "figures",
-            "optimization_illustration",
-            f"optimization_illustration_{n}{suffix}.pdf",
-        )
+
+    _save_or_display_fig(
+        save_folder=os.path.join("figures", "optimization_illustration"),
+        filename=f"optimization_illustration_{n}{suffix}.pdf",
+        fig=fig,
     )
 
 
@@ -2887,56 +2974,77 @@ if __name__ == "__main__":
 
     df = data_preprocessing()
 
+    # Figures 1 and 3 (binarized accuracy analysis)
+    plot_main_results_figures(
+        df,
+        save_folder="figures/binarized_acc",
+        measure="binarized_accuracy",
+        figure_set="1_and_3",
+    )
+
     # Figure 2
-    # optimization_illustration(df,model1='gpt2',model2='electra',s2='Diddy has a wealth of experience with grappling',s2_max_chars=32, s1='Nothing has a world of excitement and joys', s1_max_chars = 11, n='Luke has a ton of experience with winning', n_max_chars = 28, percentile_mode=True, panel_letter='a')
-    # optimization_illustration(df,model1='roberta',model2='trigram',s1='You have to realize is that noise again',s1_max_chars=19, s2='I wait to see how it shakes out', s2_max_chars=17, n='I need to see how this played out', n_max_chars=17, percentile_mode=True, panel_letter='b')
+    optimization_illustration(
+        df,
+        model1="gpt2",
+        model2="electra",
+        s2="Diddy has a wealth of experience with grappling",
+        s2_max_chars=32,
+        s1="Nothing has a world of excitement and joys",
+        s1_max_chars=11,
+        n="Luke has a ton of experience with winning",
+        n_max_chars=28,
+        percentile_mode=True,
+        panel_letter="a",
+    )
+    optimization_illustration(
+        df,
+        model1="roberta",
+        model2="trigram",
+        s1="You have to realize is that noise again",
+        s1_max_chars=19,
+        s2="I wait to see how it shakes out",
+        s2_max_chars=17,
+        n="I need to see how this played out",
+        n_max_chars=17,
+        percentile_mode=True,
+        panel_letter="b",
+    )
 
-    # # %% Binarized accuracy measurements
+    # # Figure 4
+    plot_main_results_figures(
+        df,
+        measure="RAE_signed_rank_cosine_similarity",
+        save_folder="figures/RAE_signed_rank_cosine_similarity",
+        figure_set="4",
+    )
 
-    # # # uncomment to plot main result figures
-    # figs=plot_main_results_figures(df, save_folder = 'figures/binarized_acc',measure='binarized_accuracy')
-    # #plt.show()
+    # # Figure S3
+    model_by_model_agreement_heatmap(
+        df, save_folder="figures/heatmaps", trial_type="randomly_sampled_natural"
+    )
 
-    # # warning - this is a slow one to run (an hour or so)
-    # figs = plot_main_results_figures(
-    #     df,
-    #     measure="RAE_signed_rank_cosine_similarity",
-    #     save_folder="figures/RAE_signed_rank_cosine_similarity_analytical_new_LB",
-    # )
-    # plt.show()
+    # Figure S4 (model by model accuracy heatmaps)
+    for trial_type in ["natural_controversial", "synthetic_vs_synthetic"]:
+        model_by_model_consistency_heatmap(
+            df, trial_type=trial_type, save_folder="figures/heatmaps"
+        )
 
-    # Figure S3
-    # model_by_model_agreement_heatmap(df,save_folder='figures/heatmaps', trial_type = 'randomly_sampled_natural')
-    # plt.show()
-
-    # uncomment to plot model by model accuracy heatmaps (Figure S4)
-    # for trial_type in ['natural_controversial','synthetic_vs_synthetic']:
-    #      model_by_model_consistency_heatmap(df,trial_type = trial_type, save_folder = 'figures/heatmaps')
-
-    # uncomment to plot n_vs_s heatmap (Figure S5)
-    # model_by_model_N_vs_S_heatmap(df,save_folder='figures/heatmaps')
-
-    # individual sentence probability scatter plots (left-hand panels in Figures 1 and 3)
-    # x_model='gpt2'
-    # y_model='roberta'
-    # # sentence_pair_scatter_plot(df, x_model=x_model, y_model=y_model, trial_type='randomly_sampled_natural', targeting_1=None, targeting_2=None, targeted_model_1=None,targeted_model_2=None)
-    # # sentence_pair_scatter_plot(df, x_model=x_model, y_model=y_model, trial_type='natural_controversial', targeting_1=None, targeting_2=None, targeted_model_1=x_model,targeted_model_2=y_model)
-    # sentence_pair_scatter_plot(df, x_model=x_model, y_model=y_model, trial_type='natural_vs_synthetic', targeting_1='accept', targeting_2='reject', targeted_model_1=x_model,targeted_model_2=y_model)
-    # plt.savefig(f'figures/sentence_scatterplots/natural_vs_synthetic_{x_model}_accept_vs_{y_model}_reject.pdf')
-    # sentence_pair_scatter_plot(df, x_model=x_model, y_model=y_model, trial_type='natural_vs_synthetic', targeting_1='reject', targeting_2='accept', targeted_model_1=x_model,targeted_model_2=y_model)
-    # plt.savefig(f'figures/sentence_scatterplots/natural_vs_synthetic_{x_model}_reject_vs_{y_model}_accept.pdf')
-    # sentence_pair_scatter_plot(df, x_model=x_model, y_model=y_model, trial_type='synthetic_vs_synthetic', targeting_1=None, targeting_2=None, targeted_model_1=x_model,targeted_model_2=y_model)
-    # plt.savefig(f'figures/sentence_scatterplots/synthetic_vs_synthetic_{x_model}_vs_{y_model}.pdf')
+    # Figure S5 - Pairwise model analysis of human response for natural vs. synthetic sentence pairs
+    model_by_model_N_vs_S_heatmap(df, save_folder="figures/heatmaps")
 
     # Tables 1-3:
-    # generate_worst_sentence_pairs_table(df, trial_type  = 'natural_controversial', n_sentences_per_model=1)
-    # generate_worst_sentence_pairs_table(df, trial_type  = 'synthetic_vs_synthetic', n_sentences_per_model=1)
-    # generate_worst_sentence_pairs_table(df, trial_type  = 'natural_vs_synthetic', n_sentences_per_model=1, targeting='accept')
+    generate_worst_sentence_pairs_table(
+        df, trial_type="natural_controversial", n_sentences_per_model=1
+    )
+    generate_worst_sentence_pairs_table(
+        df, trial_type="synthetic_vs_synthetic", n_sentences_per_model=1
+    )
+    generate_worst_sentence_pairs_table(
+        df,
+        trial_type="natural_vs_synthetic",
+        n_sentences_per_model=1,
+        targeting="accept",
+    )
 
-    # uncomment this next line to generate detailed html result tables
-    # build_all_html_files(df)
-
-    # deprecated analyses
-    # figs=plot_main_results_figures(df, save_folder = 'figures/SomersD',measure='SomersD')
-    # figs=plot_main_results_figures(df, save_folder = 'figures/Flexible_SomersD',measure='flexible_SomersD')
-    # plt.show()
+    # uncomment this next line to generate detailed trial-by-trial html result tables
+    build_all_html_files(df)
