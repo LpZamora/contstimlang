@@ -2823,7 +2823,7 @@ def optimization_illustration(
 
     _save_or_display_fig(
         save_folder=os.path.join("figures", "optimization_illustration"),
-        filename=f"optimization_illustration_{n}{suffix}.pdf",
+        filename=f"optimization_illustration_{n.replace(' ','_')}{suffix}.pdf",
         fig=fig,
     )
 
