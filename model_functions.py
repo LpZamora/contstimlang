@@ -188,8 +188,11 @@ class model_factory:
 
     def sent_prob(self, sent):
 
-        if self.name in ["bert", "bert_whole_word", "roberta", "xlm", "electra", "bert_has_a_mouth"]:
+        if self.name in ["bert", "bert_whole_word", "roberta", "xlm", "electra"]:
             prob = bidirectional_transformer_sent_prob(self, sent)
+
+        if self.name=="bert_has_a_mouth":
+            prob = bert_has_a_mouth_sent_prob(self, sent)
 
         elif self.name == "gpt2":
             prob = gpt2_sent_prob(self, sent)
