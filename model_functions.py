@@ -536,7 +536,7 @@ def bert_has_a_mouth_sent_prob(self, sent):
 
     prob=0
 
-    for i in range(1,len(encoded)-2):
+    for i in range(1,len(encoded_og)-2):
         
         encoded=encoded_og.copy()
         
