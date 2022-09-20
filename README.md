@@ -1,5 +1,5 @@
 # contstimlang
-Code for generating controversial sentence pairs and supporting material for **"Testing the limits of natural language models for predicting human language judgments"**.
+Code for generating controversial sentence pairs and supporting material for **["Testing the limits of natural language models for predicting human language judgments"](http://arxiv.org/abs/2204.03592)**.
 
 Tested under Python 3.7.6, PyTorch 1.3.1, and 2.9.0 (but might work also with later versions).
 
@@ -62,3 +62,15 @@ Run `python behav_exp_analysis.py`.
 GPT2, BERT, ROBERTA, ELECTRA, XLM, LSTM, RNN, TRIGRAM, BIGRAM
 
 models implemented but not currently used: BILSTM, BERT_WHOLE_WORD
+
+## Cite:
+```bibtex
+@misc{golan2022testing,
+      title={Testing the limits of natural language models for predicting human language judgments}, 
+      author={Tal Golan and Matthew Siegelman and Nikolaus Kriegeskorte and Christopher Baldassano},
+      year={2022},
+      eprint={2204.03592},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL}
+}
+```
