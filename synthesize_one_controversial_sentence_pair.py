@@ -163,6 +163,7 @@ if __name__ == "__main__":
         "roberta",
         "xlm",
         "electra",
+        "bert_has_a_mouth"
     ]
 
     parser = argparse.ArgumentParser()
