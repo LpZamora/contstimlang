@@ -222,7 +222,7 @@ class model_factory:
 
     def word_probs(self, words, wordi):
 
-        if self.name in ["bert", "bert_whole_word", "roberta", "electra"]:
+        if self.name in ["bert", "bert_whole_word", "roberta", "electra", "bert_has_a_mouth"]:
             probs = bidirectional_transformer_word_probs(self, words, wordi)
 
         elif self.name == "xlm":
@@ -248,7 +248,8 @@ class model_factory:
 
         elif self.name == "bigram":
             probs = bigram_word_probs(self, words, wordi)
-
+        else:
+            raise ValueError("Model name not recognized")
         return probs
 
 
@@ -542,7 +543,7 @@ def bert_has_a_mouth_sent_prob(self, sent):
         
         encoded[i]=103
         
-        encoded_cuda=torch.tensor([encoded]).to('cuda')
+        encoded_cuda=torch.tensor([encoded]).to(self.device)
         
         output=model(input_ids=encoded_cuda)
         
