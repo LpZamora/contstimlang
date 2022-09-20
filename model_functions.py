@@ -73,6 +73,14 @@ class model_factory:
             )
             self.is_word_prob_exact = False
 
+
+        elif name == "bert_has_a_mouth":
+            self.tokenizer = BertTokenizer.from_pretrained("bert-large-cased")
+            self.model = BertForMaskedLM.from_pretrained("bert-large-cased").to(
+                self.device
+            )
+            self.is_word_prob_exact = False
+
         elif name == "bert_whole_word":
             self.tokenizer = BertTokenizer.from_pretrained("bert-large-cased")
             self.model = BertForMaskedLM.from_pretrained(
@@ -180,7 +188,7 @@ class model_factory:
 
     def sent_prob(self, sent):
 
-        if self.name in ["bert", "bert_whole_word", "roberta", "xlm", "electra"]:
+        if self.name in ["bert", "bert_whole_word", "roberta", "xlm", "electra", "bert_has_a_mouth"]:
             prob = bidirectional_transformer_sent_prob(self, sent)
 
         elif self.name == "gpt2":
@@ -511,6 +519,39 @@ def get_token_info(self):
             self.vocab_to_tokparts_inds_map_cap = vocab_to_tokparts_inds_map_cap
 
         return self
+
+
+
+def bert_has_a_mouth_sent_prob(self, sent):
+
+    tokenizer = self.tokenizer
+    model = self.model
+
+    tokens=tokenizer.tokenize(sent+'.')
+
+    encoded_og=tokenizer.encode(tokens)
+
+    prob=0
+
+    for i in range(1,len(encoded)-2):
+        
+        encoded=encoded_og.copy()
+        
+        encoded[i]=103
+        
+        encoded_cuda=torch.tensor([encoded]).to('cuda')
+        
+        output=model(input_ids=encoded_cuda)
+        
+        probs=output[0][:, i, :][0]
+        
+        soft = logsoftmax(probs)
+        
+        arr=np.array(soft.cpu().detach())
+        
+        prob+=arr[encoded_og[i]]
+
+    return prob
 
 
 def bidirectional_transformer_sent_prob(self, sent):
