@@ -45,7 +45,7 @@ def get_word2id_dict():
     return word2id, nn_vocab_size, id2word
 
 
-word2id, nn_vocab_size, id2word = get_word2id_dict()
+# word2id, nn_vocab_size, id2word = get_word2id_dict()
 ########################################################
 
 
@@ -87,8 +87,22 @@ class model_factory:
                 "bert-large-cased-whole-word-masking"
             ).to(self.device)
             self.is_word_prob_exact = False
+            
+        elif name == "bert_whole_word_has_a_mouth":
+            self.tokenizer = BertTokenizer.from_pretrained("bert-large-cased")
+            self.model = BertForMaskedLM.from_pretrained(
+                "bert-large-cased-whole-word-masking"
+            ).to(self.device)
+            self.is_word_prob_exact = False
 
         elif name == "roberta":
+            self.tokenizer = RobertaTokenizer.from_pretrained("roberta-large")
+            self.model = RobertaForMaskedLM.from_pretrained("roberta-large").to(
+                self.device
+            )
+            self.is_word_prob_exact = False
+            
+        elif name == "roberta_has_a_mouth":
             self.tokenizer = RobertaTokenizer.from_pretrained("roberta-large")
             self.model = RobertaForMaskedLM.from_pretrained("roberta-large").to(
                 self.device
@@ -103,6 +117,15 @@ class model_factory:
             self.is_word_prob_exact = False
 
         elif name == "electra":
+            self.tokenizer = ElectraTokenizer.from_pretrained(
+                "google/electra-large-generator"
+            )
+            self.model = ElectraForMaskedLM.from_pretrained(
+                "google/electra-large-generator"
+            ).to(self.device)
+            self.is_word_prob_exact = False
+            
+        elif name == "electra_has_a_mouth":
             self.tokenizer = ElectraTokenizer.from_pretrained(
                 "google/electra-large-generator"
             )
@@ -188,11 +211,11 @@ class model_factory:
 
     def sent_prob(self, sent):
 
-        if self.name in ["bert", "bert_whole_word", "roberta", "xlm", "electra"]:
+        if "has_a_mouth" in self.name:
+            prob = has_a_mouth_sent_prob(self, sent)
+        
+        elif self.name in ["bert", "bert_whole_word", "roberta", "xlm", "electra"]:
             prob = bidirectional_transformer_sent_prob(self, sent)
-
-        if self.name=="bert_has_a_mouth":
-            prob = bert_has_a_mouth_sent_prob(self, sent)
 
         elif self.name == "gpt2":
             prob = gpt2_sent_prob(self, sent)
@@ -222,7 +245,7 @@ class model_factory:
 
     def word_probs(self, words, wordi):
 
-        if self.name in ["bert", "bert_whole_word", "roberta", "electra", "bert_has_a_mouth"]:
+        if self.name in ["bert", "bert_whole_word", "roberta", "electra"]:
             probs = bidirectional_transformer_word_probs(self, words, wordi)
 
         elif self.name == "xlm":
@@ -248,8 +271,7 @@ class model_factory:
 
         elif self.name == "bigram":
             probs = bigram_word_probs(self, words, wordi)
-        else:
-            raise ValueError("Model name not recognized")
+
         return probs
 
 
@@ -526,7 +548,7 @@ def get_token_info(self):
 
 
 
-def bert_has_a_mouth_sent_prob(self, sent):
+def has_a_mouth_sent_prob(self, sent):
 
     tokenizer = self.tokenizer
     model = self.model
@@ -541,9 +563,9 @@ def bert_has_a_mouth_sent_prob(self, sent):
         
         encoded=encoded_og.copy()
         
-        encoded[i]=103
+        encoded[i]=tokenizer.mask_token_id
         
-        encoded_cuda=torch.tensor([encoded]).to(self.device)
+        encoded_cuda=torch.tensor([encoded]).to('cuda')
         
         output=model(input_ids=encoded_cuda)
         
