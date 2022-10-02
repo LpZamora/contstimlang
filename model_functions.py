@@ -246,7 +246,7 @@ class model_factory:
 
     def word_probs(self, words, wordi):
 
-        if self.name in ["bert", "bert_whole_word", "roberta", "electra", "electra_has_a_mouth","roberta_has_a_mouth"]:
+        if self.name in ["bert", "bert_whole_word", "bert_has_a_mouth", "roberta", "electra", "electra_has_a_mouth","roberta_has_a_mouth"]:
             probs = bidirectional_transformer_word_probs(self, words, wordi)
 
         elif self.name == "xlm":
