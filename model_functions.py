@@ -237,7 +237,8 @@ class model_factory:
 
         elif self.name == "bigram":
             prob = bigram_sent_prob(self, sent)
-
+        else:
+            raise ValueError
         if type(prob) is np.ndarray:
             prob = prob.item()  # return a scalar!
 
@@ -245,7 +246,7 @@ class model_factory:
 
     def word_probs(self, words, wordi):
 
-        if self.name in ["bert", "bert_whole_word", "roberta", "electra"]:
+        if self.name in ["bert", "bert_whole_word", "roberta", "electra", "electra_has_a_mouth","roberta_has_a_mouth"]:
             probs = bidirectional_transformer_word_probs(self, words, wordi)
 
         elif self.name == "xlm":
@@ -271,7 +272,8 @@ class model_factory:
 
         elif self.name == "bigram":
             probs = bigram_word_probs(self, words, wordi)
-
+        else:
+            raise ValueError
         return probs
 
 
@@ -287,7 +289,7 @@ def get_starts_suffs(self):
 
     tokenizer = self.tokenizer
 
-    if name in ["bert", "bert_whole_word", "electra"]:
+    if name in ["bert", "bert_whole_word", "electra", "electra_has_a_mouth","bert_has_a_mouth"]:
         for i in range(len(tokenizer.get_vocab())):
             tok = tokenizer.decode(i)
             if tok[0] != "#":
@@ -295,7 +297,7 @@ def get_starts_suffs(self):
             elif tok[0] != " ":
                 suffs.append(i)
 
-    elif name in ["gpt2", "roberta"]:
+    elif name in ["gpt2", "roberta","roberta_has_a_mouth"]:
         for i in range(len(tokenizer.get_vocab())):
             tok = tokenizer.decode(i)
             if tok[0] == " " or tok[0] == ".":
@@ -310,7 +312,8 @@ def get_starts_suffs(self):
                 suffs.append(i)
             else:
                 starts.append(i)
-
+    else:
+        raise ValueError
     self.starts = starts
     self.suffs = suffs
 
@@ -565,7 +568,7 @@ def has_a_mouth_sent_prob(self, sent):
         
         encoded[i]=tokenizer.mask_token_id
         
-        encoded_cuda=torch.tensor([encoded]).to('cuda')
+        encoded_cuda=torch.tensor([encoded]).to(self.device)
         
         output=model(input_ids=encoded_cuda)
         
@@ -782,7 +785,7 @@ def bidirectional_transformer_sent_prob(self, sent):
 
         orders = list(itertools.permutations(word_inds, i))
 
-        orders = random.Random(1234).sample(orders, 500)
+        orders = random.Random(1234).sample(orders, min(len(orders),500))
 
         for orderi, order in enumerate(orders):
 
@@ -942,11 +945,11 @@ def xlm_word_probs(self, words, wordi):
 
     if wordi > 0:
         unique_tokparts = self.unique_tokparts_low
-        vocab_probs_sheet = self.vocab_probs_sheet_low
+        vocab_probs_sheet = self.vocab_probs_sheet_low.copy()
         vocab_to_tokparts_inds_map = self.vocab_to_tokparts_inds_map_low
     else:
         unique_tokparts = self.unique_tokparts_cap
-        vocab_probs_sheet = self.vocab_probs_sheet_cap
+        vocab_probs_sheet = self.vocab_probs_sheet_cap.copy()
         vocab_to_tokparts_inds_map = self.vocab_to_tokparts_inds_map_cap
 
     words = words.copy()  # Don't change the input argument!
@@ -1440,7 +1443,7 @@ def bilstm_sent_prob(self, sent):
 
     tok_perms = list(itertools.permutations(np.arange(len(words))))
 
-    tok_perms100 = random.Random(1234).sample(tok_perms, 500)
+    tok_perms100 = random.Random(1234).sample(tok_perms, min(500, len(tok_perms)))
 
     probs_all = []
 
