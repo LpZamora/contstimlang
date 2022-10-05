@@ -1,5 +1,6 @@
 import os, pickle
 import random
+import time
 
 import torch
 import numpy as np
@@ -71,7 +72,8 @@ def synthesize_controversial_sentence_pair_set(
     replacement_strategy="cyclic",
     n_pairs_to_synthesize_per_model_pair=100,
     max_non_decreasing_loss_attempts_per_word=5,
-    max_replacement_attempts_per_word=50,    
+    max_replacement_attempts_per_word=50,
+    max_opt_hours=None,
     verbose=3,
 ):
     """Synthesize a set of controversial synthetic sentence pairs.
@@ -87,6 +89,7 @@ def synthesize_controversial_sentence_pair_set(
         max_pairs: int, maximum number of sentence pairs to synthesize with each run of the script (set to None to keep running). Useful if HPC jobs are time-limited.
         natural_initialization: bool, if True, use natural sentences as initial sentences. Otherwise, initialize as random sentences.
         n_pairs_to_synthesize_per_model_pair: int, number of sentence pairs to synthesize for each model pair.
+        max_opt_hours: int, maximum number of hours to run the optimization for each sentence pair.
         verbose: int, verbosity level.
 
     Generates a CSV file with the following columns:
@@ -240,9 +243,21 @@ def synthesize_controversial_sentence_pair_set(
                     )
                 )
 
-            internal_stopping_condition = (
-                lambda loss: False
-            )  # stops optimization if condition is met
+            if max_opt_hours is not None:
+                # stop optimization after max_opt_time hours
+                start_time = time.time()
+                def stop_if_time_exceeded(loss):
+                    time_elapsed_in_hours = (time.time() - start_time) / 3600
+                    if time_elapsed_in_hours > max_opt_hours:
+                        print(f"time exceeded ({time_elapsed_in_hours:.2f} hours), stopping optimization")
+                        return True                        
+                    else:
+                        return False
+                internal_stopping_condition = stop_if_time_exceeded
+            else:
+                internal_stopping_condition = (
+                    lambda loss: False
+                )  # stops optimization if condition is met
 
             if natural_initialization:
                 initial_sentences = [natural_sentence] * n_sentences

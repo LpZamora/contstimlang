@@ -31,5 +31,6 @@ if __name__ == "__main__":
         max_sentence_pairs_per_run=1,  # set this to a small number (e.g. 5) if HPC job time is limited, None if you want the code to keep running until it's done
         max_non_decreasing_loss_attempts_per_word=100,
         max_replacement_attempts_per_word=100,
+        max_opt_hours=12,
         verbose=3,
     )
