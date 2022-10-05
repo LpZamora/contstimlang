@@ -4,8 +4,11 @@ from batch_synthesize_controversial_pairs import NaturalSentenceAssigner, synthe
 if __name__ == "__main__":
     model_pairs = [
         ("bert","bert_has_a_mouth",),
+        ("bert_has_a_mouth","bert"),
         ("electra","electra_has_a_mouth",),
+        ("electra_has_a_mouth","electra"),
         ("roberta","roberta_has_a_mouth",),
+        ("roberta_has_a_mouth", "roberta"),
     ]
 
     initial_sentence_assigner = NaturalSentenceAssigner(model_pairs)
