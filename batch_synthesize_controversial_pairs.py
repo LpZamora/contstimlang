@@ -20,13 +20,13 @@ class NaturalSentenceAssigner:
     """Assign natural sentences as initial sentences. Each natural sentence is assigned for one model pair."""
 
     def __init__(self, model_pairs, seed=42, natural_sentence_file=None):
-        """ Initialize the assigner.
-        
+        """Initialize the assigner.
+
         Args:
             model_pairs: a list of model pair tuples
             seed: random seed
             natural_sentence_file: a file containing natural sentences. If None, use the default file.
-            """
+        """
         if natural_sentence_file is None:
             natural_sentence_file = os.path.join(
                 "resources",
@@ -35,13 +35,13 @@ class NaturalSentenceAssigner:
             )
         with open(natural_sentence_file) as f:
             natural_sentences = [l.strip().rstrip(".") for l in f]
-                        
+
         natural_sentences = pd.DataFrame({"sentence": natural_sentences})
         natural_sentences = natural_sentences.sample(
-            frac=1, random_state=42
+            frac=1, random_state=seed
         )  # shuffle sentences
 
-        unique_model_pairs = list(set([tuple(sorted(pair)) for pair in model_pairs]))
+        unique_model_pairs = sorted(list(set([tuple(sorted(pair)) for pair in model_pairs])))
 
         random.Random(seed).shuffle(unique_model_pairs)
 
@@ -246,13 +246,17 @@ def synthesize_controversial_sentence_pair_set(
             if max_opt_hours is not None:
                 # stop optimization after max_opt_time hours
                 start_time = time.time()
+
                 def stop_if_time_exceeded(loss):
                     time_elapsed_in_hours = (time.time() - start_time) / 3600
                     if time_elapsed_in_hours > max_opt_hours:
-                        print(f"time exceeded ({time_elapsed_in_hours:.2f} hours), stopping optimization")
-                        return True                        
+                        print(
+                            f"time exceeded ({time_elapsed_in_hours:.2f} hours), stopping optimization"
+                        )
+                        return True
                     else:
                         return False
+
                 internal_stopping_condition = stop_if_time_exceeded
             else:
                 internal_stopping_condition = (
