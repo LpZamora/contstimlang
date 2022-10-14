@@ -14,7 +14,7 @@ cd /scratch/nklab/projects/contstimlang/contstimlang
 
 conda activate contstimlang
 
-python -u batch_bidirectional_prob_calc_exp.py
+python -u batch_bidirectional_prob_calc_exp2.py
 echo "python script terminated"
 
 # End of script
