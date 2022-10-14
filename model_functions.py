@@ -53,6 +53,7 @@ def get_word2id_dict():
 # word2id, nn_vocab_size, id2word = get_word2id_dict()
 ########################################################
 
+
 class model_factory:
     """Factory class for creating models"""
 
@@ -333,13 +334,6 @@ def get_starts_suffs(self):
         "bigram",
         "trigram",
         "plain_gpt2",
-        "bert_has_a_mouth",
-        "bert_new_implementation",
-        "roberta_has_a_mouth",
-        "roberta_new_implementation",
-        "electra_has_a_mouth",
-        "electra_new_implementation",
-        "xlm_new_implementation",
     ]:
         return self
 
@@ -348,7 +342,15 @@ def get_starts_suffs(self):
 
     tokenizer = self.tokenizer
 
-    if name in ["bert", "bert_whole_word", "electra"]:
+    if name in [
+        "bert",
+        "bert_has_a_mouth",
+        "best_new_implementation",
+        "bert_whole_word",
+        "electra",
+        "electra_has_a_mouth",
+        "electra_new_implementation",
+    ]:
         for i in range(len(tokenizer.get_vocab())):
             tok = tokenizer.decode(i)
             if tok[0] != "#":
@@ -356,7 +358,12 @@ def get_starts_suffs(self):
             elif tok[0] != " ":
                 suffs.append(i)
 
-    elif name in ["gpt2", "roberta"]:
+    elif name in [
+        "gpt2",
+        "roberta",
+        "roberta_has_a_mouth",
+        "roberta_new_implementation",
+    ]:
         for i in range(len(tokenizer.get_vocab())):
             tok = tokenizer.decode(i)
             if tok[0] == " " or tok[0] == ".":
