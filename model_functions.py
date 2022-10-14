@@ -1005,7 +1005,7 @@ def bidirectional_transformer_sent_prob(self, sent):
 
         orders = list(itertools.permutations(word_inds, i))
 
-        orders = random.Random(1234).sample(orders, min(len(orders), 500))
+        orders = random.Random(1234).sample(orders, min(len(orders), 100))
 
         for orderi, order in enumerate(orders):
 
