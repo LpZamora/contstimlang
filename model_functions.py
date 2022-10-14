@@ -77,7 +77,7 @@ class model_factory:
                 self.device
             )
             self.is_word_prob_exact = False
-        if name == "bert_new_implementation":
+        elif name == "bert_new_implementation":
             self.tokenizer = BertTokenizerFast.from_pretrained("bert-large-cased")
             self.model = BertForMaskedLM.from_pretrained("bert-large-cased").to(
                 self.device
@@ -285,10 +285,13 @@ class model_factory:
             "bert",
             "bert_whole_word",
             "bert_has_a_mouth",
+            "bert_new_implementation",
             "roberta",
             "electra",
             "electra_has_a_mouth",
+            "electra_new_implementation",
             "roberta_has_a_mouth",
+            "roberta_new_implementation",
         ]:
             probs = bidirectional_transformer_word_probs(self, words, wordi)
 
@@ -345,11 +348,9 @@ def get_starts_suffs(self):
     if name in [
         "bert",
         "bert_has_a_mouth",
-        "best_new_implementation",
         "bert_whole_word",
         "electra",
         "electra_has_a_mouth",
-        "electra_new_implementation",
     ]:
         for i in range(len(tokenizer.get_vocab())):
             tok = tokenizer.decode(i)
@@ -357,12 +358,17 @@ def get_starts_suffs(self):
                 starts.append(i)
             elif tok[0] != " ":
                 suffs.append(i)
-
+    elif name in ["bert_new_implementation", "electra_new_implementation"]:
+        for i in range(tokenizer.vocab_size):
+            tok = tokenizer.decode([i])
+            if tok[0] != "#":
+                starts.append(i)
+            elif tok[0] != " ":
+                suffs.append(i)
     elif name in [
         "gpt2",
         "roberta",
         "roberta_has_a_mouth",
-        "roberta_new_implementation",
     ]:
         for i in range(len(tokenizer.get_vocab())):
             tok = tokenizer.decode(i)
@@ -370,7 +376,13 @@ def get_starts_suffs(self):
                 starts.append(i)
             elif tok[0] != " ":
                 suffs.append(i)
-
+    elif name == "roberta_new_implementation":
+        for i in range(tokenizer.vocab_size):
+            tok = tokenizer.decode([i])
+            if tok[0] == " " or tok[0] == ".":
+                starts.append(i)
+            elif tok[0] != " ":
+                suffs.append(i)
     elif name in ["xlm"]:
         for i in range(len(tokenizer.get_vocab())):
             tok = tokenizer.convert_ids_to_tokens(i)
