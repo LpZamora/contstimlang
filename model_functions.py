@@ -233,7 +233,7 @@ class model_factory:
             )
             self.is_word_prob_exact = True
         else:
-            raise ValueError
+            raise ValueError(f"Model {name} not found")
 
         self = get_starts_suffs(self)
         self = get_token_info(self)
