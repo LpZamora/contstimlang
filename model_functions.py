@@ -505,7 +505,7 @@ def get_token_info(self):
 
         ######################################################################
 
-        batchsize = 500
+        batchsize = 100
 
         unique_tokparts_low = [list(x) for x in set(tuple(x) for x in tps_low)]
 
@@ -981,7 +981,7 @@ def bidirectional_transformer_sent_prob(self, sent):
 
     inputs = torch.tensor(tokens_all).to(self.device)
 
-    batchsize = 500
+    batchsize = 100
 
     with torch.no_grad():
 
@@ -1136,7 +1136,7 @@ def bidirectional_transformer_word_probs(self, words, wordi):
     inputs = torch.tensor(inputs).to(self.device)
     att_mask = torch.tensor(att_mask, dtype=torch.float32).to(self.device)
 
-    batchsize = 500
+    batchsize = 100
 
     for i in range(int(np.ceil(len(inputs) / batchsize))):
 
@@ -1230,7 +1230,7 @@ def xlm_word_probs(self, words, wordi):
     inputs = torch.tensor(inputs).to(self.device)
     att_mask = torch.tensor(att_mask, dtype=torch.float32).to(self.device)
 
-    batchsize = 500
+    batchsize = 100
 
     for i in range(int(np.ceil(len(inputs) / batchsize))):
 
