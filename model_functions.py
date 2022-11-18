@@ -23,6 +23,7 @@ from transformers import (
     ElectraForMaskedLM,
     ElectraTokenizerFast,
 )
+
 from knlm import KneserNey
 
 from recurrent_NNs import RNNLM, RNNLM_bilstm, RNNModel
@@ -237,6 +238,14 @@ class model_factory:
 
         self = get_starts_suffs(self)
         self = get_token_info(self)
+
+    def count_tokens(self, sent):
+
+        len_toks=len(self.tokenizer.tokenize(sent))
+
+        return len_toks
+
+
 
     def sent_prob(self, sent):
 
