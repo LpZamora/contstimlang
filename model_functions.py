@@ -1,12 +1,14 @@
 import os
-from turtle import back
-import numpy as np
-import torch
 import math
 import itertools
 import random
 import pickle
 import re
+
+import pandas as pd
+import numpy as np
+import torch
+
 
 from transformers import (
     BertForMaskedLM,
@@ -58,7 +60,7 @@ def get_word2id_dict():
 class model_factory:
     """Factory class for creating models"""
 
-    def __init__(self, name, gpu_id):
+    def __init__(self, name, gpu_id, only_tokenizer=False):
         """Initialize the model
 
         args:
@@ -74,102 +76,117 @@ class model_factory:
 
         if name == "bert":
             self.tokenizer = BertTokenizer.from_pretrained("bert-large-cased")
-            self.model = BertForMaskedLM.from_pretrained("bert-large-cased").to(
-                self.device
-            )
+            if not only_tokenizer:
+                self.model = BertForMaskedLM.from_pretrained("bert-large-cased").to(
+                    self.device
+                )
             self.is_word_prob_exact = False
         elif name == "bert_new_implementation":
             self.tokenizer = BertTokenizerFast.from_pretrained("bert-large-cased")
-            self.model = BertForMaskedLM.from_pretrained("bert-large-cased").to(
-                self.device
-            )
+            if not only_tokenizer:
+                self.model = BertForMaskedLM.from_pretrained("bert-large-cased").to(
+                    self.device
+                )
             self.is_word_prob_exact = False
         elif name == "bert_has_a_mouth":
             self.tokenizer = BertTokenizer.from_pretrained("bert-large-cased")
-            self.model = BertForMaskedLM.from_pretrained("bert-large-cased").to(
-                self.device
-            )
+            if not only_tokenizer:
+                self.model = BertForMaskedLM.from_pretrained("bert-large-cased").to(
+                    self.device
+                )
             self.is_word_prob_exact = False
 
         elif name == "bert_whole_word":
             self.tokenizer = BertTokenizer.from_pretrained("bert-large-cased")
-            self.model = BertForMaskedLM.from_pretrained(
-                "bert-large-cased-whole-word-masking"
-            ).to(self.device)
+            if not only_tokenizer:
+                self.model = BertForMaskedLM.from_pretrained(
+                    "bert-large-cased-whole-word-masking"
+                ).to(self.device)
             self.is_word_prob_exact = False
 
         elif name == "bert_whole_word_has_a_mouth":
             self.tokenizer = BertTokenizer.from_pretrained("bert-large-cased")
-            self.model = BertForMaskedLM.from_pretrained(
-                "bert-large-cased-whole-word-masking"
-            ).to(self.device)
+            if not only_tokenizer:
+                self.model = BertForMaskedLM.from_pretrained(
+                    "bert-large-cased-whole-word-masking"
+                ).to(self.device)
             self.is_word_prob_exact = False
 
         elif name == "roberta":
             self.tokenizer = RobertaTokenizer.from_pretrained("roberta-large")
-            self.model = RobertaForMaskedLM.from_pretrained("roberta-large").to(
-                self.device
-            )
+            if not only_tokenizer:
+                self.model = RobertaForMaskedLM.from_pretrained("roberta-large").to(
+                    self.device
+                )
             self.is_word_prob_exact = False
 
         elif name == "roberta_new_implementation":
             self.tokenizer = RobertaTokenizerFast.from_pretrained("roberta-large")
-            self.model = RobertaForMaskedLM.from_pretrained("roberta-large").to(
-                self.device
-            )
+            if not only_tokenizer:
+                self.model = RobertaForMaskedLM.from_pretrained("roberta-large").to(
+                    self.device
+                )
             self.is_word_prob_exact = False
         elif name == "roberta_has_a_mouth":
             self.tokenizer = RobertaTokenizer.from_pretrained("roberta-large")
-            self.model = RobertaForMaskedLM.from_pretrained("roberta-large").to(
-                self.device
-            )
+            if not only_tokenizer:
+                self.model = RobertaForMaskedLM.from_pretrained("roberta-large").to(
+                    self.device
+                )
             self.is_word_prob_exact = False
 
         elif name == "xlm":
             self.tokenizer = XLMTokenizer.from_pretrained("xlm-mlm-en-2048")
-            self.model = XLMWithLMHeadModel.from_pretrained("xlm-mlm-en-2048").to(
-                self.device
-            )
+            if not only_tokenizer:
+                self.model = XLMWithLMHeadModel.from_pretrained("xlm-mlm-en-2048").to(
+                    self.device
+                )
             self.is_word_prob_exact = False
 
         elif name == "electra":
             self.tokenizer = ElectraTokenizer.from_pretrained(
                 "google/electra-large-generator"
             )
-            self.model = ElectraForMaskedLM.from_pretrained(
-                "google/electra-large-generator"
-            ).to(self.device)
+            if not only_tokenizer:
+                self.model = ElectraForMaskedLM.from_pretrained(
+                    "google/electra-large-generator"
+                ).to(self.device)
             self.is_word_prob_exact = False
 
         elif name == "electra_new_implementation":
             self.tokenizer = ElectraTokenizerFast.from_pretrained(
                 "google/electra-large-generator"
             )
-            self.model = ElectraForMaskedLM.from_pretrained(
-                "google/electra-large-generator"
-            ).to(self.device)
+            if not only_tokenizer:
+                self.model = ElectraForMaskedLM.from_pretrained(
+                    "google/electra-large-generator"
+                ).to(self.device)
             self.is_word_prob_exact = False
         elif name == "electra_has_a_mouth":
             self.tokenizer = ElectraTokenizer.from_pretrained(
                 "google/electra-large-generator"
             )
-            self.model = ElectraForMaskedLM.from_pretrained(
-                "google/electra-large-generator"
-            ).to(self.device)
+            if not only_tokenizer:
+                self.model = ElectraForMaskedLM.from_pretrained(
+                    "google/electra-large-generator"
+                ).to(self.device)
             self.is_word_prob_exact = False
 
         elif name == "gpt2":
             self.tokenizer = GPT2Tokenizer.from_pretrained("gpt2-xl")
-            self.model = GPT2LMHeadModel.from_pretrained("gpt2-xl").to(self.device)
+            if not only_tokenizer:
+                self.model = GPT2LMHeadModel.from_pretrained("gpt2-xl").to(self.device)
             self.is_word_prob_exact = False
 
         elif name == "naive_gpt2":
             self.tokenizer = GPT2Tokenizer.from_pretrained("gpt2-xl")
-            self.model = GPT2LMHeadModel.from_pretrained("gpt2-xl").to(self.device)
+            if not only_tokenizer:
+                self.model = GPT2LMHeadModel.from_pretrained("gpt2-xl").to(self.device)
             self.is_word_prob_exact = False
         elif name == "plain_gpt2":
             self.tokenizer = GPT2Tokenizer.from_pretrained("gpt2-xl")
-            self.model = GPT2LMHeadModel.from_pretrained("gpt2-xl").to(self.device)
+            if not only_tokenizer:
+                self.model = GPT2LMHeadModel.from_pretrained("gpt2-xl").to(self.device)
             self.is_word_prob_exact = False
         elif name == "bilstm":
             self.model = RNNLM_bilstm(
@@ -236,17 +253,17 @@ class model_factory:
         else:
             raise ValueError(f"Model {name} not found")
 
-        self = get_starts_suffs(self)
-        self = get_token_info(self)
+        if not only_tokenizer:    
+            self = get_starts_suffs(self)
+            self = get_token_info(self)
 
     def count_tokens(self, sent):
-
-        len_toks=len(self.tokenizer.tokenize(sent))
-
-        return len_toks
-
-
-
+        if type(sent) in [list, tuple, pd.Series]:
+            return [self.count_tokens(s) for s in sent]
+        else:
+            len_toks=len(self.tokenizer.tokenize(sent))
+            return len_toks
+            
     def sent_prob(self, sent):
 
         if self.name in [

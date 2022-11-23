@@ -277,7 +277,7 @@ def synthesize_controversial_sentence_pair_set(
                 models=models,
                 loss_func=loss_func,
                 sentences=initial_sentences,
-                sent_len=sent_len,
+                sent_length_in_words=sent_len,
                 initial_sampling=None,
                 replacement_strategy=replacement_strategy,
                 monitoring_func=monitoring_func,
