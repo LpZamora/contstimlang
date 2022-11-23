@@ -10,7 +10,7 @@ from interpolation_search import SetInterpolationSearchPandas
 from vocabulary import vocab_low, vocab_low_freqs, vocab_cap, vocab_cap_freqs
 
 
-def controversiality_loss_func(sentences_log_p):
+def controversiality_loss_func(sentences_log_p, **kwargs):
     """
     Given a reference natural sentence, form a variant of it which is at least as likely according to one model,
     and as unlikely as possible according to the other.
@@ -96,7 +96,9 @@ def get_word_prob_from_model(model, words, wordi):
     return word_list, model_word_probs
 
 
-def get_loss_fun_with_respect_to_sentence_i(sentences_log_p, i_sentence, loss_func):
+def get_loss_fun_with_respect_to_sentence_i(
+    sentences_log_p, i_sentence, loss_func, n_characters=None
+):
     """return a loss function with respect to updating the model probabilities of just one of the sentences (the i_sentence-th).
     This help function simplifies loss-evaluation when we seek to update one of the sentences.
 
@@ -104,20 +106,30 @@ def get_loss_fun_with_respect_to_sentence_i(sentences_log_p, i_sentence, loss_fu
     sentences_log_p (numpy.array , M_models x S_sentences) current log probabilities, such that sentences_log_p[m,s]=log_p(sentence_s|model_m)
     i_sentence (int) which sentence are we considering to change
     loss_func (function) a function that maps design-model-sentence log-probabilities tensor (D_designs x M_models x S_sentence) to D_designs-long loss vector
+    n_characters (numpy.array, S_sentences) number of characters in each sentence
 
     # returns:
     loss_func_i (function) a function that maps D_designs-long vector of sentence log-probabilities to D_designs-long loss vector
     """
 
-    def loss_func_i(sentence_i_log_p):
+    def loss_func_i(sentence_i_inputs, *args, **kwargs):
         """return loss as function of updating sentence probabilities of sentence_i in a sentences_log_p matrix (D_designs x M_models)
         args:
-            sentence_i_log_p (numpy.array) M_models x S_sentences
+
+            sentence_i_inputs (numpy.array) D_designs x M_models log probabilities for one model,
+                or, if n_characters is not None, D_designs x (M_models + 1) log probabilities for each model and the sentence length
         returns:
             loss (numpy.array) M_sentences
         """
 
-        D_designs, M_models = sentence_i_log_p.shape
+        if n_characters is not None:
+            sentence_i_log_probs = sentence_i_inputs[:, :-1]
+            sentence_i_n_characters = sentence_i_inputs[:, -1]
+        else:
+            sentence_i_log_probs = sentence_i_inputs
+            sentence_i_n_characters = None
+
+        D_designs, M_models = sentence_i_log_probs.shape
 
         # copy the sentence_log_p matrix M_designs times to form an D_designs x M_models x S_sentences tensor
         modified_sentences_log_p = np.repeat(
@@ -125,10 +137,23 @@ def get_loss_fun_with_respect_to_sentence_i(sentences_log_p, i_sentence, loss_fu
         )
 
         # paste sentence_i_log_p (log probabilities of potential replacement sentences for each model)
-        modified_sentences_log_p[:, :, i_sentence] = sentence_i_log_p
+        modified_sentences_log_p[:, :, i_sentence] = sentence_i_log_probs
 
-        loss = loss_func(modified_sentences_log_p)
-        return loss
+        if sentence_i_n_characters is not None:
+            # copy the n_characters vector M_designs times to form an D_designs x S_sentences tensor
+            modified_n_characters = np.repeat(
+                np.expand_dims(n_characters, 0), D_designs, axis=0
+            )
+            modified_n_characters[:, i_sentence] = sentence_i_n_characters
+        else:
+            modified_n_characters = None
+
+        return loss_func(
+            modified_sentences_log_p,
+            n_characters=modified_n_characters,
+            *args,
+            **kwargs,
+        )
 
     return loss_func_i
 
@@ -237,7 +262,7 @@ def optimize_sentence_set(
     n_sentences,
     models,
     loss_func,
-    sent_len=8,
+    sent_length_in_words=8,
     sentences_to_change=None,
     replacement_strategy="cyclic",
     sentences=None,
@@ -253,13 +278,15 @@ def optimize_sentence_set(
     monitoring_func=None,
     save_history=False,
     model_names=None,
+    do_pass_n_words=False,
+    do_pass_n_characters=False,
     verbose=3,
 ):
     """Optimize a sentence set of n_sentences.
         n_sentences (int) how many sentences to optimize (e.g., 2 for a sentence pair).
         models (list) a list of model objects
         loss_func (function) return a loss to be minimized given a [d,ms] log_p(sentence s|model m, d d)
-        sentence_len (int) how many words
+        sentence_len (int) how many words. pass None to use the length of the initial sentences.
         sentences_to_change (list) which sentences should be optimized (e.g., [0,1] for the first two sentences). Default: all sentences.
         replacement_strategy (str) how to choose the word to replace. 'exhaustive' (don't stop optimizing until all word replacements failed)
             or - 'cyclic' (follow cyclic word orders, as described in the preprint)
@@ -285,9 +312,13 @@ def optimize_sentence_set(
     """
 
     if replacement_strategy == "cyclic":
-        word_location_dispenser = cyclic_word_location_dispenser(sent_len, max_steps)
+        word_location_dispenser = cyclic_word_location_dispenser(
+            sent_length_in_words, max_steps
+        )
     elif replacement_strategy == "exhaustive":
-        word_location_dispenser = exhaustive_word_location_dispenser(sent_len)
+        word_location_dispenser = exhaustive_word_location_dispenser(
+            sent_length_in_words
+        )
     else:
         raise ValueError("replacement_strategy must be 'exhaustive' or 'cyclic'")
 
@@ -301,13 +332,13 @@ def optimize_sentence_set(
         if start_with_identical_sentences:
             sentences = [
                 initialize_random_word_sentence(
-                    sent_len, initial_sampling=initial_sampling
+                    sent_length_in_words, initial_sampling=initial_sampling
                 )
             ] * n_sentences
         else:
             sentences = [
                 initialize_random_word_sentence(
-                    sent_len, initial_sampling=initial_sampling
+                    sent_length_in_words, initial_sampling=initial_sampling
                 )
                 for _ in range(n_sentences)
             ]
@@ -329,7 +360,13 @@ def optimize_sentence_set(
 
     # sentence_log_p[m,s] is the log-probabilitiy assigned to sentence s by model m.
     sentences_log_p = get_sentence_log_probabilities(models, sentences)
-    current_loss = loss_func(sentences_log_p).item()
+
+    if do_pass_n_characters:
+        n_characters = np.array([len(sentence) for sentence in sentences])
+    else:
+        n_characters = None
+
+    current_loss = loss_func(sentences_log_p, n_characters=n_characters).item()
 
     if verbose >= 2:
         print("initialized:")
@@ -469,9 +506,15 @@ def optimize_sentence_set(
 
             word_list = list(all_models_word_df.index)
 
+            if do_pass_n_characters:
+                all_models_word_df["exact_n_characters"] = (
+                    len(sentence) - len(cur_word) + all_models_word_df.index.str.len()
+                )
+                all_models_word_df["approximate_n_characters"] = np.nan
+
             # define loss function for updating sentence_i, with the other sentences fixed.
             loss_func_i = get_loss_fun_with_respect_to_sentence_i(
-                sentences_log_p, i_sentence, loss_func
+                sentences_log_p, i_sentence, loss_func, n_characters=n_characters
             )
 
             opt = SetInterpolationSearchPandas(
@@ -484,7 +527,7 @@ def optimize_sentence_set(
             (
                 candidate_word_idx,
                 candidate_exact_loss,
-                new_sent_log_p,
+                new_sent_info,
             ) = opt.get_observed_loss_minimum()
             found_useful_replacement = (
                 candidate_word_idx is not None
@@ -536,7 +579,7 @@ def optimize_sentence_set(
                         )
 
                     # get loss for this word using exact estimates
-                    candidate_exact_loss, new_sent_log_p = opt.get_loss_for_x(
+                    candidate_exact_loss, new_sent_info = opt.get_loss_for_x(
                         candidate_word_idx
                     )
 
@@ -591,7 +634,11 @@ def optimize_sentence_set(
                 current_loss = candidate_exact_loss
 
                 # update the sentence log probabilities
-                sentences_log_p[:, i_sentence] = new_sent_log_p
+                if do_pass_n_characters:
+                    sentences_log_p[:, i_sentence] = new_sent_info[..., :-1]
+                    n_characters[i_sentence] = new_sent_info[..., -1]
+                else:
+                    sentences_log_p[:, i_sentence] = new_sent_info
                 found_replacement_for_at_least_one_sentence = True
 
                 if save_history:
