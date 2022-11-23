@@ -14,9 +14,9 @@ from model_functions import model_factory
 from sentence_optimization import optimize_sentence_set
 
 try:
+    Lau_repo_folder = os.path.join("third_party", "acceptability_prediction_in_context")
     from third_party.acceptability_prediction_in_context.code.calc_corr import get_sentence_data
 except:
-    Lau_repo_folder = os.path.join("third_party", "acceptability_prediction_in_context")
     if not os.path.exists(Lau_repo_folder):
         subprocess.run(
             [
