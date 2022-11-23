@@ -12,18 +12,10 @@ import scipy.stats
 
 from model_functions import model_factory
 from sentence_optimization import optimize_sentence_set
-from third_party.acceptability_prediction_in_context.code.calc_corr import get_sentence_data
 
-
-def import_Lau_2020_data(context_condition="none", max_sentence_length=None):
-    """Load human acceptability ratings from 'How Furiously Can Colorless Green Ideas Sleep? Sentence Acceptability in Context'
-
-    args:
-        context_condition: str, one of 'none', 'random', 'real'. Here we use only 'none'.
-    returns:
-        data: pandas.DataFrame
-    """
-
+try:
+    from third_party.acceptability_prediction_in_context.code.calc_corr import get_sentence_data
+except:
     Lau_repo_folder = os.path.join("third_party", "acceptability_prediction_in_context")
     if not os.path.exists(Lau_repo_folder):
         subprocess.run(
@@ -36,6 +28,19 @@ def import_Lau_2020_data(context_condition="none", max_sentence_length=None):
                 Lau_repo_folder,
             ]
         )
+    assert os.path.exists(Lau_repo_folder)
+    from third_party.acceptability_prediction_in_context.code.calc_corr import get_sentence_data
+
+
+def import_Lau_2020_data(context_condition="none", max_sentence_length=None):
+    """Load human acceptability ratings from 'How Furiously Can Colorless Green Ideas Sleep? Sentence Acceptability in Context'
+
+    args:
+        context_condition: str, one of 'none', 'random', 'real'. Here we use only 'none'.
+    returns:
+        data: pandas.DataFrame
+    """
+
     assert os.path.exists(Lau_repo_folder)
 
     data_dict = get_sentence_data(
