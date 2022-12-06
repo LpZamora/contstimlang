@@ -1,3 +1,6 @@
 [submodule "third_party/acceptability-prediction-in-context"]
 	path = third_party/acceptability-prediction-in-context
 	url = https://github.com/jhlau/acceptability-prediction-in-context.git
+[submodule "third_party/acceptability_prediction_in_context"]
+	path = third_party/acceptability_prediction_in_context
+	url = https://github.com/jhlau/acceptability-prediction-in-context.git
