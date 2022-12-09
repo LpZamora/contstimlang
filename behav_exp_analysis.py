@@ -31,7 +31,7 @@ from signed_rank_cosine_similarity import (
 )
 
 model_order = {
-    'exp1':[
+    "exp1": [
         "gpt2",
         "roberta",
         "electra",
@@ -42,14 +42,14 @@ model_order = {
         "trigram",
         "bigram",
     ],
-    'exp2':[
+    "exp2": [
         "roberta",
         "roberta_has_a_mouth",
         "electra",
         "electra_has_a_mouth",
         "bert",
         "bert_has_a_mouth",
-    ]
+    ],
 }
 
 # define model colors
@@ -166,10 +166,14 @@ def align_sentences(df):
                 reference_col = col
                 if flip_required:
                     if "sentence1" in col.lower():
-                        reference_col = col.replace("sentence1", "sentence2").replace("Sentence1", "Sentence2")
+                        reference_col = col.replace("sentence1", "sentence2").replace(
+                            "Sentence1", "Sentence2"
+                        )
                     elif "sentence2" in col.lower():
-                        reference_col = col.replace("sentence2", "sentence1").replace("Sentence2", "Sentence1")
-                
+                        reference_col = col.replace("sentence2", "sentence1").replace(
+                            "Sentence2", "Sentence1"
+                        )
+
                 new_trial[col] = old_trial[reference_col]
 
         if flip_required:
@@ -183,10 +187,11 @@ def align_sentences(df):
     return df2
 
 
-def recode_model_targeting(df,
-        natural_controversial_sentences_fname,
-        synthetic_controversial_sentences_fname,
-    ):
+def recode_model_targeting(
+    df,
+    natural_controversial_sentences_fname,
+    synthetic_controversial_sentences_fname,
+):
     """create readable model targeting labels.
 
     The follow fields are added to df:
@@ -507,12 +512,17 @@ def get_models(df):
     return models
 
 
-def group_level_signed_ranked_test(reduced_df, models, grouping_variable="subject_group", model_combinations_to_contrast=None):
+def group_level_signed_ranked_test(
+    reduced_df,
+    models,
+    grouping_variable="subject_group",
+    model_combinations_to_contrast=None,
+):
     """calculate FDR-controlled Wilcoxon rank sum test between models and between each model and its noise ceiling."""
 
     group_level_df = reduced_df.groupby(grouping_variable).mean()
     results = []
-    
+
     if model_combinations_to_contrast is None:
         model_combinations_to_contrast = list(itertools.combinations(models, 2))
 
@@ -555,6 +565,7 @@ def group_level_signed_ranked_test(reduced_df, models, grouping_variable="subjec
         results["p-value"]
     )
     return results
+
 
 def calc_binarized_accuracy(df, drop_model_prob=True):
     """binarizes model and human predictions and returns 1 or 0 for prediction correctness"""
@@ -1198,7 +1209,12 @@ def plot_one_main_results_panel(
         # reduce (e.g., calculate accuracy, correlation)
         reduced_df = reduction_fun(filtered_df)
 
-    pairwise_sig = group_level_signed_ranked_test(reduced_df, models,grouping_variable=statistical_testing_level, model_combinations_to_contrast=model_combinations_to_contrast)
+    pairwise_sig = group_level_signed_ranked_test(
+        reduced_df,
+        models,
+        grouping_variable=statistical_testing_level,
+        model_combinations_to_contrast=model_combinations_to_contrast,
+    )
 
     print(cur_panel_cfg["title"])
     print(reduced_df.mean())
@@ -1222,7 +1238,9 @@ def plot_one_main_results_panel(
     )
 
     if metroplot_ax is not None:  # plot metroplot significance plot
-        level_to_location = {model_name: i for i, model_name in enumerate(model_order[exp])}
+        level_to_location = {
+            model_name: i for i, model_name in enumerate(model_order[exp])
+        }
         # prepare dataframe for metroplot
         plots_df = pairwise_sig.rename(columns={"model1": "level1", "model2": "level2"})
         plots_df["effect_direction"] = np.sign(
@@ -1259,15 +1277,17 @@ def catch_trial_report(df, subject_id_column="subject"):
 
     df2 = df[df["trial_type"] == "natural_vs_shuffled"]
 
-    n_catch_trials = int(df2.groupby(subject_id_column)["sentence_pair"].count().unique())
+    n_catch_trials = int(
+        df2.groupby(subject_id_column)["sentence_pair"].count().unique()
+    )
     print(f"each subject was presented with {n_catch_trials} catch trials.")
 
-    df2.loc[:, "correct_catch"] = ((df2["sentence1_type"] == "N") & (df2["rating"] <= 3)) | (
-        (df2["sentence2_type"] == "N") & (df2["rating"] >= 4)
-    )
-    subject_specific_correct_catch_trials = df2.groupby(subject_id_column)["correct_catch"].sum(
+    df2.loc[:, "correct_catch"] = (
+        (df2["sentence1_type"] == "N") & (df2["rating"] <= 3)
+    ) | ((df2["sentence2_type"] == "N") & (df2["rating"] >= 4))
+    subject_specific_correct_catch_trials = df2.groupby(subject_id_column)[
         "correct_catch"
-    )
+    ].sum("correct_catch")
     print(
         "distribution of correct catch trials (subjects):\n",
         subject_specific_correct_catch_trials.value_counts(),
@@ -1280,7 +1300,7 @@ def generate_worst_sentence_pairs_table(
     targeting=None,
     models=None,
     n_sentences_per_model=1,
-    target_folder = None,
+    target_folder=None,
 ):
     if models is None:
         models = get_models(df)
@@ -1459,7 +1479,7 @@ def generate_worst_sentence_pairs_table(
     if target_folder is None:
         target_folder = "tables"
     pathlib.Path(target_folder).mkdir(parents=True, exist_ok=True)
-    tex_fname = os.path.join(target_folder,f"{trial_type}.tex")
+    tex_fname = os.path.join(target_folder, f"{trial_type}.tex")
     if targeting is not None:
         tex_fname = tex_fname.replace(".tex", "_" + targeting + ".tex")
     with open(tex_fname, "w") as tex_file:
@@ -1823,7 +1843,7 @@ def plot_main_results_figures(
                     targeted_model_2=targeted_model_2,
                     ax=scatter_plot_ax,
                     axes_label_fontsize=tick_label_fontsize,
-                    tick_label_fontsize=tick_label_fontsize,                    
+                    tick_label_fontsize=tick_label_fontsize,
                 )
             if ("include_scatter_plot_legend" in figure_plan) and figure_plan[
                 "include_scatter_plot_legend"
@@ -2564,6 +2584,7 @@ def model_by_model_agreement_heatmap(
         fig=fig,
     )
 
+
 def data_preprocessing(
     results_csv="behavioral_results/contstim_Aug2021_n100_results_anon.csv",
     experiment=1,
@@ -2583,22 +2604,29 @@ def data_preprocessing(
             s1 + "_" + s2 for s1, s2 in zip(df["sentence1"], df["sentence2"])
         ]
         if experiment == 1:
-            df = recode_model_targeting(df,
-                natural_controversial_sentences_fname = "sents_reddit_natural_June2021_selected.csv",
-                synthetic_controversial_sentences_fname = os.path.join("synthesized_sentences",
+            df = recode_model_targeting(
+                df,
+                natural_controversial_sentences_fname="sents_reddit_natural_June2021_selected.csv",
+                synthetic_controversial_sentences_fname=os.path.join(
+                    "synthesized_sentences",
                     "20210224_controverisal_sentence_pairs_heuristic_natural_init_allow_rep",
-                    "8_word_9_models_100_sentences_per_pair_best10.csv"))
+                    "8_word_9_models_100_sentences_per_pair_best10.csv",
+                ),
+            )
         elif experiment == 2:
-            df = recode_model_targeting(df,
-                natural_controversial_sentences_fname = None,
-                synthetic_controversial_sentences_fname = os.path.join("synthesized_sentences",
+            df = recode_model_targeting(
+                df,
+                natural_controversial_sentences_fname=None,
+                synthetic_controversial_sentences_fname=os.path.join(
+                    "synthesized_sentences",
                     "202210_bidirectional_prob_calc_exp",
                     "controverisal_sentence_pairs_natural_initialization",
-                    "8_word_6_models_95_sentences_per_pair_best40.csv"))
+                    "8_word_6_models_95_sentences_per_pair_best40.csv",
+                ),
+            )
         else:
             raise ValueError("experiment must be 1 or 2")
-        
-        
+
         # anonymize subject IDs, if not already anonymized
         if "Participant Private ID" in df.columns:
             IDs, df["subject"] = np.unique(
@@ -2614,20 +2642,16 @@ def data_preprocessing(
             assert "subject" in df.columns, "subject column not found"
 
         # there's one subject with two extra trials.
-        # eliminate the repeated trials        
-        df = (
-            df.groupby(["subject", "sentence_pair"])
-            .first()
-            .reset_index()
-        )
+        # eliminate the repeated trials
+        df = df.groupby(["subject", "sentence_pair"]).first().reset_index()
 
         # write down subject groups (each 10 subject group had the same trials)
-        if experiment==1:
+        if experiment == 1:
             df["subject_group"] = [
                 int(re.findall("set (\d+)_.", s)[0]) for s in df["counterbalance-o1ql"]
             ]
         else:
-            df['subject_group'] = 1
+            df["subject_group"] = 1
         # add leave-one-out noise celing estimates
         df = add_leave_one_subject_predictions(df)
         df.to_csv(aligned_results_csv_with_loso)
@@ -2940,30 +2964,37 @@ def optimization_illustration(
         fig=fig,
     )
 
+
 def tokenization_control_analysis(df):
 
     # get models:
     model_names = get_models(df)
-    
+
     # don't evaluate models that don't use tokenization
-    model_names = list(set(model_names)- {"bilstm","lstm","rnn","bigram","trigram"})
-    
+    model_names = list(
+        set(model_names) - {"bilstm", "lstm", "rnn", "bigram", "trigram"}
+    )
 
     # for each model and sentence, count the number of tokens
     for model_name in model_names:
         print(f"extracting token counts for {model_name}")
         model = model_factory(model_name, gpu_id=None, only_tokenizer=True)
-        for sentence_idx in [1,2]:
-            df[f"tokens_{model_name}_sentence{sentence_idx}"] = model.count_tokens(df[f"sentence{sentence_idx}"])
+        for sentence_idx in [1, 2]:
+            df[f"tokens_{model_name}_sentence{sentence_idx}"] = model.count_tokens(
+                df[f"sentence{sentence_idx}"]
+            )
         del model
 
     # create a new dataframe long data frame, with one row per sentence pair, and the two token counts for each model
     df2 = pd.DataFrame()
 
     for model_name in model_names:
-        for sentence_idx in [1,2]:
-            df2[f"tokens_{model_name}_sentence{sentence_idx}"] = df[f"tokens_{model_name}_sentence{sentence_idx}"]
+        for sentence_idx in [1, 2]:
+            df2[f"tokens_{model_name}_sentence{sentence_idx}"] = df[
+                f"tokens_{model_name}_sentence{sentence_idx}"
+            ]
     assert 1 == 2
+
 
 if __name__ == "__main__":
 

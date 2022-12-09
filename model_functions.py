@@ -253,7 +253,7 @@ class model_factory:
         else:
             raise ValueError(f"Model {name} not found")
 
-        if not only_tokenizer:    
+        if not only_tokenizer:
             self = get_starts_suffs(self)
             self = get_token_info(self)
 
@@ -261,9 +261,9 @@ class model_factory:
         if type(sent) in [list, tuple, pd.Series]:
             return [self.count_tokens(s) for s in sent]
         else:
-            len_toks=len(self.tokenizer.tokenize(sent))
+            len_toks = len(self.tokenizer.tokenize(sent))
             return len_toks
-            
+
     def sent_prob(self, sent):
 
         if self.name in [
