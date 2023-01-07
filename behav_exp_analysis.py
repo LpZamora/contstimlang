@@ -2975,25 +2975,175 @@ def tokenization_control_analysis(df):
         set(model_names) - {"bilstm", "lstm", "rnn", "bigram", "trigram"}
     )
 
-    # for each model and sentence, count the number of tokens
-    for model_name in model_names:
-        print(f"extracting token counts for {model_name}")
-        model = model_factory(model_name, gpu_id=None, only_tokenizer=True)
-        for sentence_idx in [1, 2]:
-            df[f"tokens_{model_name}_sentence{sentence_idx}"] = model.count_tokens(
-                df[f"sentence{sentence_idx}"]
-            )
-        del model
+    # sort models according to model_order
+    model_names = sorted(model_names, key=lambda x: model_order["exp1"].index(x))
 
-    # create a new dataframe long data frame, with one row per sentence pair, and the two token counts for each model
-    df2 = pd.DataFrame()
+    # leave only S vs. S trials
+    df2 = df.loc[df["trial_type"] == "synthetic_vs_synthetic"].copy()
+
+    # leave only trials in which at least one of transformers was targeted
+    df2 = df2.loc[
+        df2["sentence1_model"].isin(model_names)
+        & df2["sentence2_model"].isin(model_names)
+    ]
+
+    # drop human-related columns
+    df2 = df2.drop(
+        columns=[
+            "Trial Number",
+            "rating",
+            "Response",
+            "Reaction Time",
+            "counterbalance-o1ql",
+            "subject",
+            "subject_group",
+            "binarized_choice_probability_NC_LB",
+            "binarized_choice_probability_NC_UB",
+            "majority_vote_NC_UB",
+            "majority_vote_NC_LB",
+            "mean_rating_NC_LB",
+            "mean_rating_NC_UB",
+        ]
+    )
+
+    # consider only unique sentence pairs
+    df2 = df2.drop_duplicates(subset=["sentence1", "sentence2"])
+
+    models = {}
+    for model_name in model_names:
+        print(f"Loading {model_name}")
+        models[model_name] = model_factory(model_name, gpu_id=None, only_tokenizer=True)
+
+    model_assigns_higher_token_count_to_its_accepted_sentence = {}
+    model_assigns_equal_token_count_to_both_sentences = {}
+    model_assigns_higher_token_count_to_its_rejected_sentence = {}
 
     for model_name in model_names:
-        for sentence_idx in [1, 2]:
-            df2[f"tokens_{model_name}_sentence{sentence_idx}"] = df[
-                f"tokens_{model_name}_sentence{sentence_idx}"
-            ]
-    assert 1 == 2
+
+        mask = (df2["sentence1_model_targeted_to_accept"] == model_name) & (
+            df2["sentence2_model_targeted_to_reject"] == model_name
+        )
+
+        df3 = df2.loc[mask].copy()
+        df3["accepted_sentence_token_count"] = models[model_name].count_tokens(
+            df3["sentence1"]
+        )
+        df3["rejected_sentence_token_count"] = models[model_name].count_tokens(
+            df3["sentence2"]
+        )
+
+        model_assigns_higher_token_count_to_its_accepted_sentence[model_name] = (
+            df3["accepted_sentence_token_count"] > df3["rejected_sentence_token_count"]
+        ).sum()
+        model_assigns_equal_token_count_to_both_sentences[model_name] = (
+            df3["accepted_sentence_token_count"] == df3["rejected_sentence_token_count"]
+        ).sum()
+        model_assigns_higher_token_count_to_its_rejected_sentence[model_name] = (
+            df3["accepted_sentence_token_count"] < df3["rejected_sentence_token_count"]
+        ).sum()
+
+        mask = (df2["sentence1_model_targeted_to_reject"] == model_name) & (
+            df2["sentence2_model_targeted_to_accept"] == model_name
+        )
+
+        df3 = df2.loc[mask].copy()
+        df3["accepted_sentence_token_count"] = models[model_name].count_tokens(
+            df3["sentence2"]
+        )
+        df3["rejected_sentence_token_count"] = models[model_name].count_tokens(
+            df3["sentence1"]
+        )
+
+        model_assigns_higher_token_count_to_its_accepted_sentence[model_name] += (
+            df3["accepted_sentence_token_count"] > df3["rejected_sentence_token_count"]
+        ).sum()
+        model_assigns_equal_token_count_to_both_sentences[model_name] += (
+            df3["accepted_sentence_token_count"] == df3["rejected_sentence_token_count"]
+        ).sum()
+        model_assigns_higher_token_count_to_its_rejected_sentence[model_name] += (
+            df3["accepted_sentence_token_count"] < df3["rejected_sentence_token_count"]
+        ).sum()
+
+    summary_df = []
+
+    for model_name in model_names:
+        summary_df.append(
+            {
+                "model": model_name,
+                "accepted_sent_has_higher_token_count": model_assigns_higher_token_count_to_its_accepted_sentence[
+                    model_name
+                ],
+                "equal_token_count": model_assigns_equal_token_count_to_both_sentences[
+                    model_name
+                ],
+                "rejected_sent_has_higher_token_count": model_assigns_higher_token_count_to_its_rejected_sentence[
+                    model_name
+                ],
+                # binomial test
+                "p-value": scipy.stats.binomtest(
+                    k=model_assigns_higher_token_count_to_its_accepted_sentence[
+                        model_name
+                    ],
+                    n=model_assigns_higher_token_count_to_its_accepted_sentence[
+                        model_name
+                    ]
+                    + model_assigns_higher_token_count_to_its_rejected_sentence[
+                        model_name
+                    ],
+                    alternative="two-sided",
+                ).pvalue,
+            }
+        )
+
+    summary_df = pd.DataFrame(summary_df)
+
+    # FDR correction
+    summary_df["p-value (FDR)"] = statsmodels.stats.multitest.multipletests(
+        summary_df["p-value"], method="fdr_bh"
+    )[1]
+
+    summary_df["significant"] = summary_df["p-value (FDR)"] < 0.05
+
+    # increase pd max columns to see all columns
+    pd.set_option("display.max_columns", 100)
+    print(summary_df)
+
+    def python_float_to_latex_science_notation(x):
+        """Convert Python float LaTeX p-value.
+        Use float notation for x>=1e-4 and < 0.0001 otherwise.
+        """
+        if x >= 1e-4:
+            return f"{x:.4f}"
+        else:
+            return f"$<${1e-4:.4f}"
+
+    # form a LaTeX table:
+    latex_table = """
+    \\begin{table}[h] 
+    \\centering
+    \\begin{tabularx}{ccccc}
+    \\toprule
+    model & \shortstack{accepted sentence\\has more tokens} & \shortstack{equal\\token-count} & \shortstack{rejected sentence\\has more tokens} & p-value \\    \\midrule
+    """
+    for i, row in summary_df.iterrows():
+        p_value_str = python_float_to_latex_science_notation(row["p-value (FDR)"])
+        do_bold = row["significant"]
+        if do_bold:
+            p_value_str = f"\\textbf{{{p_value_str}}}"
+        latex_table += f"""
+        {niceify(row["model"])} & {row["accepted_sent_has_higher_token_count"]} & {row["equal_token_count"]} & {row["rejected_sent_has_higher_token_count"]} & {p_value_str} \\\\
+        """
+    latex_table += """
+    \\bottomrule
+    \\end{tabularx}
+    \\caption{Token count analysis}
+    \\label{tab:token_count_analysis}
+    \\end{table}
+    """
+
+    # save the latex table to file
+    with open("tables/token_count_analysis.tex", "w") as f:
+        f.write(latex_table)
 
 
 if __name__ == "__main__":
