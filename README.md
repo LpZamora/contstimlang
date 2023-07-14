@@ -74,3 +74,7 @@ models implemented but not currently used: BILSTM, BERT_WHOLE_WORD
       primaryClass={cs.CL}
 }
 ```
+
+
+[![DOI](https://zenodo.org/badge/478651187.svg)](https://zenodo.org/badge/latestdoi/478651187)
+
