@@ -16,6 +16,8 @@ def synthesize_controversial_sentence_pair(
     history_csv_fname=None,
     allow_only_prepositions_to_repeat=True,
     replacement_strategy="cyclic",
+    max_replacement_attempts_per_word=50,
+    max_non_decreasing_loss_attempts_per_word=5,
     verbose=3,
 ):
     """Synthesize a set of controversial synthetic sentence pairs.
@@ -132,6 +134,8 @@ def synthesize_controversial_sentence_pair(
         sentences_to_change=sentences_to_change,
         save_history=save_history,
         model_names=model_name_pair,
+        max_replacement_attempts_per_word=max_replacement_attempts_per_word,
+        max_non_decreasing_loss_attempts_per_word=max_non_decreasing_loss_attempts_per_word,
         verbose=verbose,
     )
 
@@ -163,6 +167,9 @@ if __name__ == "__main__":
         "roberta",
         "xlm",
         "electra",
+        "bert_has_a_mouth",
+        "electra_has_a_mouth",
+        "roberta_has_a_mouth",
     ]
 
     parser = argparse.ArgumentParser()

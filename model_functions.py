@@ -1,23 +1,32 @@
 import os
-import numpy as np
-import torch
 import math
 import itertools
 import random
 import pickle
+import re
+import warnings
+
+import pandas as pd
+import numpy as np
+import torch
+
 
 from transformers import (
     BertForMaskedLM,
     BertTokenizer,
+    BertTokenizerFast,
     GPT2Tokenizer,
     GPT2LMHeadModel,
     RobertaForMaskedLM,
     RobertaTokenizer,
+    RobertaTokenizerFast,
     XLMTokenizer,
     XLMWithLMHeadModel,
     ElectraTokenizer,
     ElectraForMaskedLM,
+    ElectraTokenizerFast,
 )
+
 from knlm import KneserNey
 
 from recurrent_NNs import RNNLM, RNNLM_bilstm, RNNModel
@@ -45,14 +54,14 @@ def get_word2id_dict():
     return word2id, nn_vocab_size, id2word
 
 
-word2id, nn_vocab_size, id2word = get_word2id_dict()
+# word2id, nn_vocab_size, id2word = get_word2id_dict()
 ########################################################
 
 
 class model_factory:
     """Factory class for creating models"""
 
-    def __init__(self, name, gpu_id):
+    def __init__(self, name, gpu_id, only_tokenizer=False):
         """Initialize the model
 
         args:
@@ -68,51 +77,118 @@ class model_factory:
 
         if name == "bert":
             self.tokenizer = BertTokenizer.from_pretrained("bert-large-cased")
-            self.model = BertForMaskedLM.from_pretrained("bert-large-cased").to(
-                self.device
-            )
+            if not only_tokenizer:
+                self.model = BertForMaskedLM.from_pretrained("bert-large-cased").to(
+                    self.device
+                )
+            self.is_word_prob_exact = False
+        elif name == "bert_new_implementation":
+            self.tokenizer = BertTokenizerFast.from_pretrained("bert-large-cased")
+            if not only_tokenizer:
+                self.model = BertForMaskedLM.from_pretrained("bert-large-cased").to(
+                    self.device
+                )
+            self.is_word_prob_exact = False
+        elif name == "bert_has_a_mouth":
+            self.tokenizer = BertTokenizer.from_pretrained("bert-large-cased")
+            if not only_tokenizer:
+                self.model = BertForMaskedLM.from_pretrained("bert-large-cased").to(
+                    self.device
+                )
             self.is_word_prob_exact = False
 
         elif name == "bert_whole_word":
             self.tokenizer = BertTokenizer.from_pretrained("bert-large-cased")
-            self.model = BertForMaskedLM.from_pretrained(
-                "bert-large-cased-whole-word-masking"
-            ).to(self.device)
+            if not only_tokenizer:
+                self.model = BertForMaskedLM.from_pretrained(
+                    "bert-large-cased-whole-word-masking"
+                ).to(self.device)
+            self.is_word_prob_exact = False
+
+        elif name == "bert_whole_word_has_a_mouth":
+            self.tokenizer = BertTokenizer.from_pretrained("bert-large-cased")
+            if not only_tokenizer:
+                self.model = BertForMaskedLM.from_pretrained(
+                    "bert-large-cased-whole-word-masking"
+                ).to(self.device)
             self.is_word_prob_exact = False
 
         elif name == "roberta":
             self.tokenizer = RobertaTokenizer.from_pretrained("roberta-large")
-            self.model = RobertaForMaskedLM.from_pretrained("roberta-large").to(
-                self.device
-            )
+            if not only_tokenizer:
+                self.model = RobertaForMaskedLM.from_pretrained("roberta-large").to(
+                    self.device
+                )
+            self.is_word_prob_exact = False
+
+        elif name == "roberta_new_implementation":
+            self.tokenizer = RobertaTokenizerFast.from_pretrained("roberta-large")
+            if not only_tokenizer:
+                self.model = RobertaForMaskedLM.from_pretrained("roberta-large").to(
+                    self.device
+                )
+            self.is_word_prob_exact = False
+        elif name == "roberta_has_a_mouth":
+            self.tokenizer = RobertaTokenizer.from_pretrained("roberta-large")
+            if not only_tokenizer:
+                self.model = RobertaForMaskedLM.from_pretrained("roberta-large").to(
+                    self.device
+                )
             self.is_word_prob_exact = False
 
         elif name == "xlm":
             self.tokenizer = XLMTokenizer.from_pretrained("xlm-mlm-en-2048")
-            self.model = XLMWithLMHeadModel.from_pretrained("xlm-mlm-en-2048").to(
-                self.device
-            )
+            if not only_tokenizer:
+                self.model = XLMWithLMHeadModel.from_pretrained("xlm-mlm-en-2048").to(
+                    self.device
+                )
             self.is_word_prob_exact = False
 
         elif name == "electra":
             self.tokenizer = ElectraTokenizer.from_pretrained(
                 "google/electra-large-generator"
             )
-            self.model = ElectraForMaskedLM.from_pretrained(
+            if not only_tokenizer:
+                self.model = ElectraForMaskedLM.from_pretrained(
+                    "google/electra-large-generator"
+                ).to(self.device)
+            self.is_word_prob_exact = False
+
+        elif name == "electra_new_implementation":
+            self.tokenizer = ElectraTokenizerFast.from_pretrained(
                 "google/electra-large-generator"
-            ).to(self.device)
+            )
+            if not only_tokenizer:
+                self.model = ElectraForMaskedLM.from_pretrained(
+                    "google/electra-large-generator"
+                ).to(self.device)
+            self.is_word_prob_exact = False
+        elif name == "electra_has_a_mouth":
+            self.tokenizer = ElectraTokenizer.from_pretrained(
+                "google/electra-large-generator"
+            )
+            if not only_tokenizer:
+                self.model = ElectraForMaskedLM.from_pretrained(
+                    "google/electra-large-generator"
+                ).to(self.device)
             self.is_word_prob_exact = False
 
         elif name == "gpt2":
             self.tokenizer = GPT2Tokenizer.from_pretrained("gpt2-xl")
-            self.model = GPT2LMHeadModel.from_pretrained("gpt2-xl").to(self.device)
+            if not only_tokenizer:
+                self.model = GPT2LMHeadModel.from_pretrained("gpt2-xl").to(self.device)
             self.is_word_prob_exact = False
 
         elif name == "naive_gpt2":
             self.tokenizer = GPT2Tokenizer.from_pretrained("gpt2-xl")
-            self.model = GPT2LMHeadModel.from_pretrained("gpt2-xl").to(self.device)
+            if not only_tokenizer:
+                self.model = GPT2LMHeadModel.from_pretrained("gpt2-xl").to(self.device)
             self.is_word_prob_exact = False
-
+        elif name == "plain_gpt2":
+            self.tokenizer = GPT2Tokenizer.from_pretrained("gpt2-xl")
+            if not only_tokenizer:
+                self.model = GPT2LMHeadModel.from_pretrained("gpt2-xl").to(self.device)
+            self.is_word_prob_exact = False
         elif name == "bilstm":
             self.model = RNNLM_bilstm(
                 vocab_size=94608, embed_size=256, hidden_size=256, num_layers=1
@@ -121,6 +197,7 @@ class model_factory:
                 torch.load(os.path.join("model_checkpoints", "bilstm_state_dict.pt"))
             )
             self.model = self.model.to(self.device)
+            word2id, nn_vocab_size, id2word = get_word2id_dict()
             self.word2id = word2id
             self.id2word = id2word
             self.embed_size = 256
@@ -137,6 +214,7 @@ class model_factory:
                 torch.load(os.path.join("model_checkpoints", "lstm_state_dict.pt"))
             )
             self.model = self.model.to(self.device)
+            word2id, nn_vocab_size, id2word = get_word2id_dict()
             self.word2id = word2id
             self.id2word = id2word
             self.embed_size = 256
@@ -153,6 +231,7 @@ class model_factory:
                 torch.load(os.path.join("model_checkpoints", "rnn_state_dict.pt"))
             )
             self.model = self.model.to(self.device)
+            word2id, nn_vocab_size, id2word = get_word2id_dict()
             self.word2id = word2id
             self.id2word = id2word
             self.embed_size = 256
@@ -173,37 +252,59 @@ class model_factory:
             )
             self.is_word_prob_exact = True
         else:
-            raise ValueError
+            raise ValueError(f"Model {name} not found")
 
-        self = get_starts_suffs(self)
-        self = get_token_info(self)
+        if not only_tokenizer:
+            self = get_starts_suffs(self)
+            self = get_token_info(self)
+
+    def count_tokens(self, sent):
+        if type(sent) in [list, tuple, pd.Series]:
+            return [self.count_tokens(s) for s in sent]
+        else:
+            if hasattr(self, "tokenizer"):
+                len_toks = len(self.tokenizer.tokenize(sent))
+            else:
+                warnings.warn(f"Model {self.name} does not have a tokenizer. Using character count instead.")
+                len_toks = len(sent)
+            return len_toks
 
     def sent_prob(self, sent):
 
-        if self.name in ["bert", "bert_whole_word", "roberta", "xlm", "electra"]:
+        if self.name in [
+            "bert_has_a_mouth",
+            "roberta_has_a_mouth",
+            "electra_has_a_mouth",
+        ]:
+            prob = has_a_mouth_sent_prob(self, sent)
+
+        elif self.name in ["bert", "bert_whole_word", "roberta", "xlm", "electra"]:
             prob = bidirectional_transformer_sent_prob(self, sent)
 
+        elif self.name in [
+            "bert_new_implementation",
+            "roberta_new_implementation",
+            "electra_new_implementation",
+        ]:
+            prob = bidirectional_transformer_sent_prob_new_implementation(self, sent)
         elif self.name == "gpt2":
             prob = gpt2_sent_prob(self, sent)
-
         elif self.name == "naive_gpt2":
             prob = naive_gpt2_sent_prob(self, sent)
-
+        elif self.name == "plain_gpt2":
+            prob = gpt2_sent_scoring_plain(self, sent)
         elif self.name == "bilstm":
             prob = bilstm_sent_prob(self, sent)
-
         elif self.name == "lstm":
             prob = lstm_sent_prob(self, sent)
-
         elif self.name == "rnn":
             prob = rnn_sent_prob(self, sent)
-
         elif self.name == "trigram":
             prob = trigram_sent_prob(self, sent)
-
         elif self.name == "bigram":
             prob = bigram_sent_prob(self, sent)
-
+        else:
+            raise ValueError
         if type(prob) is np.ndarray:
             prob = prob.item()  # return a scalar!
 
@@ -211,7 +312,18 @@ class model_factory:
 
     def word_probs(self, words, wordi):
 
-        if self.name in ["bert", "bert_whole_word", "roberta", "electra"]:
+        if self.name in [
+            "bert",
+            "bert_whole_word",
+            "bert_has_a_mouth",
+            "bert_new_implementation",
+            "roberta",
+            "electra",
+            "electra_has_a_mouth",
+            "electra_new_implementation",
+            "roberta_has_a_mouth",
+            "roberta_new_implementation",
+        ]:
             probs = bidirectional_transformer_word_probs(self, words, wordi)
 
         elif self.name == "xlm":
@@ -221,6 +333,9 @@ class model_factory:
             probs = gpt2_word_probs(self, words, wordi)
 
         elif self.name == "naive_gpt2":
+            probs = naive_gpt2_word_probs(self, words, wordi)
+
+        elif self.name == "plain_gpt2":
             probs = naive_gpt2_word_probs(self, words, wordi)
 
         elif self.name == "bilstm":
@@ -237,7 +352,8 @@ class model_factory:
 
         elif self.name == "bigram":
             probs = bigram_word_probs(self, words, wordi)
-
+        else:
+            raise ValueError
         return probs
 
 
@@ -245,7 +361,14 @@ def get_starts_suffs(self):
 
     name = self.name
 
-    if self.name in ["bilstm", "lstm", "rnn", "bigram", "trigram"]:
+    if self.name in [
+        "bilstm",
+        "lstm",
+        "rnn",
+        "bigram",
+        "trigram",
+        "plain_gpt2",
+    ]:
         return self
 
     starts = []
@@ -253,22 +376,44 @@ def get_starts_suffs(self):
 
     tokenizer = self.tokenizer
 
-    if name in ["bert", "bert_whole_word", "electra"]:
+    if name in [
+        "bert",
+        "bert_has_a_mouth",
+        "bert_whole_word",
+        "electra",
+        "electra_has_a_mouth",
+    ]:
         for i in range(len(tokenizer.get_vocab())):
             tok = tokenizer.decode(i)
             if tok[0] != "#":
                 starts.append(i)
             elif tok[0] != " ":
                 suffs.append(i)
-
-    elif name in ["gpt2", "roberta"]:
+    elif name in ["bert_new_implementation", "electra_new_implementation"]:
+        for i in range(tokenizer.vocab_size):
+            tok = tokenizer.decode([i])
+            if tok[0] != "#":
+                starts.append(i)
+            elif tok[0] != " ":
+                suffs.append(i)
+    elif name in [
+        "gpt2",
+        "roberta",
+        "roberta_has_a_mouth",
+    ]:
         for i in range(len(tokenizer.get_vocab())):
             tok = tokenizer.decode(i)
             if tok[0] == " " or tok[0] == ".":
                 starts.append(i)
             elif tok[0] != " ":
                 suffs.append(i)
-
+    elif name == "roberta_new_implementation":
+        for i in range(tokenizer.vocab_size):
+            tok = tokenizer.decode([i])
+            if tok[0] == " " or tok[0] == ".":
+                starts.append(i)
+            elif tok[0] != " ":
+                suffs.append(i)
     elif name in ["xlm"]:
         for i in range(len(tokenizer.get_vocab())):
             tok = tokenizer.convert_ids_to_tokens(i)
@@ -276,7 +421,8 @@ def get_starts_suffs(self):
                 suffs.append(i)
             else:
                 starts.append(i)
-
+    else:
+        raise ValueError
     self.starts = starts
     self.suffs = suffs
 
@@ -293,7 +439,7 @@ def get_token_info(self):
     tokenizer = self.tokenizer
     model = self.model
 
-    if name in ["gpt2", "naive_gpt2"]:
+    if name in ["gpt2", "naive_gpt2", "plain_gpt2"]:
 
         special_tokens_dict = {"pad_token": "[PAD]"}
         tokenizer.add_special_tokens(special_tokens_dict)
@@ -381,7 +527,7 @@ def get_token_info(self):
 
         ######################################################################
 
-        batchsize = 500
+        batchsize = 100
 
         unique_tokparts_low = [list(x) for x in set(tuple(x) for x in tps_low)]
 
@@ -511,6 +657,200 @@ def get_token_info(self):
             self.vocab_to_tokparts_inds_map_cap = vocab_to_tokparts_inds_map_cap
 
         return self
+
+
+def has_a_mouth_sent_prob(self, sent):
+
+    tokenizer = self.tokenizer
+    model = self.model
+
+    tokens = tokenizer.tokenize(sent + ".")
+
+    encoded_og = tokenizer.encode(tokens)
+
+    prob = 0
+
+    for i in range(1, len(encoded_og) - 2):
+
+        encoded = encoded_og.copy()
+
+        encoded[i] = tokenizer.mask_token_id
+
+        encoded_cuda = torch.tensor([encoded]).to(self.device)
+
+        with torch.no_grad():
+            output = model(input_ids=encoded_cuda)
+
+        probs = output[0][:, i, :][0]
+
+        soft = logsoftmax(probs)
+
+        arr = np.array(soft.cpu().detach())
+
+        prob += arr[encoded_og[i]]
+
+    return prob
+
+
+def bidirectional_transformer_sent_prob_new_implementation(self, sent):
+
+    if not sent[-1] in [".", ",", "?", "!"]:
+        sent = sent.rstrip(" ") + "."
+
+    assert self.tokenizer.is_fast
+    result = self.tokenizer.encode_plus(
+        sent,
+        return_tensors="pt",
+        return_token_type_ids=False,
+        return_attention_mask=False,
+        return_special_tokens_mask=True,
+        return_offsets_mapping=True,
+    )
+    token_ids = result["input_ids"].to(self.device)
+    is_special_token = result["special_tokens_mask"].numpy()
+    offset_mapping = result["offset_mapping"].numpy()
+    assert len(offset_mapping) == 1, "Only batch size 1 is supported"
+    offset_mapping = offset_mapping[0]
+
+    def get_word_limits(s):
+        # find first and last character of each word
+        # e.g. "hello world" -> [(0,5), (6,11)]
+        return [(m.start(), m.end()) for m in re.finditer(r"\S+", s)]
+
+    def map_token_ids_to_word_idx(sent, offsets_mapping):
+        word_limits = get_word_limits(sent.rstrip(" .,?!"))
+        token_id_to_word_idx = [None] * len(offsets_mapping)
+        for word_idx, (word_start, word_end) in enumerate(word_limits):
+            for token_id_idx, (token_start, token_end) in enumerate(offsets_mapping):
+                if (
+                    token_start >= word_start
+                    and token_end <= word_end
+                    and token_end - token_start > 0
+                ):
+                    token_id_to_word_idx[token_id_idx] = word_idx
+        return token_id_to_word_idx
+
+    soft = torch.nn.LogSoftmax(dim=-1)
+
+    def chain_rule_log_prob(token_ids, model, chain_order):
+        """evaluate the log probability of a sentence according to a given condition chain order
+
+        args:
+        token_ids (list): list of tokens in the sentence
+        model (transformer model): the model to use for evaluation
+        chain_order (list): list of token indices to condition on in order
+            the indexing includes special tokens.
+            (e.g. left to right evaluation would be 1,2,3,...,n-2)
+            indecis not included are not masked
+
+        returns (float): log probability of the sentence
+        """
+
+        if isinstance(token_ids, list):
+            n_tokens = len(token_ids)
+            token_ids = torch.tensor([token_ids]).to(self.device)
+        elif isinstance(token_ids, torch.Tensor):
+            n_tokens = token_ids.shape[1]
+            token_ids = token_ids.to(self.device)
+        else:
+            raise ValueError("token_ids must be a list or torch.Tensor")
+        assert token_ids.shape == (1, n_tokens)
+
+        n_products = len(chain_order)
+
+        mask_id = self.tokenizer.mask_token_id
+
+        # build the input matrix
+        input = token_ids.repeat(n_products, 1)
+
+        # mask the tokens according to the chain order
+        for chain_idx, masked_tok_idx in enumerate(chain_order):
+            input[: (chain_idx + 1), masked_tok_idx] = mask_id
+
+        # evaluate the model
+        with torch.no_grad():
+            output = model(input_ids=input)[0]  # (n_products, tokens, vocab)
+
+        # for each chain order, get gather the relevant token (the one we're evaluating)
+        output = output[
+            torch.arange(n_products), chain_order, :
+        ]  # (chain orders, vocab)
+
+        # get the log probabilities of the tokens
+        masked_token_id = token_ids[0, chain_order]
+        log_probs = soft(output)[
+            torch.arange(n_products), masked_token_id
+        ]  # (n_products)
+
+        log_likelihood = log_probs.sum()
+        return log_likelihood
+
+    # evaluate the sentence in mulitple random orders
+
+    def prepare_word_aware_chain_order(
+        token_id_to_word_idx, max_n_chains=100, random_seed=1234
+    ):
+        """prepare a random chain order for evaluation.
+
+        randomly samples a conditional chain of words.
+        with each word, randomly samples a conditional chain of tokens.
+
+        args:
+        token_id_to_word_idx (list): a list assinging each token id to a word. special tokens should have None values.
+        max_n_chains (int): maximum number of chain orders to evaluate.
+
+        returns (list): list of chain orders
+
+        chain orders are omit special tokens, but are indexed with respect to the complete tokenization"""
+
+        uq_word_indices = sorted(list(set(token_id_to_word_idx) - set([None])))
+        n_words = len(uq_word_indices)
+
+        rng = np.random.RandomState(random_seed)
+
+        if math.factorial(n_words) <= max_n_chains:
+            word_chain_orders = []
+            for word_chain_order in itertools.permutations(uq_word_indices):
+                word_chain_orders.append(np.asarray(word_chain_order))
+        else:
+            word_chain_orders = []
+            for _ in range(max_n_chains):
+                word_chain_order = rng.permutation(n_words)
+                word_chain_orders.append(word_chain_order)
+
+        # transform word-level chains to token-level chains
+        token_chain_orders = []
+        for word_chain_order in word_chain_orders:
+            token_chain_order = []
+            for word_idx in word_chain_order:
+                cur_word_token_indices = np.flatnonzero(
+                    np.array(token_id_to_word_idx) == word_idx
+                )
+                cur_word_n_tokens = len(cur_word_token_indices)
+                if cur_word_n_tokens == 1:
+                    token_chain_order.append(cur_word_token_indices[0])
+                else:
+                    # sample a random permutation of token orders
+                    token_permutation = rng.permutation(cur_word_n_tokens)
+                    token_chain_order.extend(cur_word_token_indices[token_permutation])
+            token_chain_orders.append(token_chain_order)
+
+            # transform indices to account for special tokens
+        return token_chain_orders
+
+    token_id_to_word_idx = map_token_ids_to_word_idx(sent, offset_mapping)
+    chain_orders = prepare_word_aware_chain_order(
+        token_id_to_word_idx, max_n_chains=100
+    )
+
+    # alternatively, left-to-right evaluation
+    # chain_orders = [np.nonzero(~np.array(is_special_token))[0]]
+
+    all_log_probs = []
+    for chain_order in chain_orders:
+        all_log_probs.append(chain_rule_log_prob(token_ids, self.model, chain_order))
+    average_log_likeihood = torch.stack(all_log_probs).mean().item()
+    return average_log_likeihood
 
 
 def bidirectional_transformer_sent_prob(self, sent):
@@ -663,7 +1003,7 @@ def bidirectional_transformer_sent_prob(self, sent):
 
     inputs = torch.tensor(tokens_all).to(self.device)
 
-    batchsize = 500
+    batchsize = 100
 
     with torch.no_grad():
 
@@ -715,7 +1055,7 @@ def bidirectional_transformer_sent_prob(self, sent):
 
         orders = list(itertools.permutations(word_inds, i))
 
-        orders = random.Random(1234).sample(orders, 500)
+        orders = random.Random(1234).sample(orders, min(len(orders), 100))
 
         for orderi, order in enumerate(orders):
 
@@ -818,7 +1158,7 @@ def bidirectional_transformer_word_probs(self, words, wordi):
     inputs = torch.tensor(inputs).to(self.device)
     att_mask = torch.tensor(att_mask, dtype=torch.float32).to(self.device)
 
-    batchsize = 500
+    batchsize = 100
 
     for i in range(int(np.ceil(len(inputs) / batchsize))):
 
@@ -875,11 +1215,11 @@ def xlm_word_probs(self, words, wordi):
 
     if wordi > 0:
         unique_tokparts = self.unique_tokparts_low
-        vocab_probs_sheet = self.vocab_probs_sheet_low
+        vocab_probs_sheet = self.vocab_probs_sheet_low.copy()
         vocab_to_tokparts_inds_map = self.vocab_to_tokparts_inds_map_low
     else:
         unique_tokparts = self.unique_tokparts_cap
-        vocab_probs_sheet = self.vocab_probs_sheet_cap
+        vocab_probs_sheet = self.vocab_probs_sheet_cap.copy()
         vocab_to_tokparts_inds_map = self.vocab_to_tokparts_inds_map_cap
 
     words = words.copy()  # Don't change the input argument!
@@ -912,7 +1252,7 @@ def xlm_word_probs(self, words, wordi):
     inputs = torch.tensor(inputs).to(self.device)
     att_mask = torch.tensor(att_mask, dtype=torch.float32).to(self.device)
 
-    batchsize = 500
+    batchsize = 100
 
     for i in range(int(np.ceil(len(inputs) / batchsize))):
 
@@ -1150,7 +1490,9 @@ def naive_gpt2_sent_prob(self, sent):
     #     starts=self.starts
     #     suffs=self.suffs
 
-    sent = ". " + sent + "."
+    sent = ". " + sent
+    if sent[-1] != ".":
+        sent = sent + "."
 
     tokens = tokenizer.encode(sent)
     inputs = torch.tensor(tokens).to(self.device)
@@ -1287,6 +1629,59 @@ def naive_gpt2_word_probs(self, words, wordi):
     return vocab_probs, vocab_tops_ind
 
 
+def gpt2_sent_scoring_plain(self, lines, batch_size=32):
+
+    if type(lines) == str:
+        return gpt2_sent_scoring_plain(self, [lines], batch_size=batch_size)[0]
+
+    lines = [". " + l for l in lines]
+    lines = [l if l[-1] == "." else l + "." for l in lines]
+    tokenizer = self.tokenizer
+    model = self.model
+
+    if len(lines) > batch_size:
+
+        def chunks(l, n):
+            for i in range(0, len(l), n):
+                yield l[i : i + n]
+
+        chunks = list(chunks(lines, batch_size))
+        scores, n_tokens = [], []
+        for chunk in chunks:
+            scores_, n_tokens_ = gpt2_sent_scoring_plain(
+                tokenizer, model, chunk, batch_size
+            )
+            scores.extend(scores_)
+            n_tokens.extend(n_tokens_)
+        return scores
+
+    # lines = [tokenizer.eos_token + line for line in lines]
+    tok_res = tokenizer.batch_encode_plus(lines, return_tensors="pt", padding=True)
+    input_ids = tok_res["input_ids"]
+    attention_mask = tok_res["attention_mask"]
+    with torch.no_grad():
+        lines_len = torch.sum(tok_res["attention_mask"], dim=1)
+
+        outputs = model(
+            input_ids=input_ids.to(model.device),
+            attention_mask=attention_mask.to(model.device),
+            labels=input_ids.to(model.device),
+        )
+        loss, logits = outputs[:2]
+        scores, n_tokens = [], []
+        for line_ind in range(len(lines)):
+            line_log_prob = 0.0
+            for token_ind in range(lines_len[line_ind] - 1):
+                token_prob = torch.nn.functional.softmax(
+                    logits[line_ind, token_ind], dim=0
+                )
+                token_id = input_ids[line_ind, token_ind + 1]
+                line_log_prob += torch.log(token_prob[token_id])
+            scores.append(line_log_prob.item())
+            n_tokens.append(lines_len[line_ind].item() - 1)
+    return scores
+
+
 def bilstm_word_probs(self, words, wordi):
 
     model = self.model
@@ -1306,9 +1701,9 @@ def bilstm_word_probs(self, words, wordi):
         torch.zeros(2, 1, hidden_size).to(self.device),
     )
 
-    ids = [word2id[w] for w in words] + [word2id["."]]
+    ids = [self.word2id[w] for w in words] + [self.word2id["."]]
 
-    ids[wordi] = word2id["[MASK]"]
+    ids[wordi] = self.word2id["[MASK]"]
 
     ids = torch.tensor(ids).to(self.device).unsqueeze(0)
 
@@ -1316,7 +1711,7 @@ def bilstm_word_probs(self, words, wordi):
 
     soft = logsoftmax(out[0]).cpu().data.numpy()
 
-    soft = soft[[word2id[v] for v in vocab]]
+    soft = soft[[self.word2id[v] for v in vocab]]
 
     return soft
 
@@ -1332,7 +1727,7 @@ def bilstm_sent_prob(self, sent):
 
     words = sent.split()
 
-    word_ids = [word2id[w] for w in words]
+    word_ids = [self.word2id[w] for w in words]
 
     tok_orders = [
         list(itertools.combinations(np.arange(len(words)), x))
@@ -1345,7 +1740,7 @@ def bilstm_sent_prob(self, sent):
 
     for i, tok_order in enumerate(tok_orders):
 
-        base = [word2id["[MASK]"]] * len(words) + [word2id["."]]
+        base = [self.word2id["[MASK]"]] * len(words) + [self.word2id["."]]
 
         for t in tok_order:
             base[t] = word_ids[t]
@@ -1373,7 +1768,7 @@ def bilstm_sent_prob(self, sent):
 
     tok_perms = list(itertools.permutations(np.arange(len(words))))
 
-    tok_perms100 = random.Random(1234).sample(tok_perms, 500)
+    tok_perms100 = random.Random(1234).sample(tok_perms, min(500, len(tok_perms)))
 
     probs_all = []
 
@@ -1423,12 +1818,12 @@ def lstm_word_probs(self, words, wordi):
         torch.zeros(num_layers, 1, hidden_size).to(self.device),
     )
 
-    inputs = torch.tensor([word2id[w] for w in words]).to(self.device).unsqueeze(0)
+    inputs = torch.tensor([self.word2id[w] for w in words]).to(self.device).unsqueeze(0)
     outputs, states = model(inputs, states, 0)
     soft = logsoftmax(outputs).cpu().data.numpy()
 
     ss = np.argsort(soft[wordi - 1])[::-1]
-    top_words = [id2word[s] for s in ss]
+    top_words = [self.id2word[s] for s in ss]
     top_words = list(set(top_words) & set(vocab))
     inds = [vocab.index(t) for t in top_words]
 
@@ -1467,13 +1862,13 @@ def lstm_sent_prob(self, sent):
 
     words = ["."] + sent.split() + ["."]
 
-    inputs = torch.tensor([word2id[w] for w in words]).to(self.device).unsqueeze(0)
+    inputs = torch.tensor([self.word2id[w] for w in words]).to(self.device).unsqueeze(0)
 
     outputs, states = model(inputs, states, 0)
 
     soft = logsoftmax(outputs).cpu().data.numpy()
 
-    prob = np.sum([float(soft[wi, word2id[w]]) for wi, w in enumerate(words[1:])])
+    prob = np.sum([float(soft[wi, self.word2id[w]]) for wi, w in enumerate(words[1:])])
 
     return prob
 
@@ -1494,7 +1889,7 @@ def rnn_sent_prob(self, sent):
 
     words = ["."] + sent.split() + ["."]
 
-    inputs = torch.tensor([word2id[w] for w in words]).to(self.device).unsqueeze(0)
+    inputs = torch.tensor([self.word2id[w] for w in words]).to(self.device).unsqueeze(0)
 
     h0 = torch.zeros(num_layers, 1, hidden_size).to(self.device)
 
@@ -1502,7 +1897,7 @@ def rnn_sent_prob(self, sent):
 
     soft = logsoftmax(outputs).cpu().data.numpy()[0]
 
-    prob = np.sum([float(soft[wi, word2id[w]]) for wi, w in enumerate(words[1:])])
+    prob = np.sum([float(soft[wi, self.word2id[w]]) for wi, w in enumerate(words[1:])])
 
     return prob
 
@@ -1527,12 +1922,12 @@ def rnn_word_probs(self, words, wordi):
 
     h0 = torch.zeros(num_layers, 1, hidden_size).to(self.device)
 
-    inputs = torch.tensor([word2id[w] for w in words]).to(self.device).unsqueeze(0)
+    inputs = torch.tensor([self.word2id[w] for w in words]).to(self.device).unsqueeze(0)
     outputs, states = model(inputs, h0)
     soft = logsoftmax(outputs).cpu().data.numpy()[0]
 
     ss = np.argsort(soft[wordi - 1])[::-1]
-    top_words = [id2word[s] for s in ss]
+    top_words = [self.id2word[s] for s in ss]
     top_words = list(set(top_words) & set(vocab))
     inds = [vocab.index(t) for t in top_words]
 

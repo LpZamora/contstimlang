@@ -30,7 +30,7 @@ class SetInterpolationSearch:
         can be approximated by a cheap, precomputed g(x).
 
         Given already observed (x, f(x)) pairs, we form
-        y_aprx~=h(g(x)), a linear (or non-linear) prediction of y=f(x)
+        y_aprx=h(g(x)), a linear (or non-linear) prediction of y=f(x)
         as a function of g(x). This prediction is used to find our
         best guess for an x (for which we haven't yet observed f(x)),
         that will minimize loss_fun(f(x)).

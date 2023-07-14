@@ -1,6 +1,6 @@
 import os, pickle
-import itertools, random
 import random
+import time
 
 import torch
 import numpy as np
@@ -19,7 +19,14 @@ from task_scheduler import TaskScheduler
 class NaturalSentenceAssigner:
     """Assign natural sentences as initial sentences. Each natural sentence is assigned for one model pair."""
 
-    def __init__(self, all_model_names, seed=42, natural_sentence_file=None):
+    def __init__(self, model_pairs, seed=42, natural_sentence_file=None):
+        """Initialize the assigner.
+
+        Args:
+            model_pairs: a list of model pair tuples
+            seed: random seed
+            natural_sentence_file: a file containing natural sentences. If None, use the default file.
+        """
         if natural_sentence_file is None:
             natural_sentence_file = os.path.join(
                 "resources",
@@ -31,25 +38,23 @@ class NaturalSentenceAssigner:
 
         natural_sentences = pd.DataFrame({"sentence": natural_sentences})
         natural_sentences = natural_sentences.sample(
-            frac=1, random_state=42
+            frac=1, random_state=seed
         )  # shuffle sentences
 
-        model_pairs = list(itertools.combinations(all_model_names, 2))
-        model_pairs = [tuple(sorted(pair)) for pair in model_pairs]
+        unique_model_pairs = sorted(list(set([tuple(sorted(pair)) for pair in model_pairs])))
 
-        random.Random(seed).shuffle(model_pairs)
+        random.Random(seed).shuffle(unique_model_pairs)
 
-        n_model_pairs = len(model_pairs)
+        n_unique_model_pairs = len(unique_model_pairs)
 
         sentence_groups = natural_sentences.groupby(
-            np.arange(len(natural_sentences)) % n_model_pairs
+            np.arange(len(natural_sentences)) % n_unique_model_pairs
         )
 
-        self.all_model_names = all_model_names
-        self.model_pairs = model_pairs
+        self.unique_model_pairs = unique_model_pairs
         self.model_pair_dict = {
             tuple(model_pair): sentence_group[1].sort_index()
-            for model_pair, sentence_group in zip(model_pairs, sentence_groups)
+            for model_pair, sentence_group in zip(unique_model_pairs, sentence_groups)
         }
 
     def get_sentences(self, model_pair):
@@ -57,7 +62,7 @@ class NaturalSentenceAssigner:
 
 
 def synthesize_controversial_sentence_pair_set(
-    all_model_names,
+    model_pairs,
     initial_sentence_assigner,
     results_csv_folder=None,
     sent_len=8,
@@ -66,6 +71,9 @@ def synthesize_controversial_sentence_pair_set(
     natural_initialization=True,
     replacement_strategy="cyclic",
     n_pairs_to_synthesize_per_model_pair=100,
+    max_non_decreasing_loss_attempts_per_word=5,
+    max_replacement_attempts_per_word=50,
+    max_opt_hours=None,
     verbose=3,
 ):
     """Synthesize a set of controversial synthetic sentence pairs.
@@ -73,7 +81,7 @@ def synthesize_controversial_sentence_pair_set(
     This function can be run in parallel by multiple nodes to build a large set of sentence pairs.
 
     args:
-        all_model_names: list of strings, names of all models
+        model_pairs: list of tuples of model names
         initial_sentence_assigner: NaturalSentenceAssigner object
         results_csv_folder: string, path to folder where the resulting sentence pairs will be saved
         sent_len: int, length of synthetic sentences (number of words)
@@ -81,6 +89,7 @@ def synthesize_controversial_sentence_pair_set(
         max_pairs: int, maximum number of sentence pairs to synthesize with each run of the script (set to None to keep running). Useful if HPC jobs are time-limited.
         natural_initialization: bool, if True, use natural sentences as initial sentences. Otherwise, initialize as random sentences.
         n_pairs_to_synthesize_per_model_pair: int, number of sentence pairs to synthesize for each model pair.
+        max_opt_hours: int, maximum number of hours to run the optimization for each sentence pair.
         verbose: int, verbosity level.
 
     Generates a CSV file with the following columns:
@@ -103,10 +112,11 @@ def synthesize_controversial_sentence_pair_set(
         job_id_df = pd.DataFrame(list(job_df["job_id"]))
     except:
         job_id_df = None
+    print("job_id_df", job_id_df)
 
     # determine which model pair has the least completed or running jobs
     model_pairs_stats = []
-    for model_name_pair in itertools.product(all_model_names, repeat=2):
+    for model_name_pair in model_pairs:
         [model1_name, model2_name] = model_name_pair
         if model1_name == model2_name:
             continue
@@ -233,9 +243,25 @@ def synthesize_controversial_sentence_pair_set(
                     )
                 )
 
-            internal_stopping_condition = (
-                lambda loss: False
-            )  # stops optimization if condition is met
+            if max_opt_hours is not None:
+                # stop optimization after max_opt_time hours
+                start_time = time.time()
+
+                def stop_if_time_exceeded(loss):
+                    time_elapsed_in_hours = (time.time() - start_time) / 3600
+                    if time_elapsed_in_hours > max_opt_hours:
+                        print(
+                            f"time exceeded ({time_elapsed_in_hours:.2f} hours), stopping optimization"
+                        )
+                        return True
+                    else:
+                        return False
+
+                internal_stopping_condition = stop_if_time_exceeded
+            else:
+                internal_stopping_condition = (
+                    lambda loss: False
+                )  # stops optimization if condition is met
 
             if natural_initialization:
                 initial_sentences = [natural_sentence] * n_sentences
@@ -251,7 +277,7 @@ def synthesize_controversial_sentence_pair_set(
                 models=models,
                 loss_func=loss_func,
                 sentences=initial_sentences,
-                sent_len=sent_len,
+                sent_length_in_words=sent_len,
                 initial_sampling=None,
                 replacement_strategy=replacement_strategy,
                 monitoring_func=monitoring_func,
@@ -261,6 +287,8 @@ def synthesize_controversial_sentence_pair_set(
                 keep_words_unique=keep_words_unique,
                 allowed_repeating_words=allowed_repeating_words,
                 sentences_to_change=sentences_to_change,
+                max_replacement_attempts_per_word=max_replacement_attempts_per_word,
+                max_non_decreasing_loss_attempts_per_word=max_non_decreasing_loss_attempts_per_word,
                 verbose=verbose,
             )
 
@@ -305,17 +333,23 @@ if __name__ == "__main__":
         "electra",
     ]
 
-    initial_sentence_assigner = NaturalSentenceAssigner(all_model_names)
+    # get all pairs excluding self-pairs:
+    model_pairs = []
+    for model1_name in all_model_names:
+        for model2_name in all_model_names:
+            if model1_name != model2_name:
+                model_pairs.append((model1_name, model2_name))
+    initial_sentence_assigner = NaturalSentenceAssigner(model_pairs)
     sent_len = 8
 
     results_csv_folder = os.path.join(
-        "synthesized_sentences",
+        "synthesized_sentences_test",
         "controverisal_sentence_pairs_natural_initialization",
         "{}_word".format(sent_len),
     )
 
     synthesize_controversial_sentence_pair_set(
-        all_model_names,
+        model_pairs,
         initial_sentence_assigner,
         results_csv_folder=results_csv_folder,
         sent_len=sent_len,  # in the preprint, we used 8 word sentences

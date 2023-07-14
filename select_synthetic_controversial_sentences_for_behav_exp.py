@@ -1,10 +1,11 @@
 """ given a set of synthesized sentences, select a subset for human testing """
 
 import os, glob
-import itertools
+import pdb
 import re
 import argparse
 import pathlib
+
 
 import numpy as np
 import pandas as pd
@@ -16,33 +17,6 @@ def move_cols_to_left(df, cols_to_move):
     cols = list(df.columns)
     cols = cols_to_move + [col for col in cols if col not in cols_to_move]
     return df[cols]
-
-
-default_path = os.path.join(
-    "synthesized_sentences",
-    "controverisal_sentence_pairs_natural_initialization",
-    "8_word",
-)
-
-parser = argparse.ArgumentParser()
-parser.add_argument("--synthesized_sentence_csv_folder", type=str, default=default_path)
-parser.add_argument("--output_csv_path", type=str, default=default_path)
-parser.add_argument("--n_sentence_triplets_for_consideration", type=int, default=100)
-parser.add_argument("--n_sentence_triplets_for_human_testing", type=int, default=10)
-parser.add_argument(
-    "--selection_method",
-    type=str,
-    default="decile_balanced",
-    choices=["decile_balanced", "best"],
-)
-
-args = parser.parse_args()
-
-synthesized_sentence_csv_folder = args.synthesized_sentence_csv_folder
-output_csv_path = args.output_csv_path
-n_sentence_triplets_for_consideration = args.n_sentence_triplets_for_consideration
-n_sentence_triplets_for_human_testing = args.n_sentence_triplets_for_human_testing
-selection_method = args.selection_method
 
 
 def docplex_solve(
@@ -137,182 +111,281 @@ def _test_docplex_solve():
 # _test_docplex_solve()
 
 # start by checking which model pairs are available, and loading csvs into pandas dataframes
-csvs = glob.glob(os.path.join(synthesized_sentence_csv_folder, "*.csv"))
-all_model_names = set()
-df_dict = {}
-for csv in csvs:
-    model1, model2 = re.findall(r"(.+)_vs_(.+)\.csv", os.path.basename(csv))[0]
-    all_model_names.add(model1)
-    all_model_names.add(model2)
+def select_sentence_triplets_for_human_testing(
+    synthesized_sentence_csv_folder,
+    output_csv_path,
+    n_sentence_triplets_for_consideration=100,
+    selection_method="decile_balanced",
+    n_sentence_triplets_for_human_testing=10,
+    enforce_natural_sentence_uniqueness=False,
+):
 
-    cur_df = pd.read_csv(
-        csv,
-        names=[
-            "N_idx",
-            "N",
-            "S",
-            "loss",
-            "lp_N_given_m1",
-            "lp_S_given_m1",
-            "lp_N_given_m2",
-            "lp_S_given_m2",
-        ],
-    ).sort_index()
+    csvs = glob.glob(os.path.join(synthesized_sentence_csv_folder, "*.csv"))
 
-    # due to some glitch in the cluster task scheduling (and one duplicate sentence in the natural sentece list),
-    # a small number of natural sentences were used more than once per ordered model pair
-    # keep only the first one (we don't keep the best to avoid biasing the sentence sample)
-    cur_df = cur_df.drop_duplicates(subset="N")
+    model_pairs = set()
+    all_model_names = set()
+    df_dict = {}
+    for csv in csvs:
+        model1, model2 = re.findall(r"(.+)_vs_(.+)\.csv", os.path.basename(csv))[0]
+        model_pairs.add((model1, model2))
+        all_model_names.add(model1)
+        all_model_names.add(model2)
 
-    cur_df["m1"] = [model1] * len(cur_df)
-    cur_df["m2"] = [model2] * len(cur_df)
-    df_dict[(model1, model2)] = cur_df
+        cur_df = pd.read_csv(
+            csv,
+            names=[
+                "N_idx",
+                "N",
+                "S",
+                "loss",
+                "lp_N_given_m1",
+                "lp_S_given_m1",
+                "lp_N_given_m2",
+                "lp_S_given_m2",
+            ],
+        ).sort_index()
 
-# processs each model pair #############################################################
+        # drop zero loss rows
+        cur_df = cur_df[cur_df["loss"] < 0]
 
-all_sentences = []
-selected_sentences = []
+        # due to some glitch in the cluster task scheduling (and one duplicate sentence in the natural sentece list),
+        # a small number of natural sentences were used more than once per ordered model pair
+        # keep only the first one (we don't keep the best to avoid biasing the sentence sample)
+        cur_df = cur_df.drop_duplicates(subset="N")
 
-# next, we filter out sentence whose natural sentence (N) doesn't appear in to CSVs related to each model pair comparison and join dataframes
-for model1, model2 in itertools.combinations(all_model_names, 2):
+        cur_df["m1"] = [model1] * len(cur_df)
+        cur_df["m2"] = [model2] * len(cur_df)
 
-    df1 = df_dict[(model1, model2)]
-    df2 = df_dict[(model2, model1)]
+        df_dict[(model1, model2)] = cur_df
 
-    # to prepare dataframes for merging, we rename the columns. The two dataframes will be consistent in terms of which models are labeled as m1 and m2
-    df1 = df1.rename(
-        columns={
-            "S": "S1",
-            "loss": "loss_S1_vs_N",
-            "lp_S_given_m1": "lp_S1_given_m1",
-            "lp_S_given_m2": "lp_S1_given_m2",
-        }
+    # processs each model pair #############################################################
+
+    # next, we filter out sentence whose natural sentence (N) doesn't appear in to CSVs related to each model pair comparison and join dataframes
+    uq_model_pairs = sorted(
+        list(set([tuple(sorted(model_pair)) for model_pair in model_pairs]))
     )
-    df2 = df2.rename(
-        columns={
-            "S": "S2",
-            "loss": "loss_S2_vs_N",
-            "lp_S_given_m1": "lp_S2_given_m2",
-            "lp_S_given_m2": "lp_S2_given_m1",
-            "lp_N_given_m1": "lp_N_given_m2",
-            "lp_N_given_m2": "lp_N_given_m1",
-            "m1": "m2",
-            "m2": "m1",
-        }
-    )
+    triplet_df_dict = {}
+    for model1, model2 in uq_model_pairs:
 
-    # merging dataframes
-    cur_df = df1.merge(
-        df2,
-        how="inner",
-        on=["N_idx", "N", "m1", "m2"],
-        sort=True,
-        validate="one_to_one",
-        suffixes=["", "_prime"],
-    )
+        df1 = df_dict[(model1, model2)]
+        df2 = df_dict[(model2, model1)]
 
-    cur_df = move_cols_to_left(
-        cur_df, ["m1", "m2", "N_idx", "N", "S1", "S2"]
-    )  # reorder columns for readability
-
-    # a sanity check:
-    r = scipy.stats.pearsonr(
-        cur_df["lp_N_given_m1"].to_numpy(), cur_df["lp_N_given_m1_prime"].to_numpy()
-    )[0]
-    assert r > 0.999, (
-        "mismatching natural sentence probability for "
-        + model1
-        + " in "
-        + model1
-        + "_vs_"
-        + model2
-    )
-    r = scipy.stats.pearsonr(
-        cur_df["lp_N_given_m2"].to_numpy(), cur_df["lp_N_given_m2_prime"].to_numpy()
-    )[0]
-    assert r > 0.999, (
-        "mismatching natural sentence probability for "
-        + model2
-        + " in "
-        + model1
-        + "_vs_"
-        + model2
-    )
-    cur_df = cur_df.drop(columns=["lp_N_given_m1_prime", "lp_N_given_m2_prime"])
-
-    # We consider 99 (TODO - 100) natural sentences per model pair
-    assert len(cur_df) >= n_sentence_triplets_for_consideration
-    cur_df = cur_df.head(n=n_sentence_triplets_for_consideration)
-
-    # now, we select trials for the human experiment.
-    # rank loss_S1_vs_N and loss_S2_vs_N
-    cur_df["loss_rank1"] = cur_df["loss_S1_vs_N"].rank(ascending=True)
-    cur_df["loss_rank2"] = cur_df["loss_S2_vs_N"].rank(ascending=True)
-
-    cur_df["worst_rank_of_two"] = np.maximum(cur_df["loss_rank1"], cur_df["loss_rank2"])
-    cur_df["rank"] = cur_df["worst_rank_of_two"].rank(ascending=True, method="first")
-
-    if selection_method == "best":
-        # just use the most controversial triplets, according to their worst rank across two synthetic sentences
-
-        cur_df["selected_for_human_testing"] = (
-            cur_df["rank"] <= n_sentence_triplets_for_human_testing
+        # to prepare dataframes for merging, we rename the columns. The two dataframes will be consistent in terms of which models are labeled as m1 and m2
+        df1 = df1.rename(
+            columns={
+                "S": "S1",
+                "loss": "loss_S1_vs_N",
+                "lp_S_given_m1": "lp_S1_given_m1",
+                "lp_S_given_m2": "lp_S1_given_m2",
+            }
+        )
+        df2 = df2.rename(
+            columns={
+                "S": "S2",
+                "loss": "loss_S2_vs_N",
+                "lp_S_given_m1": "lp_S2_given_m2",
+                "lp_S_given_m2": "lp_S2_given_m1",
+                "lp_N_given_m1": "lp_N_given_m2",
+                "lp_N_given_m2": "lp_N_given_m1",
+                "m1": "m2",
+                "m2": "m1",
+            }
         )
 
-    elif selection_method == "decile_balanced":
-        # choose the most controversial sentences, under the constraint of equally sampling the natural sentence probability deciles of each model
+        # merging dataframes
+        cur_df = df1.merge(
+            df2,
+            how="inner",
+            on=["N_idx", "N", "m1", "m2"],
+            sort=True,
+            validate="one_to_one",
+            suffixes=["", "_prime"],
+        )
 
+        cur_df = move_cols_to_left(
+            cur_df, ["m1", "m2", "N_idx", "N", "S1", "S2"]
+        )  # reorder columns for readability
+
+        print(f"Found {len(cur_df)} sentence triplets for {model1} vs {model2}")
+
+        # a sanity check:
+        r = scipy.stats.pearsonr(
+            cur_df["lp_N_given_m1"].to_numpy(), cur_df["lp_N_given_m1_prime"].to_numpy()
+        )[0]
+        assert r > 0.999, (
+            "mismatching natural sentence probability for "
+            + model1
+            + " in "
+            + model1
+            + "_vs_"
+            + model2
+        )
+        r = scipy.stats.pearsonr(
+            cur_df["lp_N_given_m2"].to_numpy(), cur_df["lp_N_given_m2_prime"].to_numpy()
+        )[0]
+        assert r > 0.999, (
+            "mismatching natural sentence probability for "
+            + model2
+            + " in "
+            + model1
+            + "_vs_"
+            + model2
+        )
+        cur_df = cur_df.drop(columns=["lp_N_given_m1_prime", "lp_N_given_m2_prime"])
+        cur_df = cur_df.reset_index(drop=True)
+        triplet_df_dict[(model1, model2)] = cur_df
+
+    if enforce_natural_sentence_uniqueness:
+        # we want to make sure that each natural sentence is only used once in the human testing set
+        # create an occurance table for each natural sentence and model pair
+        natural_sentence_occurance_table = {}
+        for model1, model2 in uq_model_pairs:
+            cur_df = triplet_df_dict[(model1, model2)]
+            for idx, row in cur_df.iterrows():
+                if row["N"] not in natural_sentence_occurance_table:
+                    natural_sentence_occurance_table[row["N"]] = set()
+                natural_sentence_occurance_table[row["N"]].add((model1, model2))
+
+        def get_uq_triplet_count(natural_sentence_occurance_table):
+            uq_triplet_count = {}
+            for (
+                natural_sentence,
+                model_pairs,
+            ) in natural_sentence_occurance_table.items():
+                if len(model_pairs) == 1:
+                    model_pair = list(model_pairs)[0]
+                    if model_pair not in uq_triplet_count:
+                        uq_triplet_count[model_pair] = 0
+                    uq_triplet_count[model_pair] += 1
+            return uq_triplet_count
+
+        uq_triplet_count = get_uq_triplet_count(natural_sentence_occurance_table)
+        for natural_sentence in reversed(list(natural_sentence_occurance_table.keys())):
+            while len(natural_sentence_occurance_table[natural_sentence]) > 1:
+                # remove the natural sentence from model pair dataframes with the most occurences
+                relevant_model_pairs = list(
+                    natural_sentence_occurance_table[natural_sentence]
+                )
+                relevant_model_pairs_uq_triplet_counts = [
+                    uq_triplet_count[model_pair] for model_pair in relevant_model_pairs
+                ]
+
+                # get argmax with random tiebreaking
+                max_idx = np.random.choice(
+                    np.argwhere(
+                        relevant_model_pairs_uq_triplet_counts
+                        == np.max(relevant_model_pairs_uq_triplet_counts)
+                    ).flatten()
+                )
+                max_model_pair = relevant_model_pairs[max_idx]
+                # drop the natural sentence from the dataframe
+                triplet_df_dict[max_model_pair] = triplet_df_dict[max_model_pair][
+                    triplet_df_dict[max_model_pair]["N"] != natural_sentence
+                ]
+                natural_sentence_occurance_table[natural_sentence].remove(
+                    max_model_pair
+                )
+                if len(natural_sentence_occurance_table[natural_sentence]) == 1:
+                    remaining_model_pair = list(
+                        natural_sentence_occurance_table[natural_sentence]
+                    )[0]
+                    uq_triplet_count[remaining_model_pair] += 1
+
+        for model1, model2 in uq_model_pairs:
+            triplet_df_dict[(model1, model2)].reset_index(drop=True, inplace=True)
+            print(
+                f"Found {len(triplet_df_dict[(model1, model2)])} sentence triplets for {model1} vs {model2} after enforcing natural sentence uniqueness"
+            )
+
+    all_sentences = []
+    selected_sentences = []
+
+    for model1, model2 in uq_model_pairs:
+        cur_df = triplet_df_dict[(model1, model2)]
+
+        # We consider 99 (TODO - 100) natural sentences per model pair
+        assert len(cur_df) >= n_sentence_triplets_for_consideration
+        cur_df = cur_df.head(n=n_sentence_triplets_for_consideration).copy()
+
+        # now, we select trials for the human experiment.
         # rank loss_S1_vs_N and loss_S2_vs_N
-        cur_df["p_N_given_m1_decile"] = pd.qcut(
-            cur_df["lp_N_given_m1"], q=10, labels=False
-        )
-        cur_df["p_N_given_m2_decile"] = pd.qcut(
-            cur_df["lp_N_given_m2"], q=10, labels=False
-        )
+        cur_df["loss_rank1"] = cur_df["loss_S1_vs_N"].rank(ascending=True)
+        cur_df["loss_rank2"] = cur_df["loss_S2_vs_N"].rank(ascending=True)
 
-        cur_df["selected_for_human_testing"] = docplex_solve(
-            utility_vec=cur_df["rank"],
-            grouping1=cur_df["p_N_given_m1_decile"],
-            grouping2=cur_df["p_N_given_m2_decile"],
-            n_selected_per_group=1,
-            maximize=False,
+        cur_df["worst_rank_of_two"] = np.maximum(
+            cur_df["loss_rank1"], cur_df["loss_rank2"]
+        )
+        cur_df["rank"] = cur_df["worst_rank_of_two"].rank(
+            ascending=True, method="first"
         )
 
-    cur_df = cur_df.drop(columns="rank")
-    selected_df = cur_df[cur_df["selected_for_human_testing"]]
+        if selection_method == "best":
+            # just use the most controversial triplets, according to their worst rank across two synthetic sentences
 
-    # some more sanity checks
-    assert len(selected_df) == n_sentence_triplets_for_human_testing
+            cur_df["selected_for_human_testing"] = (
+                cur_df["rank"] <= n_sentence_triplets_for_human_testing
+            )
 
-    # model 2 scores S1 as less natural than N, while model 1 doesn't.
-    assert (selected_df["lp_S1_given_m2"] < selected_df["lp_N_given_m2"]).all()
-    assert (selected_df["lp_S1_given_m1"] >= selected_df["lp_N_given_m1"]).all()
+        elif selection_method == "decile_balanced":
+            # choose the most controversial sentences, under the constraint of equally sampling the natural sentence probability deciles of each model
 
-    # model 1 scores S2 as less natural than N, while model 2 doesn't.
-    assert (selected_df["lp_S2_given_m1"] < selected_df["lp_N_given_m1"]).all()
-    assert (selected_df["lp_S2_given_m2"] >= selected_df["lp_N_given_m2"]).all()
+            # rank loss_S1_vs_N and loss_S2_vs_N
+            cur_df["p_N_given_m1_decile"] = pd.qcut(
+                cur_df["lp_N_given_m1"], q=10, labels=False
+            )
+            cur_df["p_N_given_m2_decile"] = pd.qcut(
+                cur_df["lp_N_given_m2"], q=10, labels=False
+            )
 
-    all_sentences.append(cur_df)
-    selected_sentences.append(selected_df)
+            n_selected_per_group = n_sentence_triplets_for_human_testing // 10
+            assert (
+                n_sentence_triplets_for_human_testing == n_selected_per_group * 10
+            ), "n_sentence_triplets_for_human_testing must be a multiple of 10"
 
-all_sentences = pd.concat(all_sentences, axis=0)
-selected_sentences = pd.concat(selected_sentences, axis=0)
+            cur_df["selected_for_human_testing"] = docplex_solve(
+                utility_vec=cur_df["rank"],
+                grouping1=cur_df["p_N_given_m1_decile"],
+                grouping2=cur_df["p_N_given_m2_decile"],
+                n_selected_per_group=n_selected_per_group,
+                maximize=False,
+            )
 
-pathlib.Path(output_csv_path).parent.mkdir(parents=True, exist_ok=True)
-all_sentences.to_csv(
-    output_csv_path
-    + "_"
-    + str(len(all_model_names))
-    + "_models_100_sentences_per_pair.csv",
-    index=False,
-)
-selected_sentences.to_csv(
-    output_csv_path
-    + "_"
-    + str(len(all_model_names))
-    + "_models_100_sentences_per_pair_best10.csv",
-    index=False,
-)
+        cur_df = cur_df.drop(columns="rank")
+        selected_df = cur_df[cur_df["selected_for_human_testing"]]
+
+        # some more sanity checks
+        assert len(selected_df) == n_sentence_triplets_for_human_testing
+
+        # model 2 scores S1 as less natural than N, while model 1 doesn't.
+        assert (selected_df["lp_S1_given_m2"] < selected_df["lp_N_given_m2"]).all()
+        assert (selected_df["lp_S1_given_m1"] >= selected_df["lp_N_given_m1"]).all()
+
+        # model 1 scores S2 as less natural than N, while model 2 doesn't.
+        assert (selected_df["lp_S2_given_m1"] < selected_df["lp_N_given_m1"]).all()
+        assert (selected_df["lp_S2_given_m2"] >= selected_df["lp_N_given_m2"]).all()
+
+        all_sentences.append(cur_df)
+        selected_sentences.append(selected_df)
+
+    all_sentences = pd.concat(all_sentences, axis=0)
+    selected_sentences = pd.concat(selected_sentences, axis=0)
+
+    pathlib.Path(output_csv_path).parent.mkdir(parents=True, exist_ok=True)
+    all_sentences.to_csv(
+        output_csv_path
+        + "_"
+        + str(len(all_model_names))
+        + f"_models_{n_sentence_triplets_for_consideration}_sentences_per_pair.csv",
+        index=False,
+    )
+    selected_sentences.to_csv(
+        output_csv_path
+        + "_"
+        + str(len(all_model_names))
+        + f"_models_{n_sentence_triplets_for_consideration}_sentences_per_pair_best{n_sentence_triplets_for_human_testing}.csv",
+        index=False,
+    )
+    return all_sentences, selected_sentences, all_model_names
 
 
 def all_sentence_lp_plot(all_sentences, figname):
@@ -423,6 +496,7 @@ def all_sentence_lp_plot(all_sentences, figname):
             plt.xlabel(x_model, fontsize=8)
             plt.ylabel(y_model, fontsize=8)
 
+            ax = plt.gca()
             ax.set_xlim(ax.get_xlim()[::-1])
             # ax.set_ylim(ax.get_ylim()[::-1])
             ax.xaxis.set_ticks_position("top")  # the rest is the same
@@ -432,10 +506,53 @@ def all_sentence_lp_plot(all_sentences, figname):
     plt.close()
 
 
-all_sentence_lp_plot(
-    all_sentences,
-    output_csv_path
-    + "_"
-    + str(len(all_model_names))
-    + "_models_100_sentences_per_pair.pdf",
-)
+def main(raw_args=None):
+    default_path = os.path.join(
+        "synthesized_sentences",
+        "controverisal_sentence_pairs_natural_initialization",
+        "8_word",
+    )
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--synthesized_sentence_csv_folder", type=str, default=default_path
+    )
+    parser.add_argument("--output_csv_path", type=str, default=default_path)
+    parser.add_argument(
+        "--n_sentence_triplets_for_consideration", type=int, default=100
+    )
+    parser.add_argument("--n_sentence_triplets_for_human_testing", type=int, default=10)
+    parser.add_argument("--enforce_natural_sentence_uniqueness", action="store_true")
+    parser.add_argument(
+        "--selection_method",
+        type=str,
+        default="decile_balanced",
+        choices=["decile_balanced", "best"],
+    )
+
+    args = parser.parse_args(raw_args)
+
+    (
+        all_sentences,
+        selected_sentences,
+        all_model_names,
+    ) = select_sentence_triplets_for_human_testing(
+        args.synthesized_sentence_csv_folder,
+        args.output_csv_path,
+        n_sentence_triplets_for_consideration=args.n_sentence_triplets_for_consideration,
+        selection_method=args.selection_method,
+        enforce_natural_sentence_uniqueness=args.enforce_natural_sentence_uniqueness,
+        n_sentence_triplets_for_human_testing=args.n_sentence_triplets_for_human_testing,
+    )
+
+    all_sentence_lp_plot(
+        all_sentences,
+        args.output_csv_path
+        + "_"
+        + str(len(all_model_names))
+        + f"_models_{args.n_sentence_triplets_for_consideration}_sentences_per_pair.pdf",
+    )
+
+
+if __name__ == "__main__":
+    main()
