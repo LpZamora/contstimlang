@@ -4,6 +4,7 @@ import itertools
 import random
 import pickle
 import re
+import warnings
 
 import pandas as pd
 import numpy as np
@@ -261,7 +262,11 @@ class model_factory:
         if type(sent) in [list, tuple, pd.Series]:
             return [self.count_tokens(s) for s in sent]
         else:
-            len_toks = len(self.tokenizer.tokenize(sent))
+            if hasattr(self, "tokenizer"):
+                len_toks = len(self.tokenizer.tokenize(sent))
+            else:
+                warnings.warn(f"Model {self.name} does not have a tokenizer. Using character count instead.")
+                len_toks = len(sent)
             return len_toks
 
     def sent_prob(self, sent):

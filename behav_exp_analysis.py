@@ -1494,6 +1494,7 @@ def plot_main_results_figures(
     save_folder=None,
     measure="binarized_accuracy",
     initial_panel_letter_index=0,
+    force_panel_letters=False,
     figure_set="1_and_3",
     exp="exp1",
     statistical_testing_level="subject_group",
@@ -1873,7 +1874,7 @@ def plot_main_results_figures(
             else:
                 panel_letter_x = get_panel_left_edge(which_panel="dot_plot")
 
-            if figure_plan["include_panel_letters"]:
+            if figure_plan["include_panel_letters"] or force_panel_letters:
                 plt.figtext(
                     x=panel_letter_x,
                     y=panel_top_edge,
@@ -3119,7 +3120,7 @@ def tokenization_control_analysis(df):
 
     # form a LaTeX table:
     latex_table = """
-    \\begin{table}[h] 
+    \\begin{table}[h]
     \\centering
     \\begin{tabularx}{ccccc}
     \\toprule
@@ -3150,82 +3151,85 @@ if __name__ == "__main__":
 
     df = data_preprocessing()
 
-    # # Figures 1 and 3 (binarized accuracy analysis)
-    # plot_main_results_figures(
-    #     df,
-    #     save_folder="figures/binarized_acc",
-    #     measure="binarized_accuracy",
-    #     figure_set="1_and_3",
-    # )
+    # Figures 1 and 3 (binarized accuracy analysis)
+    plot_main_results_figures(
+        df,
+        save_folder="figures/binarized_acc",
+        measure="binarized_accuracy",
+        figure_set="1_and_3",
+    )
 
-    # # Figure 2
-    # optimization_illustration(
-    #     df,
-    #     model1="gpt2",
-    #     model2="electra",
-    #     s2="Diddy has a wealth of experience with grappling",
-    #     s2_max_chars=32,
-    #     s1="Nothing has a world of excitement and joys",
-    #     s1_max_chars=11,
-    #     n="Luke has a ton of experience with winning",
-    #     n_max_chars=28,
-    #     percentile_mode=True,
-    #     panel_letter="a",
-    # )
-    # optimization_illustration(
-    #     df,
-    #     model1="roberta",
-    #     model2="trigram",
-    #     s1="You have to realize is that noise again",
-    #     s1_max_chars=19,
-    #     s2="I wait to see how it shakes out",
-    #     s2_max_chars=17,
-    #     n="I need to see how this played out",
-    #     n_max_chars=17,
-    #     percentile_mode=True,
-    #     panel_letter="b",
-    # )
+    # Figure 2
+    optimization_illustration(
+        df,
+        model1="gpt2",
+        model2="electra",
+        s2="Diddy has a wealth of experience with grappling",
+        s2_max_chars=32,
+        s1="Nothing has a world of excitement and joys",
+        s1_max_chars=11,
+        n="Luke has a ton of experience with winning",
+        n_max_chars=28,
+        percentile_mode=True,
+        panel_letter="a",
+    )
+    optimization_illustration(
+        df,
+        model1="roberta",
+        model2="trigram",
+        s1="You have to realize is that noise again",
+        s1_max_chars=19,
+        s2="I wait to see how it shakes out",
+        s2_max_chars=17,
+        n="I need to see how this played out",
+        n_max_chars=17,
+        percentile_mode=True,
+        panel_letter="b",
+    )
 
-    # # # Figure 4
-    # plot_main_results_figures(
-    #     df,
-    #     measure="RAE_signed_rank_cosine_similarity",
-    #     save_folder="figures/RAE_signed_rank_cosine_similarity",
-    #     figure_set="4",
-    # )
+    # # Figure 4
+    plot_main_results_figures(
+        df,
+        measure="RAE_signed_rank_cosine_similarity",
+        save_folder="figures/RAE_signed_rank_cosine_similarity",
+        figure_set="4",
+    )
 
-    # # # Figure S3
-    # model_by_model_agreement_heatmap(
-    #     df, save_folder="figures/heatmaps", trial_type="randomly_sampled_natural"
-    # )
+    # # Figure S3
+    model_by_model_agreement_heatmap(
+        df, save_folder="figures/heatmaps", trial_type="randomly_sampled_natural"
+    )
 
-    # # Figure S4 (model by model accuracy heatmaps)
-    # for trial_type in ["natural_controversial", "synthetic_vs_synthetic"]:
-    #     model_by_model_consistency_heatmap(
-    #         df, trial_type=trial_type, save_folder="figures/heatmaps"
-    #     )
+    # Figure S4 (model by model accuracy heatmaps)
+    for trial_type in ["natural_controversial", "synthetic_vs_synthetic"]:
+        model_by_model_consistency_heatmap(
+            df, trial_type=trial_type, save_folder="figures/heatmaps"
+        )
 
-    # # Figure S5 - Pairwise model analysis of human response for natural vs. synthetic sentence pairs
-    # model_by_model_N_vs_S_heatmap(df, save_folder="figures/heatmaps")
+    # Figure S5 - Pairwise model analysis of human response for natural vs. synthetic sentence pairs
+    model_by_model_N_vs_S_heatmap(df, save_folder="figures/heatmaps")
 
-    # # Tables 1-3:
-    # generate_worst_sentence_pairs_table(
-    #     df, trial_type="natural_controversial", n_sentences_per_model=1
-    # )
-    # generate_worst_sentence_pairs_table(
-    #     df, trial_type="synthetic_vs_synthetic", n_sentences_per_model=1
-    # )
-    # generate_worst_sentence_pairs_table(
-    #     df,
-    #     trial_type="natural_vs_synthetic",
-    #     n_sentences_per_model=1,
-    #     targeting="accept",
-    # )
+    # Tables 1-3:
+    generate_worst_sentence_pairs_table(
+        df, trial_type="natural_controversial", n_sentences_per_model=1
+    )
+    generate_worst_sentence_pairs_table(
+        df, trial_type="synthetic_vs_synthetic", n_sentences_per_model=1
+    )
+    generate_worst_sentence_pairs_table(
+        df,
+        trial_type="natural_vs_synthetic",
+        n_sentences_per_model=1,
+        targeting="accept",
+    )
 
     # # uncomment this next line to generate detailed trial-by-trial html result tables
     # build_all_html_files(df)
 
     # Control analysis for token counts:
     # Do rejected sentences have more tokens than accepted sentences?
+    # tokenization_control_analysis(df)
 
-    tokenization_control_analysis(df)
+    # Control analysis for sentence length:
+    # Recalculate model prediction accuracy, using normalized and unnormalized log-probability measures
+    # to run it, evalute token_count_control.py
