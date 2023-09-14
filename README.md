@@ -1,5 +1,5 @@
 # contstimlang
-Code for generating controversial sentence pairs and supporting material for **["Testing the limits of natural language models for predicting human language judgments"](http://arxiv.org/abs/2204.03592)**.
+Code for generating controversial sentence pairs and supporting material for **["Testing the limits of natural language models for predicting human language judgements"](https://doi.org/10.1038/s42256-023-00718-1)**.
 
 Tested under Python 3.7.6, PyTorch 1.3.1, and 2.9.0 (but might work also with later versions).
 
@@ -65,13 +65,13 @@ models implemented but not currently used: BILSTM, BERT_WHOLE_WORD
 
 ## Cite:
 ```bibtex
-@misc{golan2022testing,
-      title={Testing the limits of natural language models for predicting human language judgments}, 
-      author={Tal Golan and Matthew Siegelman and Nikolaus Kriegeskorte and Christopher Baldassano},
-      year={2022},
-      eprint={2204.03592},
-      archivePrefix={arXiv},
-      primaryClass={cs.CL}
+@article{GolanSiegelman2023Testing,
+	author = {Golan, Tal and Siegelman, Matthew and Kriegeskorte, Nikolaus and Baldassano, Christopher},
+	doi = {10.1038/s42256-023-00718-1},
+	journal = {Nature Machine Intelligence},
+	pages = {1--13},
+	title = {{Testing the limits of natural language models for predicting human language judgements}},
+	year = {2023},
 }
 ```
 
