@@ -1,3 +1,6 @@
+<img src="https://github.com/dpmlab/contstimlang/blob/master/Golan_et_al_Nature_Machine_Intelligence.gif?raw=true" width="600" alt = "Illustration: Matteo Farinella, Columbia University's Zuckerman Institute<">
+<sup><sub>Illustration: Matteo Farinella, Columbia University's Zuckerman Institute</sub></sup>
+
 # contstimlang
 Code for generating controversial sentence pairs and supporting material for **["Testing the limits of natural language models for predicting human language judgements"](https://doi.org/10.1038/s42256-023-00718-1)**.
 
