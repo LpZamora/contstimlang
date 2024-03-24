@@ -1,0 +1,24 @@
+\begin{tabularx}{\textwidth}{lllc}
+\toprule
+                                                            sentence &                             log probability (model 1) &                             log probability (model 2) &   \# human choices \\
+\midrule
+                      $n$: Not nearly enough test kits to go around. &             $\log p(n | \textrm{GPT-2})=$\num{-33.93} &     $\log p(n | \textrm{BERT})=$\textbf{\num{-52.73}} &   \textbf{\num{9}} \\
+                   \makebox[0pt][l]{$s$: }\hphantom{$n$: }Not nearly enough towing clout to go around. &    $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{GPT-2})=$\textbf{\num{-33.16}} &              $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{BERT})=$\num{-68.55} &            \num{0} \\\midrule
+                       $n$: Enjoy your quiet now a storm is brewing. &           $\log p(n | \textrm{RoBERTa})=$\num{-61.76} &   $\log p(n | \textrm{3-gram})=$\textbf{\num{-99.85}} &   \textbf{\num{8}} \\
+                  \makebox[0pt][l]{$s$: }\hphantom{$n$: }Subscribe in distant history a war is coming. &  $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{RoBERTa})=$\textbf{\num{-61.59}} &           $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{3-gram})=$\num{-119.60} &            \num{0} \\\midrule
+            $n$: Suddenly the Taco Bell slogan makes complete sense. &           $\log p(n | \textrm{ELECTRA})=$\num{-53.51} &  $\log p(n | \textrm{3-gram})=$\textbf{\num{-105.15}} &   \textbf{\num{9}} \\
+                     \makebox[0pt][l]{$s$: }\hphantom{$n$: }Even cheap Taco con cons make great meals. &  $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{ELECTRA})=$\textbf{\num{-52.82}} &           $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{3-gram})=$\num{-139.61} &            \num{0} \\\midrule
+               $n$: I consider myself very fortunate in this regard. &              $\log p(n | \textrm{BERT})=$\num{-42.69} &     $\log p(n | \textrm{LSTM})=$\textbf{\num{-30.83}} &  \textbf{\num{10}} \\
+                       \makebox[0pt][l]{$s$: }\hphantom{$n$: }I think myself very wise in that regard. &     $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{BERT})=$\textbf{\num{-42.34}} &              $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{LSTM})=$\num{-37.25} &            \num{0} \\\midrule
+                         $n$: I took a look at tour comment history. &               $\log p(n | \textrm{XLM})=$\num{-53.89} &  $\log p(n | \textrm{ELECTRA})=$\textbf{\num{-47.13}} &   \textbf{\num{9}} \\
+                       \makebox[0pt][l]{$s$: }\hphantom{$n$: }He took a look at ventral let seventeen. &      $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{XLM})=$\textbf{\num{-53.59}} &           $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{ELECTRA})=$\num{-63.86} &            \num{0} \\\midrule
+                                $n$: Needs a sub just to perk us up. &              $\log p(n | \textrm{LSTM})=$\num{-54.40} &  $\log p(n | \textrm{RoBERTa})=$\textbf{\num{-62.17}} &   \textbf{\num{9}} \\
+        \makebox[0pt][l]{$s$: }\hphantom{$n$: }Episodes used screwdriver helps to immerse others with. &     $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{LSTM})=$\textbf{\num{-54.36}} &          $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{RoBERTa})=$\num{-109.26} &            \num{0} \\\midrule
+           $n$: Read this letter and you will understand everything. &               $\log p(n | \textrm{RNN})=$\num{-42.94} &    $\log p(n | \textrm{GPT-2})=$\textbf{\num{-31.19}} &   \textbf{\num{9}} \\
+                    \makebox[0pt][l]{$s$: }\hphantom{$n$: }Going a variety that they can think people. &      $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{RNN})=$\textbf{\num{-42.85}} &             $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{GPT-2})=$\num{-65.58} &            \num{0} \\\midrule
+                     $n$: He was supposed to give the position back. &            $\log p(n | \textrm{3-gram})=$\num{-83.51} &      $\log p(n | \textrm{RNN})=$\textbf{\num{-35.05}} &  \textbf{\num{10}} \\
+                 \makebox[0pt][l]{$s$: }\hphantom{$n$: }He was promoted to captain the veggies arrive. &   $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{3-gram})=$\textbf{\num{-82.19}} &               $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{RNN})=$\num{-59.57} &            \num{0} \\\midrule
+                       $n$: Glad to see you ended ones camping trip. &           $\log p(n | \textrm{2-gram})=$\num{-121.57} &    $\log p(n | \textrm{GPT-2})=$\textbf{\num{-52.78}} &   \textbf{\num{9}} \\
+ \makebox[0pt][l]{$s$: }\hphantom{$n$: }Republicans to thank you become distorted neither hypothermia. &  $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{2-gram})=$\textbf{\num{-121.53}} &             $\log p(\mathmakebox[0pt][l]{s}\hphantom{n} | \textrm{GPT-2})=$\num{-99.39} &            \num{0} \\
+\bottomrule
+\end{tabularx}

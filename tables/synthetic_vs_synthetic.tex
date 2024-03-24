@@ -1,0 +1,24 @@
+\begin{tabularx}{\textwidth}{lllc}
+\toprule
+                                                               sentence &                               log probability (model 1) &                               log probability (model 2) &   \# human choices \\
+\midrule
+                  $s_1$: The points are both ignored and poorly argued. &             $\log p(s_1 | \textrm{GPT-2})=$\num{-51.72} &  $\log p(s_1 | \textrm{RoBERTa})=$\textbf{\num{-53.02}} &   \textbf{\num{9}} \\
+            $s_2$: The information was very sketch and poorly sketched. &    $\log p(s_2 | \textrm{GPT-2})=$\textbf{\num{-36.62}} &           $\log p(s_2 | \textrm{RoBERTa})=$\num{-65.06} &            \num{0} \\\midrule
+                $s_1$: A two Strand Gene coincidentally is one example. &           $\log p(s_1 | \textrm{RoBERTa})=$\num{-88.77} &  $\log p(s_1 | \textrm{ELECTRA})=$\textbf{\num{-52.82}} &   \textbf{\num{8}} \\
+       $s_2$: Understanding search terms needed toad with your queries. &  $\log p(s_2 | \textrm{RoBERTa})=$\textbf{\num{-66.77}} &           $\log p(s_2 | \textrm{ELECTRA})=$\num{-78.42} &            \num{0} \\\midrule
+                     $s_1$: Users who break these rules will be banned. &           $\log p(s_1 | \textrm{ELECTRA})=$\num{-33.47} &    $\log p(s_1 | \textrm{GPT-2})=$\textbf{\num{-25.60}} &   \textbf{\num{8}} \\
+                     $s_2$: People who violate this law will be banned. &  $\log p(s_2 | \textrm{ELECTRA})=$\textbf{\num{-29.59}} &             $\log p(s_2 | \textrm{GPT-2})=$\num{-32.38} &            \num{0} \\\midrule
+         $s_1$: How to handle races that are outright incomprehensible. &              $\log p(s_1 | \textrm{BERT})=$\num{-81.93} &    $\log p(s_1 | \textrm{GPT-2})=$\textbf{\num{-44.97}} &   \textbf{\num{9}} \\
+                      $s_2$: Hard to lay words that were born goodbyes. &     $\log p(s_2 | \textrm{BERT})=$\textbf{\num{-61.42}} &             $\log p(s_2 | \textrm{GPT-2})=$\num{-68.57} &            \num{0} \\\midrule
+                   $s_1$: Just that nobody knows more than the numbers. &               $\log p(s_1 | \textrm{XLM})=$\num{-48.19} &  $\log p(s_1 | \textrm{ELECTRA})=$\textbf{\num{-35.60}} &   \textbf{\num{8}} \\
+                        $s_2$: Feel like he deserves more than the the. &      $\log p(s_2 | \textrm{XLM})=$\textbf{\num{-39.55}} &           $\log p(s_2 | \textrm{ELECTRA})=$\num{-46.04} &            \num{0} \\\midrule
+                              $s_1$: Trump see you as more of a threat. &              $\log p(s_1 | \textrm{LSTM})=$\num{-49.86} &    $\log p(s_1 | \textrm{GPT-2})=$\textbf{\num{-33.85}} &  \textbf{\num{10}} \\
+                               $s_2$: Blah see me no more of a problem. &     $\log p(s_2 | \textrm{LSTM})=$\textbf{\num{-41.11}} &             $\log p(s_2 | \textrm{GPT-2})=$\num{-55.17} &            \num{0} \\\midrule
+                 $s_1$: Then I attended high school and borrowed money. &               $\log p(s_1 | \textrm{RNN})=$\num{-54.11} &  $\log p(s_1 | \textrm{ELECTRA})=$\textbf{\num{-35.37}} &   \textbf{\num{8}} \\
+               $s_2$: When to get out cholesterol and gender companies. &      $\log p(s_2 | \textrm{RNN})=$\textbf{\num{-41.80}} &           $\log p(s_2 | \textrm{ELECTRA})=$\num{-64.65} &            \num{0} \\\midrule
+ $s_1$: And professional entrepreneurs tend to take business seriously. &           $\log p(s_1 | \textrm{3-gram})=$\num{-118.50} &  $\log p(s_1 | \textrm{ELECTRA})=$\textbf{\num{-38.87}} &  \textbf{\num{10}} \\
+           $s_2$: Watch Letterman psilocybin content to bear her hence. &   $\log p(s_2 | \textrm{3-gram})=$\textbf{\num{-99.22}} &           $\log p(s_2 | \textrm{ELECTRA})=$\num{-97.50} &            \num{0} \\\midrule
+                              $s_1$: Like how I Drew my blob and stuff. &           $\log p(s_1 | \textrm{2-gram})=$\num{-133.48} &      $\log p(s_1 | \textrm{XLM})=$\textbf{\num{-47.28}} &  \textbf{\num{10}} \\
+            $s_2$: Obviously if not restrain my highschool and whatnot. &  $\log p(s_2 | \textrm{2-gram})=$\textbf{\num{-113.06}} &               $\log p(s_2 | \textrm{XLM})=$\num{-82.50} &            \num{0} \\
+\bottomrule
+\end{tabularx}
