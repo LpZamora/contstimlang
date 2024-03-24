@@ -629,13 +629,15 @@ def get_normalized_mean_RAE_signed_ranked_response(
     df_subject_group = df_subject_group.groupby("subject").apply(
         add_expected_normalized_RAE_signed_rank_response_pattern
     )
-
-    # now reduce subjects
-    df_subject_group = df_subject_group.groupby(["sentence_pair"], dropna=True).mean()
-    df_subject_group = df_subject_group.drop(
-        columns=set(df_subject_group.columns)
-        - {"normalized_expected_RAE_signed_rank_response_pattern"}
-    )
+    print(df_subject_group)
+    
+    if not df_subject_group.empty :
+        # now reduce subjects
+        df_subject_group = df_subject_group.groupby(["sentence_pair"], dropna=True).mean()
+        df_subject_group = df_subject_group.drop(
+            columns=set(df_subject_group.columns)
+            - {"normalized_expected_RAE_signed_rank_response_pattern"}
+        )
     return df_subject_group
 
 
@@ -681,10 +683,11 @@ def RAE_signed_rank_cosine_similarity(df):
                 ],
                 axis=1,
             )
-            return calc_signed_rank_cosine_similarity_analytical_RAE(
-                df_subject["zero_centered_rating"],
-                df_subject["normalized_expected_RAE_signed_rank_response_pattern"],
-            )
+            if "normalized_expected_RAE_signed_rank_response_pattern" in df_subject.columns:
+                return calc_signed_rank_cosine_similarity_analytical_RAE(
+                    df_subject["zero_centered_rating"],
+                    df_subject["normalized_expected_RAE_signed_rank_response_pattern"],
+                )
 
         cur_result[
             "NC_LB"
@@ -3150,13 +3153,12 @@ def tokenization_control_analysis(df):
 if __name__ == "__main__":
 
     df = data_preprocessing()
-    df = df[df['subject'].isin([ 0,  1,  2,  3,  4,  5, 90, 91, 92, 99,  6,  7,  8,  9, 10, 11, 13, 89, 14, 15, 17, 18, 19, 20, 21, 22, 93, 23, 25, 32, 34, 35, 36, 47,49, 24, 30, 39, 42, 44, 45, 46, 48, 73, 27, 29, 31, 33, 37, 40, 43,81, 88, 50, 58, 64, 71, 76, 77, 79, 85, 51, 54, 55, 56, 59, 70, 74,
-       83, 94, 52, 53, 60, 62, 63, 78, 80, 82, 86, 95, 57, 61, 65, 67, 68,69, 72, 75, 87])].reset_index()
+    df = df[df['subject'].isin([ 2,  7,  8,  9, 10, 11, 13, 17, 19, 35, 36, 44, 33, 81, 55, 56, 70, 83, 63, 65, 72])].reset_index()
     
     # Figures 1 and 3 (binarized accuracy analysis)
     plot_main_results_figures(
         df,
-        save_folder="figures_2clusters/binarized_acc",
+        save_folder="our_figures_2clusters/binarized_acc",
         measure="binarized_accuracy",
         figure_set="1_and_3",
     )
@@ -3193,23 +3195,23 @@ if __name__ == "__main__":
     plot_main_results_figures(
         df,
         measure="RAE_signed_rank_cosine_similarity",
-        save_folder="figures_2clusters/RAE_signed_rank_cosine_similarity",
+        save_folder="our_figures_2clusters/RAE_signed_rank_cosine_similarity",
         figure_set="4",
     )
 
     # # Figure S3
     model_by_model_agreement_heatmap(
-        df, save_folder="figures_2clusters/heatmaps", trial_type="randomly_sampled_natural"
+        df, save_folder="our_figures_2clusters/heatmaps", trial_type="randomly_sampled_natural"
     )
 
     # Figure S4 (model by model accuracy heatmaps)
     for trial_type in ["natural_controversial", "synthetic_vs_synthetic"]:
         model_by_model_consistency_heatmap(
-            df, trial_type=trial_type, save_folder="figures_2clusters/heatmaps"
+            df, trial_type=trial_type, save_folder="our_figures_2clusters/heatmaps"
         )
 
     # Figure S5 - Pairwise model analysis of human response for natural vs. synthetic sentence pairs
-    model_by_model_N_vs_S_heatmap(df, save_folder="figures_2clusters/heatmaps")
+    model_by_model_N_vs_S_heatmap(df, save_folder="our_figures_2clusters/heatmaps")
 
     # Tables 1-3:
     generate_worst_sentence_pairs_table(
